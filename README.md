@@ -28,8 +28,8 @@ Après un redémarrage, ou en cas de doute : `./scripts/demarrer-caisse.sh` vér
 la base, l'API, les migrations et la santé, démarre ce qui manque et explique chaque résultat
 (`--check` pour vérifier sans rien démarrer).
 
-Recette sur le VPS partagé (base PostgreSQL propre, sans le socle `infra/`) : fichiers dans
-[`deploy/vps/`](deploy/vps/), procédure dans `../projet_caisse_MYK/05-DEPLOIEMENT-VPS.md`.
+Recette sur le VPS partagé (base PostgreSQL propre, sans le socle `infra/`) : fichiers et
+procédure dans [`deploy/vps/`](deploy/vps/README.md).
 
 Développement (rechargement à chaud) :
 `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build`

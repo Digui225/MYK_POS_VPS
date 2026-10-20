@@ -51,7 +51,7 @@ Hors périmètre : mode hors ligne. **Conséquence assumée à confirmer : sans 
 
 ## État du VPS `162.215.172.50` (recette)
 
-Guide de référence : `projet_caisse_MYK/05-DEPLOIEMENT-VPS.md` (procédure à reprendre pour ce dépôt).
+Guide : [`deploy/vps/README.md`](deploy/vps/README.md) (adapté à ce dépôt, reprend après les étapes 1 et 2 ci-dessous ; `projet_caisse_MYK/05-DEPLOIEMENT-VPS.md` reste la référence pour `Caisse_MYK_backend`).
 
 **Fait :**
 - Étape 1 (inventaire) ✅ — Compose v2.27.1, SELinux **désactivé** (sauter §7.1), 298 Go libres, aucun conteneur/réseau/volume `caisse`.
