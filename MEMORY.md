@@ -21,12 +21,16 @@ Faire tourner la caisse **en ligne** : backend et base sur un VPS, terminal du r
 | 20/10/2026 | Déployer ce dépôt directement sur le VPS une fois la refonte prête (pas `Caisse_MYK_backend`) |
 | 20/10/2026 | FNE : jamais la clé de production sur un environnement de recette ; `FNE_PROVIDER=mock` par défaut |
 | 20/10/2026 | Domaine acheté pour la caisse ; sous-domaines prévus : `gestion.` (prod) et `recette.` |
+| 20/10/2026 | Impression : le paiement répond tout de suite (`receipt.status = QUEUED`, `drawer_opened = null`) ; le front suit `GET /printing/jobs/{id}`. Pas d'attente de l'agent dans la requête |
+| 20/10/2026 | Tiroir : s'ouvre **toujours** avec le ticket, même sorti en retard (retour de l'agent après coupure). Mais l'ouverture manuelle et le test sont refusés (`503`) si aucun agent ne s'est signalé depuis 15 s |
+| 20/10/2026 | Une seule file d'impression, jeton de terminal non rattaché à une caisse (un seul poste) ; rattachement à prévoir s'il y a un 2ᵉ poste |
+| 20/10/2026 | Agent : interrogation courte toutes les 2 s (`POST /print-agent/poll`), un travail à la fois ; jamais de remise en file automatique d'un travail `PRINTING` (double ticket), rejeu manuel après 2 min |
 
 ## Périmètre de la refonte
 
-1. **Impression dans l'autre sens** : l'agent du terminal vient chercher les tickets sur le VPS (routes « tickets en attente » / « ticket imprimé » sur `print_jobs`) ; le tiroir passe par la même file. Aujourd'hui, c'est le backend qui appelle l'agent (`PRINT_AGENT_URL`), impossible depuis le VPS.
-2. **Jeton propre au terminal** pour l'agent, révocable, distinct des PIN.
-3. **Agent d'impression Windows** : boucle d'interrogation, impression ESC/POS brute, service Windows. L'agent actuel (`print-agent/`) est pour Linux (systemd, udev).
+1. ✅ **Impression dans l'autre sens** (20/10/2026) : `POST /print-agent/poll` et `POST /print-agent/jobs/{id}/result` sur `print_jobs` (migration 0007) ; tiroir manuel et test = travaux `DRAWER` / `TEST`. `PRINT_AGENT_URL` supprimé. Contrat front mis à jour (`docs/ENDPOINTS-TESTABLES.md` §10).
+2. ✅ **Jeton propre au terminal** (20/10/2026) : table `print_terminals`, jeton `pt_…` (empreinte SHA-256), `GET/POST /printing/terminals`, `…/revoke` (ADMIN), CLI `create-print-terminal`.
+3. ✍️ **Agent d'impression Windows** (20/10/2026) : boucle d'interrogation (`poller.py`, testée en `dummy` contre l'API) ; backend `win32` = ESC/POS brut (`RAW`) par le spouleur, pilote Xprinter conservé (`win32_spool.py`, testé avec un faux pywin32) ; tâche planifiée SYSTEM au démarrage + rappel toutes les 5 min (`windows/install.ps1`). Tickets coupés aux mots sur 32 caractères. **Reste : valider sur le terminal** (nom de l'imprimante, accents CP858 sinon CP850, tiroir, imprimante éteinte → `FAILED` et ticket retiré de la file Windows).
 4. **Déploiement de prod** : HTTPS sur le domaine, `deploy/` adapté.
 5. **Nettoyage** de ce qui ne sert qu'au mode local (socle `infra_shared`, `scripts/demarrer-caisse.sh`…).
 
@@ -37,12 +41,13 @@ Hors périmètre : mode hors ligne. **Conséquence assumée à confirmer : sans 
 - [ ] Confirmer par écrit l'acceptation du risque « coupure Internet = caisse arrêtée »
 - [ ] **Serveur de prod** : le VPS partagé `162.215.172.50` est sous CentOS 7 (sans mises à jour depuis 06/2024), partagé avec ~20 projets, accès `root` commun. Recommandé : VPS dédié Ubuntu 24.04. Décider avant la prod
 - [ ] Terminal : caractéristiques (RAM, CPU, disque) ; **Windows 10 sans mises à jour depuis le 14/10/2025** → Windows 11 si compatible, ou ESU
-- [ ] Imprimante : marque et modèle ; tiroir branché sur l'imprimante (RJ11) ?
+- [ ] Imprimante : **Xprinter 58 mm** (à confirmer : modèle exact, coupe-papier ?), pilote installé sur le Windows de la caisse. Tiroir branché sur l'imprimante (RJ11) ?
 - [ ] Nom de domaine exact, et accès DNS pour créer les sous-domaines
 
 ## Matériel
 
 - Terminal **Resolv System**, tactile tout-en-un, **Windows 10** (en anglais), wifi, Chrome et Edge installés, imprimante en USB. Aucun logiciel de caisse existant.
+- Imprimante **Xprinter 58 mm** (selon le client), pilote du fabricant installé sur le Windows → `PRINTER_WIDTH=32` côté API et agent, agent en `PRINTER_BACKEND=win32`. Ne pas installer libusb/Zadig.
 
 ## État du VPS `162.215.172.50` (recette)
 

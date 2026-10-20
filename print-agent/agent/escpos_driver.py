@@ -1,7 +1,8 @@
 """Pilote ESC/POS. Aucune règle métier : reçoit un texte déjà mis en forme par l'API.
 
 Le périphérique est ouvert puis fermé à chaque job : un débranchement/rebranchement de
-l'imprimante ne demande donc pas de redémarrer l'agent.
+l'imprimante ne demande donc pas de redémarrer l'agent. Sous Windows (`win32`), les octets sont
+construits en mémoire puis remis au spouleur (`win32_spool.py`).
 """
 
 import logging
@@ -44,6 +45,17 @@ class EscposDriver:
             log.info("[dummy] %d octets envoyés :\n%s", len(dummy.output),
                      dummy.output.decode("cp858", errors="replace"))
             return
+        if s.printer_backend == "win32":
+            from agent import win32_spool  # pywin32 : Windows seulement
+
+            buffer = Dummy()
+            yield buffer
+            try:
+                win32_spool.send_raw(s.printer_name, buffer.output,
+                                     timeout=s.spool_timeout_seconds)
+            except win32_spool.SpoolError as exc:
+                raise PrinterUnavailable(str(exc)) from exc
+            return
         try:
             printer = Usb(s.printer_vendor_id, s.printer_product_id, in_ep=s.printer_in_ep,
                           out_ep=s.printer_out_ep)
@@ -63,12 +75,22 @@ class EscposDriver:
 
     def status(self) -> Status:
         s = self.settings
-        model = "dummy" if s.printer_backend == "dummy" else (
-            f"usb:{s.printer_vendor_id:04x}:{s.printer_product_id:04x}")
+        if s.printer_backend == "dummy":
+            return Status(online=True, paper="ok", model="dummy", width=s.printer_width)
+        if s.printer_backend == "win32":
+            from agent import win32_spool
+
+            try:
+                online, paper = win32_spool.status(s.printer_name)
+            except win32_spool.SpoolError:
+                online, paper = False, "unknown"
+            return Status(online=online, paper=paper, model=f"win32:{s.printer_name}",
+                          width=s.printer_width)
+        model = f"usb:{s.printer_vendor_id:04x}:{s.printer_product_id:04x}"
         with self._lock:
             try:
                 with self._printer() as printer:
-                    paper = "ok" if s.printer_backend == "dummy" else _paper(printer)
+                    paper = _paper(printer)
                 return Status(online=True, paper=paper, model=model, width=s.printer_width)
             except PrinterUnavailable:
                 return Status(online=False, paper="unknown", model=model, width=s.printer_width)

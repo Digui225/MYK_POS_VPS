@@ -1,7 +1,8 @@
 # Installation : voir README.md de ce dossier (remplacer __USER__ et __DIR__).
 [Unit]
 Description=Agent d'impression Caisse (ESC/POS USB)
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple

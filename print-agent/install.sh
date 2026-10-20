@@ -14,4 +14,5 @@ sed -e "s#__USER__#${USER_NAME}#g" -e "s#__DIR__#${DIR}#g" caisse-print-agent.se
 sudo systemctl daemon-reload
 sudo systemctl enable --now caisse-print-agent
 systemctl --no-pager status caisse-print-agent | head -5
-echo "Test : curl -s localhost:8090/status && curl -X POST localhost:8090/test-print"
+echo "Test : ticket de test depuis la caisse (POST /api/v1/printing/test, ADMIN)"
+echo "Journal : journalctl -u caisse-print-agent -n 50 -f"
