@@ -95,3 +95,41 @@ def test_mobile_money_label_and_legal_mentions() -> None:
     lines = text.splitlines()
     assert lines[1].strip() == "NCC 9506466A"
     assert any(line.startswith("MTN MoMo") and line.endswith("1 000 XOF") for line in lines)
+
+
+def test_render_test_ticket_uses_width() -> None:
+    rendered = receipt.render_test_ticket(printed_at="20/10/2026 16:00:00", width=32)
+    lines = rendered.splitlines()
+    assert lines[0] == "TICKET DE TEST".center(32)
+    assert "-" * 32 in lines
+    assert "Largeur    : 32 caractères" in lines
+    assert "20/10/2026 16:00:00" in rendered
+
+
+def test_render_receipt_wraps_on_58mm() -> None:
+    """32 caractères (58 mm) : aucune ligne ne déborde, les mots ne sont jamais coupés."""
+    rendered = receipt.render_receipt(
+        order_number="2026-10-20-0012",
+        table_label="7",
+        counter_number=None,
+        items=[
+            receipt.ReceiptLine(
+                name="Poisson braisé + attiéké garni", quantity=2, line_total_xof=7000
+            )
+        ],
+        payments=[receipt.ReceiptPayment(method="CASH", amount_xof=7000)],
+        total_ttc_xof=7000,
+        header_name="RESTAURANT CHEZ SYLLA PLUS",
+        header_address="Yopougon",
+        header_phone=None,
+        header_ncc="9502363N",
+        header_rccm="CI-ABJ-2020-B-12345",
+        footer="Merci de votre visite, à bientôt chez Sylla Plus",
+        width=32,
+    )
+    lines = rendered.splitlines()
+    assert max(len(line) for line in lines) <= 32
+    assert "2 x Poisson braisé + attiéké" in lines
+    assert "    garni" in lines
+    assert "NCC 9502363N".center(32) in lines
+    assert "RCCM CI-ABJ-2020-B-12345".center(32) in lines

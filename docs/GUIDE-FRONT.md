@@ -148,7 +148,7 @@ On renvoie ensuite l'action avec l'en-tête `X-Override-Token`. Le jeton est val
 |---|---|
 | Moyens proposés | `GET /payment-methods` (opérateurs Mobile Money : `WAVE`, `ORANGE`, `MTN`, `MOOV`) |
 | Encaisser | `POST /orders/{id}/payments` `{method, amount_xof, tendered_xof?, provider?, reference?}` + `Idempotency-Key`. Partiel ou mixte : appeler plusieurs fois |
-| Ticket | Imprimé automatiquement quand la commande passe `PAID` (`receipt.status`, `receipt.drawer_opened`) |
+| Ticket | Mis en file automatiquement quand la commande passe `PAID` : `receipt.status = "QUEUED"`, `receipt.drawer_opened = null`. L'agent du terminal l'imprime et ouvre le tiroir sous ~2 s ; suivre `GET /printing/jobs/{receipt.print_job_id}` (`DONE`, `FAILED`) pour avertir la caissière |
 | Stock | Le paiement qui solde la commande **déstocke** les articles des fiches techniques. `warnings[]` contient `STOCK_NEGATIVE_WARNING` si un article passe sous zéro (bandeau, jamais bloquant) |
 | Annuler un paiement | `DELETE /orders/{id}/payments/{payment_id}?reason=…` (RESPONSABLE ou override `payment.void`). Le stock revient |
 | Ré-imprimer | `POST /orders/{id}/reprint` |
@@ -192,13 +192,15 @@ Correspondance des champs du tableau du jour (`aziz` → ici) : `total_sales_ttc
 | Caisses | `POST /cash-registers`, `PATCH /cash-registers/{id}` | ADMIN |
 | Paramètres | `PUT /settings` | ADMIN |
 | Utilisateurs | `GET/POST /users`, `PATCH /users/{id}`, `POST /users/{id}/pin` | ADMIN |
-| Impression | `GET /printing/status`, `GET /printing/jobs`, `POST /printing/jobs/{id}/retry`, `POST /printing/open-drawer` (RESPONSABLE), `POST /printing/test` (ADMIN) | — |
+| Impression | `GET /printing/status`, `GET /printing/jobs`, `GET /printing/jobs/{id}`, `POST /printing/jobs/{id}/retry`, `POST /printing/open-drawer` (RESPONSABLE, `202`), `POST /printing/test` (ADMIN, `202`) | — |
+| Terminaux d'impression | `GET/POST /printing/terminals`, `POST /printing/terminals/{id}/revoke` (jeton de l'agent, affiché une fois) | ADMIN |
 | FNE | `GET /fne/documents`, `…/retry`, `…/resolve`, `…/refund`, `GET /fne/documents/export`, `GET /fne/daily-summary` | RESPONSABLE |
 
 ## 6. Nouveautés depuis le 06/10/2026
 
 | Sujet | En bref | Détail |
 |---|---|---|
+| **Impression tirée par le terminal (20/10)** | La caisse est en ligne : l'agent du terminal vient chercher les tickets. Le paiement répond `receipt.status = "QUEUED"` et `drawer_opened = null` ; suivre `GET /printing/jobs/{id}`. Tiroir manuel et ticket de test : `202` | `ENDPOINTS-TESTABLES` §10 |
 | **Stock par articles et fiches techniques** | Le gestionnaire saisit entrées, pertes et inventaires ; **les plats vendus déstockent automatiquement** les articles de leur fiche (0,2 kg de bœuf par plat, 1 bouteille par boisson…). Les légumes, condiments et le gaz se suivent par inventaire. `GET /products` : `stock_quantity` = portions encore vendables | `ENDPOINTS-TESTABLES` §11 |
 | **Tableaux de M. Yapi** | Ventes (marges par plat) et stock (écart entre stock théorique et compté) sur une période | §12 |
 | **Tableau de bord du jour** | Pour le responsable : la journée en un appel | §12 |
@@ -323,7 +325,7 @@ Le parcours détaillé, avec les réponses attendues, est dans [`CIRCUIT-TEST-SW
 | Sujet | Où en est-on |
 |---|---|
 | Temps réel (WebSocket) | Phase 2 du contrat. En attendant, rafraîchir `GET /tables/board` |
-| Renvoi automatique FNE et impression | Manuel pour l'instant : `POST /fne/documents/{id}/retry`, `POST /printing/jobs/{id}/retry` |
+| Renvoi automatique FNE | Manuel pour l'instant : `POST /fne/documents/{id}/retry`. Impression : les tickets attendent en file le retour de l'agent ; seul un échec (`FAILED`) se rejoue à la main, `POST /printing/jobs/{id}/retry` |
 | Remboursement d'une commande soldée | `POST /orders/{id}/refunds`, reporté (rare au restaurant) |
 | Journal d'audit | `GET /reports/audit`, à venir |
-| Agent d'impression et scripts d'exploitation pour Windows | À décider ensemble : le poste de caisse sera-t-il sous Windows ou sous Linux ? |
+| Agent d'impression pour Windows | Écrit (spouleur Windows, Xprinter 58 mm) ; reste à le valider sur le terminal du restaurant. Tickets sur 32 caractères |

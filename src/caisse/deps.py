@@ -9,12 +9,16 @@ from sqlalchemy.orm import Session
 
 from caisse.database import get_db
 from caisse.domain.enums import UserRole, role_at_least
-from caisse.domain.ports import FneProvider, Printer
-from caisse.errors import InsufficientPrivilegeError, TokenExpiredError
+from caisse.domain.ports import FneProvider
+from caisse.errors import (
+    InsufficientPrivilegeError,
+    TerminalTokenInvalidError,
+    TokenExpiredError,
+)
 from caisse.infrastructure.fne import get_fne_provider
-from caisse.infrastructure.printing.agent_client import get_print_agent
+from caisse.models.print_terminal import PrintTerminal
 from caisse.models.user import User
-from caisse.services import auth_service
+from caisse.services import auth_service, print_terminal_service
 from caisse.services.audit_service import RequestContext
 
 _bearer = HTTPBearer(auto_error=False)
@@ -78,8 +82,14 @@ def fne_provider() -> FneProvider | None:
 FneProviderDep = Annotated[FneProvider | None, Depends(fne_provider)]
 
 
-def print_agent() -> Printer:
-    return get_print_agent()
+def current_terminal(
+    db: DbSession,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> PrintTerminal:
+    """Agent d'impression : jeton du terminal (`pt_…`), jamais un JWT d'utilisateur."""
+    if credentials is None:
+        raise TerminalTokenInvalidError("Jeton de terminal requis")
+    return print_terminal_service.authenticate(db, credentials.credentials)
 
 
-PrintAgentDep = Annotated[Printer, Depends(print_agent)]
+CurrentTerminal = Annotated[PrintTerminal, Depends(current_terminal)]

@@ -113,9 +113,7 @@ def test_dashboard(client: TestClient, setup: dict[str, Any], db: Session) -> No
     assert (empty["revenue_xof"], empty["orders_paid"], empty["sessions"]) == (0, 0, [])
 
 
-def test_z_reprint(
-    client: TestClient, setup: dict[str, Any], fake_print_agent: FakePrintAgent
-) -> None:
+def test_z_reprint(client: TestClient, setup: dict[str, Any], print_agent: FakePrintAgent) -> None:
     s = setup
     url = f"/api/v1/cash-sessions/{s['session']['id']}"
     early = client.post(f"{url}/z-report/reprint", headers=s["cashier"])
@@ -126,12 +124,14 @@ def test_z_reprint(
         json={"counted_breakdown": {}, "notes": None},
     )
     assert closed.status_code == 201, closed.text
-    first_z = fake_print_agent.printed[-1]
+    print_agent.run()
+    first_z = print_agent.printed[-1]
     again = client.post(f"{url}/z-report/reprint", headers=s["cashier"])
     assert again.status_code == 200, again.text
     job = again.json()
-    assert (job["type"], job["is_reprint"], job["status"]) == ("Z_REPORT", True, "DONE")
-    assert fake_print_agent.printed[-1] == first_z  # contenu figé, pas recalculé
+    assert (job["type"], job["is_reprint"], job["status"]) == ("Z_REPORT", True, "QUEUED")
+    print_agent.run()
+    assert print_agent.printed[-1] == first_z  # contenu figé, pas recalculé
     assert (
         client.post(
             "/api/v1/cash-sessions/" + s["tables"][0] + "/z-report/reprint", headers=s["cashier"]

@@ -12,6 +12,18 @@ def get_for_update(db: Session, job_id: uuid.UUID) -> PrintJob | None:
     return db.scalar(select(PrintJob).where(PrintJob.id == job_id).with_for_update())
 
 
+def claim_next(db: Session) -> PrintJob | None:
+    """Plus ancien travail en file, verrouillé ; `SKIP LOCKED` : deux interrogations
+    simultanées ne prennent jamais le même travail."""
+    return db.scalar(
+        select(PrintJob)
+        .where(PrintJob.status == PrintJobStatus.QUEUED)
+        .order_by(PrintJob.created_at, PrintJob.id)
+        .limit(1)
+        .with_for_update(skip_locked=True)
+    )
+
+
 def list_jobs(db: Session, *, status: PrintJobStatus | None, limit: int = 200) -> list[PrintJob]:
     stmt = select(PrintJob).order_by(PrintJob.created_at.desc()).limit(limit)
     if status is not None:

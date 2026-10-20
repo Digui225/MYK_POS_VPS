@@ -8,6 +8,7 @@ python -m caisse.cli create-tables --count 15 --zone Salle
 python -m caisse.cli import-catalog [/data/menu.csv]     # défaut : seeds/data/menu.csv
 python -m caisse.cli import-stock [--stock-initial]       # articles + fiches techniques
 python -m caisse.cli set-vat-rate 0 --all-products
+python -m caisse.cli create-print-terminal --name Comptoir   # jeton de l'agent d'impression
 python -m caisse.cli fne-probe --point-of-sale "..." --client-phone ... --client-email ... --yes
 python -m caisse.cli fne-probe ... --template B2B --client-ncc 9502363N --client-name "SOCIETE X"
 """
@@ -36,7 +37,7 @@ from caisse.repositories import settings as settings_repo
 from caisse.repositories import users as users_repo
 from caisse.seeds import stock_import
 from caisse.seeds.defaults import ensure_defaults
-from caisse.services import audit_service, user_service
+from caisse.services import audit_service, print_terminal_service, user_service
 from caisse.services.audit_service import RequestContext
 
 CLI_CTX = RequestContext(device_id="cli")
@@ -199,6 +200,14 @@ def cmd_import_stock(db: Session, args: argparse.Namespace) -> None:
     )
 
 
+def cmd_create_print_terminal(db: Session, args: argparse.Namespace) -> None:
+    _, token = print_terminal_service.create_terminal(
+        db, name=args.name, actor_id=None, ctx=CLI_CTX
+    )
+    print(f"Terminal « {args.name} » créé. Jeton de l'agent (affiché une seule fois) :")
+    print(token)
+
+
 def cmd_set_vat_rate(db: Session, args: argparse.Namespace) -> None:
     """Taux de TVA par défaut (`vat.default_rate`) et, avec `--all-products`, taux de tous les
     produits. Les commandes déjà saisies gardent le taux figé sur leurs lignes."""
@@ -347,6 +356,8 @@ def main(argv: list[str] | None = None) -> None:
     p = sub.add_parser("set-vat-rate", help="Taux de TVA par défaut (et des produits)")
     p.add_argument("rate", help="en %, ex. 0 (régime TEE) ou 18")
     p.add_argument("--all-products", action="store_true", help="appliquer à tous les produits")
+    p = sub.add_parser("create-print-terminal", help="Jeton de l'agent d'impression d'un poste")
+    p.add_argument("--name", required=True)
     p = sub.add_parser("fne-probe", help="Sonde de l'API FNE de test (consomme des stickers)")
     p.add_argument("--point-of-sale", required=True, help="tel que configuré dans l'espace FNE")
     p.add_argument(
@@ -378,6 +389,7 @@ def main(argv: list[str] | None = None) -> None:
         "import-catalog": cmd_import_catalog,
         "import-stock": cmd_import_stock,
         "set-vat-rate": cmd_set_vat_rate,
+        "create-print-terminal": cmd_create_print_terminal,
     }[args.command]
     with get_sessionmaker()() as db:
         try:

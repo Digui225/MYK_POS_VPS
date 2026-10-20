@@ -112,6 +112,8 @@ class PrintJobType(StrEnum):
     Z_REPORT = "Z_REPORT"
     FNE = "FNE"
     ORDER_TICKET = "ORDER_TICKET"
+    DRAWER = "DRAWER"  # ouverture manuelle du tiroir, sans ticket
+    TEST = "TEST"
 
 
 class PrintJobStatus(StrEnum):

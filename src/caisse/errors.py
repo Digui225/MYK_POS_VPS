@@ -102,6 +102,15 @@ NoReceiptToReprintError = _error(
 PrintJobNotRetryableError = _error(
     "PrintJobNotRetryableError", 409, "Travail d'impression dans un état qui interdit le renvoi"
 )
+PrintJobNotClaimedError = _error(
+    "PrintJobNotClaimedError", 409, "Travail d'impression non pris par ce terminal"
+)
+PrintTerminalNameExistsError = _error(
+    "PrintTerminalNameExistsError", 409, "Un terminal d'impression porte déjà ce nom"
+)
+TerminalTokenInvalidError = _error(
+    "TerminalTokenInvalidError", 401, "Jeton de terminal invalide ou révoqué"
+)
 StockArticleNameExistsError = _error(
     "StockArticleNameExistsError", 409, "Un article de stock porte déjà ce nom"
 )
@@ -131,14 +140,15 @@ class RateLimitExceededError(DomainError):
 
 
 class PrinterUnavailableError(InfrastructureError):
-    """L'agent d'impression répond, mais l'imprimante elle-même ne peut pas imprimer
-    (papier, panne driver) — réservé aux actions directes (`/printing/*`)."""
+    """L'agent d'impression se signale, mais rapporte une imprimante hors ligne — réservé aux
+    actions directes (`/printing/*`)."""
 
     code = "PRINTER_UNAVAILABLE"
 
 
 class PrintAgentUnavailableError(InfrastructureError):
-    """L'agent d'impression est injoignable — réservé aux actions directes (`/printing/*`)."""
+    """Aucun agent ne s'est signalé récemment — réservé aux actions directes (`/printing/*`) :
+    une ouverture de tiroir ou un test mis en file ne doivent pas partir des minutes plus tard."""
 
     code = "PRINT_AGENT_UNAVAILABLE"
 

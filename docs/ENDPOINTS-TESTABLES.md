@@ -1,8 +1,22 @@
-# Endpoints testables — état au 16/10/2026
+# Endpoints testables — état au 20/10/2026
 
 Ce document décrit les **routes réellement implémentées** dans `caisse-backend`, telles que le code les expose aujourd'hui. Le contrat cible complet est dans [`03-CONTRAT-API.md`](../../projet_caisse_MYK/03-CONTRAT-API.md). Toute route du contrat absente d'ici renvoie `404 NOT_FOUND`.
 
 **Pour le front** : commencer par [`GUIDE-FRONT.md`](GUIDE-FRONT.md) (règles de travail, conventions, correspondance avec la branche `aziz`, routes par écran).
+
+## Nouveautés du 20/10/2026 — impression tirée par le terminal (caisse en ligne)
+
+L'API tourne désormais sur un serveur distant, qui ne peut pas joindre l'imprimante du restaurant. **C'est l'agent du terminal qui vient chercher les tickets** : l'API les met en file, l'agent les prend toutes les ~2 s, imprime, puis rend le résultat.
+
+| Sujet | Ce qui change pour le front | Où |
+|---|---|---|
+| **Ticket à l'encaissement** | `receipt.status` vaut toujours `QUEUED` et `receipt.drawer_opened` toujours `null` : la réponse n'attend plus l'imprimante. Pour afficher « ticket imprimé » ou une alerte, suivre `GET /printing/jobs/{print_job_id}` (`DONE`, `FAILED`). Le tiroir s'ouvre quand l'agent imprime le ticket, en général sous 2 s. | [§8](#8-paiements), [§10](#10-impression) |
+| **Nouvelle route** | `GET /printing/jobs/{id}` : suivi d'un travail. | [§10](#10-impression) |
+| **Tiroir et ticket de test** | `POST /printing/open-drawer` et `POST /printing/test` répondent `202` avec le travail mis en file (au lieu de `200 {drawer_opened}` / `{printed}`). `503 PRINT_AGENT_UNAVAILABLE` si aucun agent ne s'est signalé depuis 15 s. | [§10](#10-impression) |
+| **Rejeu** | `POST /printing/jobs/{id}/retry` remet le travail en file (`QUEUED`) au lieu d'imprimer sur-le-champ. Accepté pour `FAILED`, et pour `PRINTING` resté sans résultat plus de 2 min. | [§10](#10-impression) |
+| **État de l'agent** | `agent_online` : un agent s'est signalé depuis moins de 15 s. Nouveau champ `agent_last_seen_at`. | [§10](#10-impression) |
+| **Terminaux (ADMIN)** | `GET/POST /printing/terminals`, `POST /printing/terminals/{id}/revoke` : jeton de l'agent, distinct des PIN, affiché une seule fois. | [§10](#10-impression) |
+| **Nouveaux codes d'erreur** | `PRINT_TERMINAL_NAME_EXISTS`, `TERMINAL_TOKEN_INVALID`, `PRINT_JOB_NOT_CLAIMED` (ces deux derniers ne concernent que l'agent). | [§0 Erreurs](#format-des-erreurs-applicationproblemjson) |
 
 ## Nouveautés du 16/10/2026 — reprise de la branche `aziz`
 
@@ -203,9 +217,12 @@ Le front doit se fier à **`code`**, qui est stable. `title` et `detail` sont de
 | `PRODUCT_NAME_EXISTS` | 409 | Produit du menu déjà existant sous ce nom (`meta.product_id`) |
 | `PRODUCT_SKU_EXISTS` | 409 | Code article (`sku`) déjà utilisé |
 | `STOCK_ARTICLE_NAME_EXISTS` | 409 | Article de stock déjà existant sous ce nom, sans tenir compte de la casse (`meta.article_id`) |
-| `PRINT_JOB_NOT_RETRYABLE` | 409 | `POST /printing/jobs/{id}/retry` sur un travail déjà `DONE` ou en cours |
-| `PRINTER_UNAVAILABLE` | 503 | Action directe (`/printing/open-drawer`, `/printing/test`) : l'agent répond, l'imprimante non. **Jamais** renvoyé par `/orders/{id}/payments` ou `/cash-sessions/{id}/close` : voir [§10](#10-impression). |
-| `PRINT_AGENT_UNAVAILABLE` | 503 | Action directe : l'agent d'impression lui-même est injoignable. Mêmes réserves que ci-dessus. |
+| `PRINT_JOB_NOT_RETRYABLE` | 409 | `POST /printing/jobs/{id}/retry` sur un travail déjà `DONE`, déjà en file (`QUEUED`) ou pris à l'instant par l'agent |
+| `PRINTER_UNAVAILABLE` | 503 | Action directe (`/printing/open-drawer`, `/printing/test`) : l'agent se signale, mais rapporte l'imprimante hors ligne. **Jamais** renvoyé par `/orders/{id}/payments` ou `/cash-sessions/{id}/close` : voir [§10](#10-impression). |
+| `PRINT_AGENT_UNAVAILABLE` | 503 | Action directe : aucun agent ne s'est signalé depuis 15 s. Mêmes réserves que ci-dessus. |
+| `PRINT_TERMINAL_NAME_EXISTS` | 409 | `POST /printing/terminals` : un terminal porte déjà ce nom |
+| `TERMINAL_TOKEN_INVALID` | 401 | Routes de l'agent (`/print-agent/*`) : jeton absent, inconnu ou révoqué |
+| `PRINT_JOB_NOT_CLAIMED` | 409 | Agent : résultat d'un travail qu'il n'a pas (ou plus) en main |
 | `RATE_LIMIT_EXCEEDED` | 429 | Trop de requêtes depuis la même adresse IP sur `/auth/login`, `/auth/override` (10 par minute) ou `/auth/refresh` (30 par minute). En-tête `Retry-After` et `meta.retry_after` (secondes) |
 | `PAYLOAD_TOO_LARGE` | 413 | Corps de requête de plus de 2 Mo (`meta.max_bytes`) |
 | `INTERNAL_ERROR` | 500 | Erreur imprévue. La trace est dans les logs, jamais dans la réponse. |
@@ -244,7 +261,7 @@ Réponse `200` :
 | Cas | Réponse |
 |---|---|
 | Base injoignable | `503` avec `"status": "unavailable"`, `"database": "unreachable"` et sans `queues` |
-| Agent d'impression arrêté | **Toujours `200`.** L'imprimante n'est qu'informative : `agent_online: false`. Le délai d'attente de l'agent est de 1,5 s. |
+| Agent d'impression arrêté | **Toujours `200`.** L'imprimante n'est qu'informative : `agent_online: false` quand aucun agent ne s'est signalé depuis 15 s. |
 
 À tester :
 - lancer l'agent en mode factice (`print-agent/README.md`) et vérifier que `agent_online` passe à `true` ;
@@ -961,7 +978,7 @@ Réponse `200` : `ZReportOut`, identique à la réponse de clôture, relue depui
 
 ### `POST /cash-sessions/{id}/z-report/reprint` — ré-imprimer le ticket Z
 
-**Accès** : connecté. Duplicata du ticket Z **tel qu'imprimé à la clôture** (jamais recalculé), marqué `is_reprint: true`. Il n'ouvre pas le tiroir et est compté dans les ré-impressions. Réponse `200` : le travail d'impression (format de `GET /printing/jobs`, §10). Une panne d'imprimante ne fait pas échouer la requête : lire `status`.
+**Accès** : connecté. Duplicata du ticket Z **tel qu'imprimé à la clôture** (jamais recalculé), marqué `is_reprint: true`. Il n'ouvre pas le tiroir et est compté dans les ré-impressions. Réponse `200` : le travail d'impression (format de `GET /printing/jobs`, §10), mis en file (`QUEUED`) : l'agent du terminal le prend.
 
 | Code | Cas |
 |---|---|
@@ -1235,7 +1252,7 @@ Réponse `200` : `OrderResult` (pas de corps à envoyer).
 | `404 NOT_FOUND` | Commande inconnue |
 | `409 NO_RECEIPT_TO_REPRINT` | Aucun ticket encore imprimé pour cette commande (ex. commande pas encore soldée) |
 
-Trace dans `audit_logs` : `print_job.print`.
+Trace dans `audit_logs` : `order.reprint`, puis `print_job.print` quand l'agent rend le résultat.
 
 ---
 
@@ -1255,7 +1272,7 @@ Une addition se règle en **un ou plusieurs paiements** (paiement partiel ou mix
 6. Générer l'`Idempotency-Key` **avant** l'appel et la réutiliser telle quelle en cas de nouvel essai (coupure réseau, double clic) : la caisse n'enregistre jamais deux fois le même paiement.
 7. Réponse : `order.status = "PAID"` → écran « Commande soldée » avec le bouton « Émettre la FNE » (§9). `PARTIALLY_PAID` → rester sur l'encaissement avec le nouveau reste dû.
 
-> **Ticket et tiroir :** `receipt` vaut `null` tant que la commande n'est pas soldée (paiement partiel). Dès que `due_xof` tombe à 0, `receipt: {print_job_id, status, drawer_opened}` est rempli et le tiroir s'ouvre (§10). Une imprimante hors ligne ne bloque jamais la vente : `status` vaut alors `FAILED` et `drawer_opened: false`, mais la réponse reste `201`. **FNE :** `fiscal_document` vaut toujours `null` : elle s'émet à la demande (§9).
+> **Ticket et tiroir :** `receipt` vaut `null` tant que la commande n'est pas soldée (paiement partiel). Dès que `due_xof` tombe à 0, `receipt: {print_job_id, status, drawer_opened}` est rempli : le ticket part en file (`QUEUED`) et le tiroir s'ouvre quand l'agent du terminal l'imprime, en général sous 2 s (§10). La réponse n'attend jamais l'imprimante : `drawer_opened` vaut toujours `null`, suivre `GET /printing/jobs/{print_job_id}`. **FNE :** `fiscal_document` vaut toujours `null` : elle s'émet à la demande (§9).
 
 ### `GET /payment-methods` — moyens de paiement
 
@@ -1318,12 +1335,12 @@ Second paiement qui solde l'addition :
 
 ```json
 {
-  "receipt": { "print_job_id": "9e2f…", "status": "DONE", "drawer_opened": true },
+  "receipt": { "print_job_id": "9e2f…", "status": "QUEUED", "drawer_opened": null },
   "fiscal_document": null
 }
 ```
 
-Imprimante hors ligne : la vente reste `201`, mais `"status": "FAILED"` (ou `"QUEUED"`) et `"drawer_opened": false` — à signaler explicitement à la caissière (§10).
+Agent ou imprimante hors ligne : la vente reste `201` et le ticket attend en file ; il sortira (tiroir compris) au retour de l'agent. Pour avertir la caissière, interroger `GET /printing/jobs/{print_job_id}` quelques secondes : toujours `QUEUED`, ou `FAILED` (§10).
 
 Ce paiement qui solde la commande déstocke aussi les articles des fiches techniques (§11). Si un article passe sous zéro, la vente reste `201` et `warnings` le signale (bandeau, jamais bloquant) :
 
@@ -1630,7 +1647,9 @@ Trace dans `audit_logs` : `customer.create`, `fne.issue`, `fne.submit` (à chaqu
 
 ## 10. Impression
 
-Préfixe : `/api/v1/printing`. Agent d'impression ESC/POS, hors Docker (`print-agent/`, ADR-13) : le voir en marche avec [`print-agent/README.md`](../print-agent/README.md) (mode factice sans imprimante branchée). L'imprimante est **toujours informative** : les tickets déclenchés par une vente ou une clôture (§6, §7, §8) n'échouent jamais la requête qui les déclenche. Seules les routes ci-dessous, demandées explicitement, renvoient une erreur.
+Préfixe : `/api/v1/printing`. L'API est en ligne et ne peut pas joindre le restaurant : **l'agent du terminal** (`print-agent/`) vient chercher les travaux toutes les ~2 s avec le jeton de son terminal, imprime, puis rend le résultat. Le voir en marche : [`print-agent/README.md`](../print-agent/README.md) (mode factice sans imprimante branchée).
+
+Cycle d'un travail : `QUEUED` (en file) → `PRINTING` (pris par l'agent) → `DONE` ou `FAILED`. L'imprimante est **toujours informative** : les tickets déclenchés par une vente ou une clôture (§6, §7, §8) partent `QUEUED` et ne font jamais échouer la requête. Agent arrêté ou imprimante rapportée hors ligne : les travaux attendent en file et sortent à son retour, tiroir compris. Seules les actions directes ci-dessous renvoient une erreur.
 
 ### `GET /printing/status` — état de l'impression
 
@@ -1639,22 +1658,23 @@ Préfixe : `/api/v1/printing`. Agent d'impression ESC/POS, hors Docker (`print-a
 ```json
 {
   "agent_online": true, "printer_online": true, "paper": "ok", "width": 48,
-  "queued_jobs": 0, "failed_jobs": 0, "last_success_at": "2026-10-06T12:04:10Z"
+  "agent_last_seen_at": "2026-10-20T12:04:09Z",
+  "queued_jobs": 0, "failed_jobs": 0, "last_success_at": "2026-10-20T12:04:10Z"
 }
 ```
 
-Mêmes informations que `printer` et `queues` de `GET /health/ready` (§1), avec en plus la file (`queued_jobs`, `failed_jobs`) et la dernière impression réussie.
+`agent_online` : un agent s'est signalé depuis moins de 15 s. `printer_online`, `paper`, `width` : l'état que l'agent rapporte. Mêmes informations que `printer` et `queues` de `GET /health/ready` (§1).
 
 ### `POST /printing/open-drawer` — ouverture manuelle du tiroir
 
 **Accès** : RESPONSABLE. Hors vente (ex. correction de caisse), tracée dans `audit_logs` (`printing.open_drawer_manual`).
 
-Réponse `200` : `{ "drawer_opened": true }`.
+Réponse `202` : le travail mis en file (`"type": "DRAWER"`, `"status": "QUEUED"`). Le tiroir s'ouvre quand l'agent le prend, en général sous 2 s.
 
 | Code | Cas |
 |---|---|
-| `503 PRINT_AGENT_UNAVAILABLE` | Agent injoignable |
-| `503 PRINTER_UNAVAILABLE` | Agent en ligne, imprimante en panne (papier…) |
+| `503 PRINT_AGENT_UNAVAILABLE` | Aucun agent ne s'est signalé depuis 15 s : refusé plutôt qu'un tiroir qui s'ouvrirait plus tard |
+| `503 PRINTER_UNAVAILABLE` | L'agent rapporte l'imprimante hors ligne |
 
 ### `GET /printing/jobs?status=` — file d'impression
 
@@ -1664,32 +1684,54 @@ Réponse `200` : `{ "drawer_opened": true }`.
 {
   "items": [
     { "id": "9e2f…", "type": "RECEIPT", "order_id": "0a1b…", "session_id": null,
-      "status": "FAILED", "attempts": 1, "last_error": "...", "is_reprint": false,
-      "created_at": "2026-10-06T12:04:10Z" }
+      "status": "FAILED", "open_drawer": true, "attempts": 1, "last_error": "...",
+      "is_reprint": false, "created_at": "2026-10-20T12:04:10Z" }
   ],
   "next_cursor": null
 }
 ```
 
-### `POST /printing/jobs/{id}/retry` — rejeu d'un travail en échec
+`type` : `RECEIPT`, `Z_REPORT`, `DRAWER` (ouverture manuelle), `TEST`.
 
-**Accès** : connecté. Réponse `200` : le travail avec son nouveau statut.
+### `GET /printing/jobs/{id}` — suivi d'un travail
+
+**Accès** : connecté. Même format qu'un élément de `GET /printing/jobs`. Sert à suivre le ticket d'un paiement (`receipt.print_job_id`) ou d'une clôture (`print_job_id`). `404 NOT_FOUND` si inconnu.
+
+### `POST /printing/jobs/{id}/retry` — rejeu d'un travail
+
+**Accès** : connecté. Remet le travail en file : réponse `200` avec `"status": "QUEUED"`, l'agent le reprend à sa prochaine interrogation. Accepté pour un travail `FAILED`, ou `PRINTING` depuis plus de 2 min (agent arrêté en pleine impression ; jamais remis en file automatiquement, pour ne pas imprimer deux fois).
 
 | Code | Cas |
 |---|---|
 | `404 NOT_FOUND` | Travail inconnu |
-| `409 PRINT_JOB_NOT_RETRYABLE` | Déjà `DONE`, ou déjà en cours (`PRINTING`) |
+| `409 PRINT_JOB_NOT_RETRYABLE` | Déjà `DONE`, déjà `QUEUED`, ou pris par l'agent il y a moins de 2 min |
 
 ### `POST /printing/test` — ticket de test
 
-**Accès** : ADMIN. Imprime un ticket de diagnostic directement sur l'agent (hors file, pas de `PrintJob` créé). Réponse `200` : `{ "printed": true }`.
+**Accès** : ADMIN. Réponse `202` : le travail mis en file (`"type": "TEST"`). Mêmes erreurs `503` que l'ouverture du tiroir.
 
-| Code | Cas |
+### Terminaux d'impression (ADMIN)
+
+Chaque poste qui imprime a un terminal et un jeton (`pt_…`), distinct des PIN et révocable. Seule son empreinte est stockée.
+
+| Route | Rôle |
 |---|---|
-| `503 PRINT_AGENT_UNAVAILABLE` | Agent injoignable |
-| `503 PRINTER_UNAVAILABLE` | Agent en ligne, imprimante en panne |
+| `GET /printing/terminals` | Liste : `id`, `name`, `revoked_at`, `last_seen_at`, `printer_status`, `created_at` |
+| `POST /printing/terminals` `{"name": "Comptoir"}` | `201` : `{ "terminal": {…}, "token": "pt_…" }`. **Le jeton n'est montré qu'ici** ; `409 PRINT_TERMINAL_NAME_EXISTS` |
+| `POST /printing/terminals/{id}/revoke` | L'agent est refusé dès sa prochaine interrogation. Sans effet si déjà révoqué |
 
-Trace dans `audit_logs` : `print_job.print` (ticket, Z, ré-impression), `printing.open_drawer_manual`, `printing.test`.
+Sur le serveur, sans passer par le front : `python -m caisse.cli create-print-terminal --name Comptoir`.
+
+### Routes de l'agent (`/api/v1/print-agent`)
+
+Réservées à l'agent du terminal (`Authorization: Bearer pt_…`), pas au front. `401 TERMINAL_TOKEN_INVALID` sans jeton valide.
+
+| Route | Rôle |
+|---|---|
+| `POST /print-agent/poll` `{"printer": {"online", "paper", "model", "width"}}` | Se signale et prend le plus ancien travail en file : `{"job": null}` ou `{"job": {"id", "type", "content", "open_drawer", "cut", "is_reprint"}}`. Rien n'est confié si l'imprimante est rapportée hors ligne |
+| `POST /print-agent/jobs/{id}/result` `{"printed", "error"}` | `204`. Même résultat renvoyé deux fois : sans effet ; `409 PRINT_JOB_NOT_CLAIMED` sinon |
+
+Trace dans `audit_logs` : `print_job.print` (résultat rendu par l'agent), `print_job.retry`, `order.reprint`, `cash_session.reprint_z`, `printing.open_drawer_manual`, `printing.test`, `print_terminal.create`, `print_terminal.revoke`.
 
 ---
 

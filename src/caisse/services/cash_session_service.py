@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from caisse.config import get_settings
 from caisse.domain import receipt as receipt_domain
 from caisse.domain.enums import CashMovementType, CashSessionStatus, PrintJobType
-from caisse.domain.ports import Printer
 from caisse.errors import (
     BusinessDateMismatchError,
     NoOpenSessionError,
@@ -135,7 +134,6 @@ def close_session(
     notes: str | None,
     actor_id: uuid.UUID,
     ctx: RequestContext,
-    agent: Printer,
 ) -> CashSession:
     session = sessions_repo.get(db, session_id)
     if session is None:
@@ -195,16 +193,13 @@ def close_session(
         footer=str(footer or ""),
         width=get_settings().printer_width,
     )
-    # l'impression du Z ne doit jamais faire échouer la clôture : déjà committée ci-dessus.
-    job, _ = printing_service.create_and_print(
+    job = printing_service.enqueue(
         db,
         job_type=PrintJobType.Z_REPORT,
-        agent=agent,
         rendered=rendered,
         open_drawer=False,
         session_id=session.id,
         user_id=actor_id,
-        ctx=ctx,
     )
     session.print_job_id = job.id
     db.commit()
@@ -271,7 +266,7 @@ def add_movement(
 
 
 def reprint_z(
-    db: Session, session_id: uuid.UUID, *, agent: Printer, user_id: uuid.UUID, ctx: RequestContext
+    db: Session, session_id: uuid.UUID, *, user_id: uuid.UUID, ctx: RequestContext
 ) -> PrintJob:
     """Duplicata du ticket Z **tel qu'imprimé à la clôture** (contenu stocké, jamais recalculé),
     marqué ré-impression et compté dans les contrôles."""
@@ -283,16 +278,23 @@ def reprint_z(
     previous = db.get(PrintJob, session.print_job_id) if session.print_job_id else None
     if previous is None or not previous.rendered:
         raise NoReceiptToReprintError(meta={"session_id": str(session_id)})
-    job, _ = printing_service.create_and_print(
+    job = printing_service.enqueue(
         db,
         job_type=PrintJobType.Z_REPORT,
-        agent=agent,
         rendered=previous.rendered,
         open_drawer=False,
         session_id=session.id,
         payload=previous.payload,
         is_reprint=True,
         user_id=user_id,
-        ctx=ctx,
     )
+    audit_service.log(
+        db,
+        "cash_session.reprint_z",
+        ctx=ctx,
+        user_id=user_id,
+        entity="print_job",
+        entity_id=job.id,
+    )
+    db.commit()
     return job

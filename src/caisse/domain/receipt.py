@@ -3,6 +3,7 @@ ni base. `width` est le nombre de caractères par ligne (`printer_width`, défau
 pures : comme `domain/fne.py`, elles prennent de petites structures locales, pas les modèles
 ORM ni les schémas Pydantic, pour rester découplées des couches I/O."""
 
+import textwrap
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -57,6 +58,15 @@ def _center(text: str, width: int) -> str:
     return text.center(width)
 
 
+def _wrap(text: str, width: int, indent: str = "") -> list[str]:
+    """Coupe aux espaces : sur 58 mm (32 caractères), l'imprimante couperait au milieu d'un mot."""
+    return textwrap.wrap(text, width, subsequent_indent=indent) or [""]
+
+
+def _centered(text: str, width: int) -> list[str]:
+    return [_center(line, width) for line in _wrap(text, width)]
+
+
 def _rule(width: int, char: str = "-") -> str:
     return char * width
 
@@ -82,18 +92,21 @@ def render_receipt(
     header_ncc: str | None = None,
     header_rccm: str | None = None,
 ) -> str:
-    lines: list[str] = [_center(header_name, width)]
+    lines: list[str] = _centered(header_name, width)
     if header_address:
-        lines.append(_center(header_address, width))
+        lines += _centered(header_address, width)
     if header_phone:
-        lines.append(_center(header_phone, width))
-    legal = " - ".join(
+        lines += _centered(header_phone, width)
+    legal_parts = [
         part
         for part in (header_ncc and f"NCC {header_ncc}", header_rccm and f"RCCM {header_rccm}")
         if part
-    )
-    if legal:
-        lines.append(_center(legal, width))
+    ]
+    legal = " - ".join(legal_parts)
+    if len(legal) <= width:
+        lines += [_center(legal, width)] if legal else []
+    else:  # 58 mm : un identifiant par ligne plutôt qu'un RCCM coupé
+        lines += [_center(part, width) for part in legal_parts]
     lines.append(_rule(width))
     lines.append(f"N° {order_number}")
     if table_label:
@@ -102,10 +115,10 @@ def render_receipt(
         lines.append(f"Comptoir n° {counter_number}")
     lines.append(_rule(width))
     for item in items:
-        lines.append(f"{item.quantity} x {item.name}")
+        lines += _wrap(f"{item.quantity} x {item.name}", width, indent="    ")
         lines.append(_two_cols("", f"{format_xof(item.line_total_xof)} XOF", width))
         if item.note:
-            lines.append(f"  ({item.note})")
+            lines += _wrap(f"  ({item.note})", width, indent="   ")
     lines.append(_rule(width))
     lines.append(_two_cols("TOTAL", f"{format_xof(total_ttc_xof)} XOF", width))
     for payment in payments:
@@ -115,7 +128,7 @@ def render_receipt(
             lines.append(_two_cols("Rendu", f"{format_xof(payment.change_xof)} XOF", width))
     lines.append(_rule(width))
     if footer:
-        lines.append(_center(footer, width))
+        lines += _centered(footer, width)
     return "\n".join(lines)
 
 
@@ -136,7 +149,7 @@ def render_z_report(
     width: int = 48,
 ) -> str:
     lines: list[str] = [
-        _center(header_name, width),
+        *_centered(header_name, width),
         _center(f"RAPPORT Z n° {z_number}", width),
         _center(business_date, width),
         _rule(width),
@@ -156,5 +169,20 @@ def render_z_report(
         _two_cols("Annulations / retraits", f"{cancelled_orders} / {removed_items}", width),
     ]
     if footer:
-        lines.append(_center(footer, width))
+        lines += _centered(footer, width)
     return "\n".join(lines)
+
+
+def render_test_ticket(*, printed_at: str, width: int = 48) -> str:
+    """Ticket de test (`POST /printing/test`) : largeur, accents, chaîne API → agent."""
+    return "\n".join(
+        [
+            _center("TICKET DE TEST", width),
+            _rule(width),
+            f"Largeur    : {width} caractères",
+            f"Date       : {printed_at}",
+            "Accents    : é è à ç ô û",  # CP858 : pas de tiret long
+            _rule(width),
+            *_centered("Si ce ticket est lisible, l'agent fonctionne.", width),
+        ]
+    )

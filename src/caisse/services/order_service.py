@@ -10,7 +10,6 @@ from caisse.domain.enums import (
     role_at_least,
 )
 from caisse.domain.money import line_total, split_vat_by_rate
-from caisse.domain.ports import Printer
 from caisse.errors import (
     NoOpenSessionError,
     NoReceiptToReprintError,
@@ -340,7 +339,7 @@ def cancel_order(
 
 
 def reprint(
-    db: Session, order_id: uuid.UUID, *, agent: Printer, user_id: uuid.UUID, ctx: RequestContext
+    db: Session, order_id: uuid.UUID, *, user_id: uuid.UUID, ctx: RequestContext
 ) -> OrderOut:
     """Ré-imprime le dernier ticket **tel que remis au client** (le contenu stocké, jamais
     ré-rendu depuis l'état courant : un retrait ou un avoir ultérieur ne doit pas changer
@@ -349,16 +348,18 @@ def reprint(
     previous = print_jobs_repo.latest_receipt_for_order(db, order.id)
     if previous is None or not previous.rendered:
         raise NoReceiptToReprintError(meta={"order_id": str(order_id)})
-    printing_service.create_and_print(
+    job = printing_service.enqueue(
         db,
         job_type=PrintJobType.RECEIPT,
-        agent=agent,
         rendered=previous.rendered,
         open_drawer=False,
         order_id=order.id,
         payload=previous.payload,
         is_reprint=True,
         user_id=user_id,
-        ctx=ctx,
     )
+    audit_service.log(
+        db, "order.reprint", ctx=ctx, user_id=user_id, entity="print_job", entity_id=job.id
+    )
+    db.commit()
     return to_out(db, order)

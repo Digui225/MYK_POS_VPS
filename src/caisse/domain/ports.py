@@ -1,5 +1,6 @@
-"""Ports vers l'extérieur (impression, FNE, horloge). Implémentés dans `infrastructure/`,
-toujours remplaçables par un mock."""
+"""Ports vers l'extérieur (FNE, horloge). Implémentés dans `infrastructure/`, toujours
+remplaçables par un mock. L'impression n'en est pas un : c'est l'agent du terminal qui vient
+chercher les travaux (`services/printing_service.py`)."""
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -8,32 +9,6 @@ from typing import Any, Protocol
 
 class Clock(Protocol):
     def now(self) -> datetime: ...
-
-
-@dataclass(frozen=True, slots=True)
-class PrinterStatus:
-    agent_online: bool
-    printer_online: bool
-    paper: str | None
-    width: int | None
-
-
-@dataclass(frozen=True, slots=True)
-class PrintResult:
-    printed: bool
-    drawer_opened: bool
-
-
-class Printer(Protocol):
-    def status(self) -> PrinterStatus: ...
-
-    def print(
-        self, content: str, *, qr: str | None, open_drawer: bool, cut: bool = True
-    ) -> PrintResult: ...
-
-    def open_drawer(self) -> None: ...
-
-    def test_print(self) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)

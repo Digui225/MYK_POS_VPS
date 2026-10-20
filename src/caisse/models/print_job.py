@@ -1,7 +1,8 @@
 import uuid
+from datetime import datetime
 from typing import Any
 
-from sqlalchemy import ForeignKey, Text
+from sqlalchemy import DateTime, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -30,4 +31,9 @@ class PrintJob(UUIDPk, Timestamps, Base):
     is_reprint: Mapped[bool] = mapped_column(default=False)
     requested_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    # pris par l'agent d'un terminal (passage en PRINTING) ; il rend ensuite le résultat
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    terminal_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("print_terminals.id", ondelete="RESTRICT")
     )

@@ -8,6 +8,7 @@ Le schéma est créé par les migrations Alembic : les tests valident donc aussi
 import os
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -19,56 +20,59 @@ from sqlalchemy.orm import Session
 
 from caisse.config import get_settings
 from caisse.database import get_engine, get_sessionmaker
-from caisse.deps import print_agent
 from caisse.domain.enums import UserRole
-from caisse.domain.ports import PrinterStatus, PrintResult
 from caisse.models import Base, CashRegister, User
-from caisse.services import user_service
+from caisse.services import print_terminal_service, user_service
 from caisse.services.audit_service import RequestContext
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class FakePrintAgent:
-    """Double de test pour `Printer` (`domain/ports.py`) : jamais de réseau réel.
+    """Agent d'impression du terminal, simulé par les vraies routes `/print-agent` (jeton de
+    terminal) : jamais d'imprimante réelle.
 
-    `mode` pilote le comportement : `"ok"` (défaut, succès immédiat), `"offline"` (agent
-    injoignable), `"paper_out"` (agent en ligne, imprimante en panne)."""
+    `printer_online = False` : l'agent rapporte l'imprimante hors ligne ; `fail = True` : il
+    prend les travaux mais rend un échec."""
 
-    def __init__(self, *, mode: str = "ok") -> None:
-        self.mode = mode
+    def __init__(self, client: TestClient, token: str) -> None:
+        self.client = client
+        self.headers = auth(token)
+        self.printer_online = True
+        self.fail = False
         self.printed: list[str] = []
         self.drawer_opened_count = 0
 
-    def _maybe_raise(self, path: str) -> None:
-        if self.mode == "offline":
-            raise httpx.ConnectError("agent hors ligne")
-        if self.mode == "paper_out":
-            request = httpx.Request("POST", f"http://print-agent{path}")
-            response = httpx.Response(503, request=request)
-            raise httpx.HTTPStatusError("imprimante en panne", request=request, response=response)
+    def poll(self) -> dict[str, Any] | None:
+        resp = self.client.post(
+            "/api/v1/print-agent/poll",
+            headers=self.headers,
+            json={"printer": {"online": self.printer_online, "paper": "ok", "width": 48}},
+        )
+        assert resp.status_code == 200, resp.text
+        job: dict[str, Any] | None = resp.json()["job"]
+        return job
 
-    def status(self) -> PrinterStatus:
-        if self.mode == "offline":
-            return PrinterStatus(agent_online=False, printer_online=False, paper=None, width=None)
-        online = self.mode != "paper_out"
-        return PrinterStatus(agent_online=True, printer_online=online, paper="ok", width=48)
+    def report(self, job_id: str, *, printed: bool) -> httpx.Response:
+        return self.client.post(
+            f"/api/v1/print-agent/jobs/{job_id}/result",
+            headers=self.headers,
+            json={"printed": printed, "error": None if printed else "plus de papier"},
+        )
 
-    def print(
-        self, content: str, *, qr: str | None, open_drawer: bool, cut: bool = True
-    ) -> PrintResult:
-        self._maybe_raise("/print")
-        self.printed.append(content)
-        if open_drawer:
-            self.drawer_opened_count += 1
-        return PrintResult(printed=True, drawer_opened=open_drawer)
-
-    def open_drawer(self) -> None:
-        self._maybe_raise("/open-drawer")
-        self.drawer_opened_count += 1
-
-    def test_print(self) -> None:
-        self._maybe_raise("/test-print")
+    def run(self) -> list[dict[str, Any]]:
+        """Prend et traite tous les travaux en file, comme la boucle de l'agent."""
+        jobs = []
+        while (job := self.poll()) is not None:
+            jobs.append(job)
+            if not self.fail:
+                if job["content"]:
+                    self.printed.append(job["content"])
+                if job["open_drawer"]:
+                    self.drawer_opened_count += 1
+            resp = self.report(job["id"], printed=not self.fail)
+            assert resp.status_code == 204, resp.text
+        return jobs
 
 
 def _clear_caches() -> None:
@@ -126,20 +130,19 @@ def db() -> Iterator[Session]:
 
 
 @pytest.fixture
-def fake_print_agent() -> FakePrintAgent:
-    """Succès immédiat par défaut, pour que les tests qui ne portent pas sur l'impression
-    ne dépendent pas d'un agent réel (mirror de `FNE_PROVIDER=manual` pour la FNE)."""
-    return FakePrintAgent()
+def client() -> Iterator[TestClient]:
+    from caisse.main import create_app
+
+    with TestClient(create_app()) as c:
+        yield c
 
 
 @pytest.fixture
-def client(fake_print_agent: FakePrintAgent) -> Iterator[TestClient]:
-    from caisse.main import create_app
-
-    app = create_app()
-    app.dependency_overrides[print_agent] = lambda: fake_print_agent
-    with TestClient(app) as c:
-        yield c
+def print_agent(client: TestClient, db: Session) -> FakePrintAgent:
+    """Terminal « Comptoir » et son agent ; sans ce fixture, aucun agent ne s'est signalé et
+    les travaux restent `QUEUED`."""
+    _, token = print_terminal_service.create_terminal(db, name="Comptoir", actor_id=None, ctx=CTX)
+    return FakePrintAgent(client, token)
 
 
 CTX = RequestContext(device_id="test")

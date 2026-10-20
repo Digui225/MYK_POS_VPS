@@ -22,7 +22,8 @@ def test_health(client: TestClient) -> None:
     assert client.get("/api/v1/health").status_code == 200
 
 
-def test_ready_reports_db_and_printer(client: TestClient) -> None:
+def test_ready_reports_db_and_printer(client: TestClient, print_agent: FakePrintAgent) -> None:
+    print_agent.poll()
     resp = client.get("/health/ready")
     assert resp.status_code == 200
     body = resp.json()
@@ -31,10 +32,7 @@ def test_ready_reports_db_and_printer(client: TestClient) -> None:
     assert body["queues"] == {"print_queued": 0, "print_failed": 0, "fne_pending": 0}
 
 
-def test_ready_survives_offline_printer(
-    client: TestClient, fake_print_agent: FakePrintAgent
-) -> None:
-    fake_print_agent.mode = "offline"
+def test_ready_survives_offline_printer(client: TestClient) -> None:
     resp = client.get("/health/ready")
     assert resp.status_code == 200  # l'imprimante ne rend jamais l'API indisponible
     assert resp.json()["printer"]["agent_online"] is False

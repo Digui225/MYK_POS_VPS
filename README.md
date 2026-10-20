@@ -61,10 +61,10 @@ src/caisse/
   repositories/    accès données
   services/        cas d'usage + transactions (auth, users, audit)
   api/             routers FastAPI (/health, /api/v1/…)
-  infrastructure/  client de l'agent d'impression
+  infrastructure/  client FNE (API DGI, simulateur)
   seeds/ cli.py    amorçage et dépannage
 alembic/           migrations
-print-agent/       service systemd hors Docker (imprimante USB + tiroir)
+print-agent/       agent du terminal : vient chercher les tickets sur l'API (imprimante USB + tiroir)
 ```
 
 ## État d'avancement
@@ -79,4 +79,5 @@ print-agent/       service systemd hors Docker (imprimante USB + tiroir)
 | L6 | FNE à la demande (B2C/B2B, idempotente, résultats incertains, renvoi manuel, avoirs), clients entreprise, récapitulatif fiscal | Worker de renvoi automatique, export du récapitulatif figé au Z |
 | L5 (stock) | Articles de stock distincts des produits, fiches techniques, entrées (CMP), pertes, inventaires (stock de départ `OPENING`), sortie automatique à l'encaissement et remise en stock à l'annulation d'un paiement, tableaux ventes et stock (ADMIN), import du menu et du stock tirés des Excel (`import-catalog`, `import-stock`) | Écrans front, rapport `dashboard`, alertes de stock dans le Z |
 | Admin | `/settings`, `/cash-registers`, tableau de bord du jour, duplicata du Z, export CSV des FNE ; limite de débit par IP, en-têtes de sécurité, Swagger coupé en production (repris de la branche `aziz`, sous les routes du contrat) | — |
-| Reste | — | Rapport `audit`, worker (renvoi auto FNE + impression), temps réel (WebSocket), backup, agent d'impression et scripts pour Windows (à décider : OS du poste de caisse) |
+| En ligne | Impression tirée par l'agent du terminal (file `print_jobs`, jeton de terminal révocable, tiroir et test en file) | Agent Windows, HTTPS et déploiement de prod, nettoyage du mode local |
+| Reste | — | Rapport `audit`, worker (renvoi auto FNE), temps réel (WebSocket), backup |

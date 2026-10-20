@@ -7,6 +7,7 @@ from caisse.api.v1 import (
     fne,
     orders,
     payments,
+    print_agent,
     printing,
     reports,
     sessions,
@@ -31,5 +32,6 @@ for module in (
     customers,
     fne,
     printing,
+    print_agent,
 ):
     api_router.include_router(module.router)

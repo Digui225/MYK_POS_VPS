@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Path, Request, Response, status
 
 from caisse import idempotency
-from caisse.deps import Ctx, CurrentUser, DbSession, PrintAgentDep, Responsable
+from caisse.deps import Ctx, CurrentUser, DbSession, Responsable
 from caisse.errors import NoOpenSessionError
 from caisse.idempotency import IdempotencyKey
 from caisse.repositories import sessions as sessions_repo
@@ -117,7 +117,6 @@ def close_session(
     request: Request,
     response: Response,
     idempotency_key: IdempotencyKey,
-    agent: PrintAgentDep,
 ) -> ZReportOut:
     """Idempotent (`Idempotency-Key` obligatoire).
 
@@ -140,7 +139,6 @@ def close_session(
         notes=body.notes,
         actor_id=user.id,
         ctx=ctx,
-        agent=agent,
     )
     out = cash_session_service.z_report(db, session_id)
     idempotency.save(
@@ -168,17 +166,15 @@ def z_report(session_id: SessionId, _: CurrentUser, db: DbSession) -> ZReportOut
     response_model=PrintJobOut,
     summary="Ré-imprimer le ticket Z",
 )
-def reprint_z(
-    session_id: SessionId, user: CurrentUser, db: DbSession, ctx: Ctx, agent: PrintAgentDep
-) -> PrintJobOut:
+def reprint_z(session_id: SessionId, user: CurrentUser, db: DbSession, ctx: Ctx) -> PrintJobOut:
     """Duplicata du ticket Z tel qu'imprimé à la clôture (jamais recalculé), marqué
-    `is_reprint: true` ; n'ouvre pas le tiroir. Une panne d'imprimante ne fait pas échouer
-    la requête : lire `status` (`FAILED`, `QUEUED`), rejouer par `/printing/jobs/{id}/retry`.
+    `is_reprint: true` ; n'ouvre pas le tiroir. Le travail part `QUEUED` : l'agent du terminal
+    le prend ; suivre `GET /printing/jobs/{id}`, rejouer un échec par `/printing/jobs/{id}/retry`.
 
     Erreurs : `404 NOT_FOUND`, `409 SESSION_NOT_CLOSED`, `409 NO_RECEIPT_TO_REPRINT`
     (session clôturée sans ticket Z enregistré).
     """
-    job = cash_session_service.reprint_z(db, session_id, agent=agent, user_id=user.id, ctx=ctx)
+    job = cash_session_service.reprint_z(db, session_id, user_id=user.id, ctx=ctx)
     return PrintJobOut.model_validate(job)
 
 

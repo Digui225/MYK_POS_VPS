@@ -20,7 +20,6 @@ from caisse.domain.enums import (
     PrintJobType,
 )
 from caisse.domain.money import change_due, format_xof
-from caisse.domain.ports import Printer
 from caisse.errors import (
     DomainError,
     IdempotencyConflictError,
@@ -119,7 +118,6 @@ def _print_receipt(
     db: Session,
     order: Order,
     order_out: OrderOut,
-    agent: Printer,
     *,
     user_id: uuid.UUID,
     ctx: RequestContext,
@@ -162,17 +160,15 @@ def _print_receipt(
         footer=str(footer or ""),
         width=get_settings().printer_width,
     )
-    job, drawer_opened = printing_service.create_and_print(
+    job = printing_service.enqueue(
         db,
         job_type=PrintJobType.RECEIPT,
-        agent=agent,
         rendered=rendered,
         open_drawer=True,
         order_id=order.id,
         user_id=user_id,
-        ctx=ctx,
     )
-    return ReceiptOut(print_job_id=job.id, status=job.status, drawer_opened=drawer_opened)
+    return ReceiptOut(print_job_id=job.id, status=job.status, drawer_opened=None)
 
 
 def _replay(db: Session, key: str, path: str, request_hash: str) -> PaymentResult | None:
@@ -189,7 +185,6 @@ def register_payment(
     path: str,
     user: User,
     ctx: RequestContext,
-    agent: Printer,
 ) -> tuple[PaymentResult, bool]:
     """Retourne (résultat, rejoué). Un rejeu renvoie la réponse d'origine telle quelle."""
     request_hash = idempotency.hash_request(body)
@@ -263,7 +258,7 @@ def register_payment(
     )
     order_out = order_service.to_out(db, order)
     receipt = (
-        _print_receipt(db, order, order_out, agent, user_id=user.id, ctx=ctx)
+        _print_receipt(db, order, order_out, user_id=user.id, ctx=ctx)
         if order.status == OrderStatus.PAID
         else None
     )

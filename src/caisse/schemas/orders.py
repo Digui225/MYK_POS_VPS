@@ -112,8 +112,11 @@ class OrderResult(Schema):
 
 class ReceiptOut(Schema):
     print_job_id: uuid.UUID = Field(description="Travail d'impression du ticket")
-    status: str = Field(description="État du travail d'impression")
-    drawer_opened: bool = Field(description="false : signaler que le tiroir ne s'est pas ouvert")
+    status: str = Field(description="`QUEUED` : l'agent du terminal va le prendre")
+    drawer_opened: bool | None = Field(
+        description="Toujours null : ticket et tiroir partent quand l'agent prend le travail ; "
+        "suivre `GET /printing/jobs/{print_job_id}` (`DONE`, `FAILED`)"
+    )
 
 
 class PaymentResult(Schema):

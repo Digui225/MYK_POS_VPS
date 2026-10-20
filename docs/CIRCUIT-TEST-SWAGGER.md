@@ -92,7 +92,7 @@ O1, O2, O3  =   (commandes)
 | 30 | `POST /orders/{O1}/payments` | `paiement-3` ; `{"method": "MOBILE_MONEY", "amount_xof": 3000}` | `422 VALIDATION_ERROR` : opérateur manquant. |
 | 31 | `POST /orders/{O1}/payments` | `paiement-4` ; `{"method": "CARD", "amount_xof": 1000, "tendered_xof": 2000}` | `422 VALIDATION_ERROR` : somme remise réservée aux espèces. |
 | 32 | `DELETE /orders/{O1}/items/{ligne poisson}` | `reason` = `test` | `409 ORDER_NOT_EDITABLE`, `meta.reason: "total_below_paid"` : le total (1 000) passerait sous les 5 000 déjà encaissés. |
-| 33 | `POST /orders/{O1}/payments` | `paiement-5` ; `{"method": "MOBILE_MONEY", "provider": "WAVE", "amount_xof": 3000, "reference": "TX8812"}` | `201` ; `order.status: "PAID"`, `due_xof: 0`, `paid_at` renseigné, 2 paiements. **`receipt`** cette fois rempli : `{print_job_id, status, drawer_opened}` (ticket imprimé, tiroir ouvert — `status: "DONE"` si l'agent répond, sinon `"FAILED"`/`"QUEUED"` sans bloquer la vente). Noter `receipt.print_job_id` → **JOB_O1**. |
+| 33 | `POST /orders/{O1}/payments` | `paiement-5` ; `{"method": "MOBILE_MONEY", "provider": "WAVE", "amount_xof": 3000, "reference": "TX8812"}` | `201` ; `order.status: "PAID"`, `due_xof: 0`, `paid_at` renseigné, 2 paiements. **`receipt`** cette fois rempli : `{print_job_id, status: "QUEUED", drawer_opened: null}` (ticket mis en file ; l'agent du terminal l'imprime et ouvre le tiroir, sans jamais bloquer la vente). Noter `receipt.print_job_id` → **JOB_O1**. |
 | 34 | `POST /orders/{O1}/items` | `{"product_id": "<SUCRERIE>"}` | `409 ORDER_NOT_EDITABLE` : commande soldée, figée. |
 | 35 | `GET /tables/board` | — | Table 1 de nouveau `FREE` ; `summary.revenue_today_xof: 8000`, `orders_count: 1`, `open_orders: 0`. |
 
@@ -139,7 +139,7 @@ Avec `FNE_PROVIDER=manual` (réglage actuel du `.env`), aucun appel à la DGI : 
 | # | Route | Envoyer | Attendu |
 |---|---|---|---|
 | 55 | `GET /cash-sessions/{SESSION}/x-report` | — | Voir le tableau ci-dessous. |
-| 56 | `POST /cash-sessions/{SESSION}/close` | `cloture-1` ; `{"counted_breakdown": {"10000": 2, "5000": 1, "2000": 1}, "notes": "RAS"}` | `201`, `z_number: 1`, `counted_cash_xof: 27000`, `expected_cash_xof: 27000`, **`variance_xof: 0`**. `print_job_id` rempli (ticket Z imprimé, pas de tiroir). Noter → **JOB_Z**. |
+| 56 | `POST /cash-sessions/{SESSION}/close` | `cloture-1` ; `{"counted_breakdown": {"10000": 2, "5000": 1, "2000": 1}, "notes": "RAS"}` | `201`, `z_number: 1`, `counted_cash_xof: 27000`, `expected_cash_xof: 27000`, **`variance_xof: 0`**. `print_job_id` rempli (ticket Z mis en file, pas de tiroir). Noter → **JOB_Z**. |
 | 57 | `GET /cash-sessions/{SESSION}/z-report` | — | Les mêmes chiffres, figés. **Même `print_job_id`** que l'étape 56 : le Z ne s'imprime qu'une fois. |
 | 58 | `POST /orders` | `{"table_id": null}` | `409 NO_OPEN_SESSION` |
 | 59 | `DELETE /orders/{O1}/payments/{un paiement de O1}` | `reason` = `test` | `409 PAYMENT_NOT_VOIDABLE`, `meta.reason: "session_closed"` : après le Z, plus rien ne bouge. |
@@ -163,12 +163,12 @@ Fonctionne après la clôture : les routes ne dépendent pas d'une session ouver
 
 | # | Route | Envoyer | Attendu |
 |---|---|---|---|
-| 60 | `GET /printing/status` | — | `200`, `queued_jobs` et `failed_jobs` reflètent la file ; `agent_online`/`printer_online` selon l'agent réellement branché (`false` sur un poste de dev sans imprimante — normal, voir `print-agent/README.md` pour le mode factice). |
+| 60 | `GET /printing/status` | — | `200`, `queued_jobs` et `failed_jobs` reflètent la file ; `agent_online`/`printer_online` selon l'agent qui interroge l'API (`false` sans agent lancé — normal, voir `print-agent/README.md` pour le mode factice et le jeton de terminal). |
 | 61 | `GET /printing/jobs` | — | Au moins 3 travaux `RECEIPT` (**JOB_O1** et celui d'O2) et 1 `Z_REPORT` (**JOB_Z**), avec leur `status`. |
 | 62 | `POST /orders/{O1}/reprint` | — | `200`, commande renvoyée. Un nouveau travail `RECEIPT` apparaît dans `GET /printing/jobs`, `is_reprint: true`, **n'ouvre pas le tiroir**. Compté dans `controls.reprints` (relire le rapport Z de l'étape 57 : `controls.reprints` passe à 1 si on le relit après coup — en fait figé à la clôture, donc visible seulement sur une future clôture). |
 | 63 | `POST /orders/{O3}/reprint` | — | `409 NO_RECEIPT_TO_REPRINT` : O3 a été annulée sans jamais être soldée, donc jamais imprimée. |
-| 64 | `POST /printing/jobs/{JOB_O1}/retry` | — | Si **JOB_O1** était déjà `DONE` : `409 PRINT_JOB_NOT_RETRYABLE`. (Pour tester un vrai rejeu, débrancher l'agent avant l'étape 33, puis le rebrancher avant cette étape.) |
-| 65 | `POST /printing/open-drawer` | En caissier (jeton de l'étape 4 toujours actif) | `403 INSUFFICIENT_PRIVILEGE` : réservé au RESPONSABLE. Se reconnecter avec le PIN `242424`, puis réessayer → `200`, `drawer_opened: true` (ou `503` si l'agent n'est pas joignable). |
+| 64 | `POST /printing/jobs/{JOB_O1}/retry` | — | `409 PRINT_JOB_NOT_RETRYABLE` : **JOB_O1** est `DONE` si l'agent l'a imprimé, ou encore `QUEUED` sans agent (il attend déjà en file). Seul un travail `FAILED` se rejoue (imprimante en panne pendant l'impression). |
+| 65 | `POST /printing/open-drawer` | En caissier (jeton de l'étape 4 toujours actif) | `403 INSUFFICIENT_PRIVILEGE` : réservé au RESPONSABLE. Se reconnecter avec le PIN `242424`, puis réessayer → `202`, travail `DRAWER` en file (ou `503 PRINT_AGENT_UNAVAILABLE` si aucun agent ne s'est signalé depuis 15 s). |
 
 ---
 
@@ -179,7 +179,7 @@ docker exec infra-db sh -c 'psql -U "$POSTGRES_USER" -d caisse -c \
   "select created_at, action, entity, reason from audit_logs order by created_at desc limit 30"'
 ```
 
-On doit y voir notamment `payment.create`, `payment.void` (avec le motif), `order.item_remove`, `order.cancel`, `auth.override_granted`, `fne.issue`, `cash_session.close`, `print_job.print` (ticket, Z, ré-impression), `printing.open_drawer_manual`.
+On doit y voir notamment `payment.create`, `payment.void` (avec le motif), `order.item_remove`, `order.cancel`, `auth.override_granted`, `fne.issue`, `cash_session.close`, `order.reprint`, `print_job.print` (résultat rendu par l'agent), `printing.open_drawer_manual`.
 
 ## Rejouer le circuit
 

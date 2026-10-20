@@ -35,8 +35,10 @@ class Settings(BaseSettings):
     login_rate_limit_per_minute: int = 10
     refresh_rate_limit_per_minute: int = 30
 
-    print_agent_url: str = "http://host.docker.internal:8090"
-    print_agent_token: str = ""
+    # l'agent du terminal interroge l'API toutes les ~2 s : au-delà, il est considéré hors ligne
+    print_agent_offline_after_seconds: int = 15
+    # un travail pris (PRINTING) sans résultat au-delà de ce délai peut être remis en file
+    print_job_stale_seconds: int = 120
     printer_width: int = 48
     drawer_pulse: str = "ESC_P_0_25_250"
 

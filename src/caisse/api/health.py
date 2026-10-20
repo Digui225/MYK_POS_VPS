@@ -7,10 +7,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from caisse.database import get_db
-from caisse.deps import PrintAgentDep
-from caisse.domain.enums import FneStatus, PrintJobStatus
+from caisse.domain.enums import FneStatus
 from caisse.models.fne import FneDocument
-from caisse.models.print_job import PrintJob
+from caisse.services import printing_service
 
 router = APIRouter(tags=["Santé"])
 
@@ -24,36 +23,33 @@ def health() -> dict[str, str]:
 
 
 @router.get("/health/ready", summary="Le service est prêt à vendre")
-def ready(agent: PrintAgentDep, db: Session = Depends(get_db)) -> JSONResponse:
+def ready(db: Session = Depends(get_db)) -> JSONResponse:
     """Readiness : la base est indispensable ; l'imprimante et les files sont informatives
     (une imprimante absente ne bloque jamais la vente)."""
     body: dict[str, Any] = {"status": "ok"}
     try:
         db.execute(text("SELECT 1"))
         body["database"] = "ok"
+        printing = printing_service.status(db)
         body["queues"] = {
-            "print_queued": db.scalar(
-                select(func.count())
-                .select_from(PrintJob)
-                .where(PrintJob.status == PrintJobStatus.QUEUED)
-            ),
-            "print_failed": db.scalar(
-                select(func.count())
-                .select_from(PrintJob)
-                .where(PrintJob.status == PrintJobStatus.FAILED)
-            ),
+            "print_queued": printing.queued_jobs,
+            "print_failed": printing.failed_jobs,
             "fne_pending": db.scalar(
                 select(func.count())
                 .select_from(FneDocument)
                 .where(FneDocument.status.in_(FNE_PENDING))
             ),
         }
+        body["printer"] = {
+            "agent_online": printing.agent_online,
+            "printer_online": printing.printer_online,
+            "paper": printing.paper,
+        }
     except SQLAlchemyError:
-        body.update(status="unavailable", database="unreachable")
-    printer = agent.status()
-    body["printer"] = {
-        "agent_online": printer.agent_online,
-        "printer_online": printer.printer_online,
-        "paper": printer.paper,
-    }
+        # l'état de l'agent est en base : inconnu quand elle ne répond pas
+        body.update(
+            status="unavailable",
+            database="unreachable",
+            printer={"agent_online": False, "printer_online": False, "paper": None},
+        )
     return JSONResponse(body, status_code=200 if body["status"] == "ok" else 503)

@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Path, Query, Request, Response, status
 
-from caisse.deps import Ctx, CurrentUser, DbSession, OverrideTokenHeader, PrintAgentDep
+from caisse.deps import Ctx, CurrentUser, DbSession, OverrideTokenHeader
 from caisse.idempotency import IdempotencyKey
 from caisse.schemas.orders import OrderResult, PaymentResult
 from caisse.schemas.payments import PaymentCreate, PaymentMethodOut
@@ -36,7 +36,6 @@ def register_payment(
     request: Request,
     response: Response,
     idempotency_key: IdempotencyKey,
-    agent: PrintAgentDep,
 ) -> PaymentResult:
     """Idempotent (`Idempotency-Key` obligatoire) : un rejeu renvoie la réponse d'origine en
     `200` avec `Idempotent-Replay: true`, sans second paiement.
@@ -62,7 +61,6 @@ def register_payment(
         path=request.url.path,
         user=user,
         ctx=ctx,
-        agent=agent,
     )
     if replayed:
         response.status_code = status.HTTP_200_OK

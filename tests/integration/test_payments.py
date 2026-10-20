@@ -9,7 +9,7 @@ from caisse.domain.enums import UserRole
 from caisse.models import AppSetting, CashRegister, Payment, Product, RestaurantTable
 from caisse.seeds.demo import load_demo_menu
 
-from .conftest import FakePrintAgent, auth, login
+from .conftest import auth, login
 
 pytestmark = pytest.mark.integration
 
@@ -109,8 +109,8 @@ def test_mixed_payment_settles_order_and_frees_table(
     assert [p["method"] for p in order["payments"]] == ["CASH", "MOBILE_MONEY"]
 
     receipt = second.json()["receipt"]
-    assert receipt["status"] == "DONE"
-    assert receipt["drawer_opened"] is True
+    assert receipt["status"] == "QUEUED"  # l'agent du terminal le prendra
+    assert receipt["drawer_opened"] is None
     assert receipt["print_job_id"]
     assert second.json()["fiscal_document"] is None
 
@@ -131,20 +131,19 @@ def test_mixed_payment_settles_order_and_frees_table(
 
 
 def test_settling_payment_survives_printer_offline(
-    client: TestClient, setup: dict[str, Any], fake_print_agent: FakePrintAgent
+    client: TestClient, setup: dict[str, Any]
 ) -> None:
-    """L'imprimante est informative : une vente reste 201 même si l'agent est injoignable."""
+    """L'imprimante est informative : une vente reste 201 même sans agent en ligne."""
     cashier = setup["cashier"]
     order_id = _order(client, setup)
-    fake_print_agent.mode = "offline"
 
     resp = _pay(client, cashier, order_id, "k1", method="CASH", amount_xof=9000, tendered_xof=9000)
     assert resp.status_code == 201, resp.text
     order = resp.json()["order"]
     assert order["status"] == "PAID"
     receipt = resp.json()["receipt"]
-    assert receipt["status"] == "FAILED"
-    assert receipt["drawer_opened"] is False
+    assert receipt["status"] == "QUEUED"  # attend le retour de l'agent
+    assert receipt["drawer_opened"] is None
 
 
 def test_payment_rules(client: TestClient, db: Session, setup: dict[str, Any]) -> None:

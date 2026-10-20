@@ -10,6 +10,7 @@ from caisse.models.order import Order, OrderItem
 from caisse.models.outbox import OutboxEvent
 from caisse.models.payment import Payment
 from caisse.models.print_job import PrintJob
+from caisse.models.print_terminal import PrintTerminal
 from caisse.models.settings import AppSetting, IdempotencyRecord, SequenceCounter
 from caisse.models.stock import ProductComponent, StockArticle, StockMovement
 from caisse.models.table import RestaurantTable
@@ -33,6 +34,7 @@ __all__ = [
     "OverrideGrant",
     "Payment",
     "PrintJob",
+    "PrintTerminal",
     "Product",
     "ProductComponent",
     "ProductPriceHistory",
