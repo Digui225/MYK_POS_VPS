@@ -217,24 +217,13 @@ Le reste (secrets, CORS, 502, SELinux…) : guide 05, §13.
 
 ## 12. Accès du dev front
 
-Le dev front dépose son build dans `/opt/caisse/front-dist` avec un compte qui ne peut écrire
-que là (procédure côté front : [`docs/GUIDE-FRONT.md`](../../docs/GUIDE-FRONT.md) §10). Il envoie
-sa **clé publique** SSH ; on ne lui donne jamais le mot de passe `root`.
+Le dev front déploie lui-même son build dans `/opt/caisse/front-dist` (procédure :
+[`docs/GUIDE-FRONT.md`](../../docs/GUIDE-FRONT.md) §10), avec son accès SSH existant.
 
-```bash
-# Sur le VPS
-id caisse-front 2>/dev/null || useradd -m caisse-front
-mkdir -p /home/caisse-front/.ssh
-nano /home/caisse-front/.ssh/authorized_keys          # coller sa clé publique (une ligne ssh-ed25519 …)
-chown -R caisse-front: /home/caisse-front/.ssh
-chmod 700 /home/caisse-front/.ssh && chmod 600 /home/caisse-front/.ssh/authorized_keys
-
-chown -R caisse-front: /opt/caisse/front-dist
-chmod 755 /opt/caisse
-ls -l /opt/caisse/db.env /opt/caisse/api.env          # -rw------- root : illisibles pour lui
-```
-
-Test depuis sa machine : `ssh caisse-front@162.215.172.50 "ls /opt/caisse/front-dist"`.
+- Il se connecte en `root` : rien à faire.
+- Il a un compte personnel : lui donner ce dossier, une fois, en `root` :
+  `chown -R <son-compte>: /opt/caisse/front-dist && chmod 755 /opt/caisse`.
+  `db.env` et `api.env` restent illisibles pour lui (`chmod 600`, propriétaire `root`).
 
 À lui transmettre :
 - `docs/GUIDE-FRONT.md` (branchement, déploiement §10, nouveautés) et

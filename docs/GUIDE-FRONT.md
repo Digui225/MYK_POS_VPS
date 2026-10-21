@@ -363,19 +363,19 @@ Le parcours détaillé, avec les réponses attendues, est dans [`CIRCUIT-TEST-SW
 
 Le build est servi par Nginx depuis `/opt/caisse/front-dist/` sur le serveur ; `/api/` et `/docs` sont relayés vers le backend.
 
-**Accès** : un compte SSH `caisse-front`, qui ne peut écrire que dans ce dossier. Envoyer sa **clé publique** SSH (`~/.ssh/id_ed25519.pub`) au responsable du backend ; jamais de mot de passe `root`.
+**Accès** : ton compte SSH sur le serveur (`<compte>` ci-dessous), avec le droit d'écrire dans `/opt/caisse/front-dist`. **N'écrire que dans ce dossier** : le serveur héberge d'autres projets, et `rsync --delete` vers un mauvais chemin les effacerait.
 
 ```bash
 # 1. Build avec l'API en relatif (exemple Vite) — .env.production : VITE_API_BASE_URL=/api/v1
 npm run build                                          # → dist/
 
 # 2. Remplacer le contenu de front-dist (--delete retire les anciens fichiers)
-rsync -avz --delete dist/ caisse-front@162.215.172.50:/opt/caisse/front-dist/
+rsync -avz --delete dist/ <compte>@162.215.172.50:/opt/caisse/front-dist/
 
 # 3. Rien à redémarrer : les nouveaux fichiers sont servis immédiatement
 ```
 
-Sans `rsync` : `ssh caisse-front@162.215.172.50 "rm -rf /opt/caisse/front-dist/*"` puis `scp -r dist/* caisse-front@162.215.172.50:/opt/caisse/front-dist/`.
+Sans `rsync` : `ssh <compte>@162.215.172.50 "rm -rf /opt/caisse/front-dist/*"` puis `scp -r dist/* <compte>@162.215.172.50:/opt/caisse/front-dist/`.
 
 Ce que le serveur attend du build :
 
