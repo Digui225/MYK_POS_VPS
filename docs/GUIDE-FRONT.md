@@ -1,10 +1,12 @@
 # Backend caisse MYK — guide pour le front
 
-État au 19/10/2026, branche `digui_remote`. Ce guide dit **comment brancher le front sur le backend**. Le détail de chaque route (corps, réponses, codes d'erreur) est dans [`ENDPOINTS-TESTABLES.md`](ENDPOINTS-TESTABLES.md), et Swagger (http://localhost:8001/docs) reste la référence exacte des schémas.
+État au 21/10/2026, dépôt `MYK_POS_VPS` (branche `main`), déployé en recette sur **http://162.215.172.50:8083**. Ce guide dit **comment brancher le front sur le backend et le déployer**. Le détail de chaque route (corps, réponses, codes d'erreur) est dans [`ENDPOINTS-TESTABLES.md`](ENDPOINTS-TESTABLES.md), et Swagger (http://162.215.172.50:8083/docs) reste la référence exacte des schémas.
+
+> **Nouveau (20/10/2026) : la caisse est en ligne.** Backend et base tournent sur un serveur ; le terminal du restaurant n'a que le navigateur (le front) et un petit agent qui imprime les tickets. Ce qui change pour le front : l'impression ne répond plus en direct (§5.3, §6) et le build est déployé sur le serveur (§10).
 
 ## 1. Un seul backend
 
-Le projet a **un seul backend** : celui de `digui_remote`. La branche `aziz` contenait un second backend (`apps/api`). Toutes ses fonctions ont été reprises ici, testées et documentées, mais **sous les routes du contrat** (`03-CONTRAT-API.md`). Cette branche sert désormais de référence et ne doit plus évoluer.
+Le projet a **un seul backend** : celui de ce dépôt (`MYK_POS_VPS`, issu de la branche `digui_remote` de `Caisse_MYK_backend`). La branche `aziz` contenait un second backend (`apps/api`). Toutes ses fonctions ont été reprises ici, testées et documentées, mais **sous les routes du contrat** (`03-CONTRAT-API.md`). Cette branche sert désormais de référence et ne doit plus évoluer.
 
 Règles de travail :
 
@@ -17,10 +19,35 @@ La section [4](#4-passer-de-la-branche-aziz-à-ce-backend) liste, route par rout
 
 ## 2. Démarrer
 
+### 2.1 Sur la recette (recommandé)
+
+Rien à installer côté backend : il tourne déjà.
+
+| | |
+|---|---|
+| Appli (front déployé) | http://162.215.172.50:8083 |
+| Base de l'API **dans le code du front** | `/api/v1`, **chemin relatif** : le front et l'API sont servis par la même adresse, donc pas de CORS |
+| Swagger | http://162.215.172.50:8083/docs |
+| Santé (bandeau de connexion) | `GET /api/v1/health` |
+| Comptes de test | un PIN par rôle (`CAISSIER`, `RESPONSABLE`, `ADMIN`), transmis en privé |
+
+En développement local (`npm run dev`), viser la recette par un proxy, sans changer le code :
+
+```js
+// vite.config.js
+server: { proxy: { '/api': 'http://162.215.172.50:8083' } }
+```
+
+(Appeler `http://162.215.172.50:8083/api/v1` en URL complète depuis `http://localhost:5173` marche aussi : cette origine est autorisée.)
+
+La recette est un environnement de test : HTTP sans chiffrement, données fictives effacées sans préavis, FNE simulée. Aucune vraie donnée client.
+
+### 2.2 Backend en local (facultatif)
+
 ```bash
 cp .env.example .env            # renseigner DATABASE_URL et JWT_SECRET ; APP_ENV=development en dev
 docker compose up -d --build
-docker compose exec api alembic upgrade head                  # migrations jusqu'à 0006
+docker compose exec api alembic upgrade head                  # migrations jusqu'à 0007
 docker compose exec api python -m caisse.cli bootstrap        # caisse « Caisse 1 » + paramètres
 docker compose exec api python -m caisse.cli create-user      # un ADMIN (PIN 6 chiffres)
 docker compose exec api python -m caisse.cli import-catalog   # menu réel (40 produits)
@@ -33,6 +60,8 @@ curl -s localhost:8001/health/ready
 - Pour les tests, crée un utilisateur par rôle (`POST /users` en ADMIN) : `CAISSIER`, `RESPONSABLE` (le gestionnaire), `ADMIN` (M. Yapi).
 - Le menu de démonstration (`seed --demo`) est une autre option ; ne pas le mélanger avec le menu réel.
 - CORS : en développement, `CORS_ORIGINS=*` ou la liste des origines du front dans le `.env`.
+- Ce `docker-compose.yml` attend le socle PostgreSQL partagé (`../infra`, réseau `infra_shared`). Sans lui, utiliser la recette (§2.1).
+- Tickets : sans agent d'impression lancé, ils restent `QUEUED` (normal). Pour les voir sortir : agent en mode factice, [`print-agent/README.md`](../print-agent/README.md).
 
 ## 3. Conventions
 
@@ -329,3 +358,31 @@ Le parcours détaillé, avec les réponses attendues, est dans [`CIRCUIT-TEST-SW
 | Remboursement d'une commande soldée | `POST /orders/{id}/refunds`, reporté (rare au restaurant) |
 | Journal d'audit | `GET /reports/audit`, à venir |
 | Agent d'impression pour Windows | Écrit (spouleur Windows, Xprinter 58 mm) ; reste à le valider sur le terminal du restaurant. Tickets sur 32 caractères |
+
+## 10. Déployer le front sur la recette
+
+Le build est servi par Nginx depuis `/opt/caisse/front-dist/` sur le serveur ; `/api/` et `/docs` sont relayés vers le backend.
+
+**Accès** : un compte SSH `caisse-front`, qui ne peut écrire que dans ce dossier. Envoyer sa **clé publique** SSH (`~/.ssh/id_ed25519.pub`) au responsable du backend ; jamais de mot de passe `root`.
+
+```bash
+# 1. Build avec l'API en relatif (exemple Vite) — .env.production : VITE_API_BASE_URL=/api/v1
+npm run build                                          # → dist/
+
+# 2. Remplacer le contenu de front-dist (--delete retire les anciens fichiers)
+rsync -avz --delete dist/ caisse-front@162.215.172.50:/opt/caisse/front-dist/
+
+# 3. Rien à redémarrer : les nouveaux fichiers sont servis immédiatement
+```
+
+Sans `rsync` : `ssh caisse-front@162.215.172.50 "rm -rf /opt/caisse/front-dist/*"` puis `scp -r dist/* caisse-front@162.215.172.50:/opt/caisse/front-dist/`.
+
+Ce que le serveur attend du build :
+
+| Règle | Pourquoi |
+|---|---|
+| `index.html` à la racine de `dist/` | Toute route inconnue (`/caisse`, `/admin/…`) renvoie `index.html` : le routage côté client fonctionne, rechargement compris |
+| Fichiers du build dans `assets/`, avec une empreinte dans le nom (`index-a1b2c3.js`, défaut de Vite) | `assets/` est mis en cache un an ; `index.html` jamais : un nouveau build est pris dès le rechargement |
+| **Aucune ressource chargée depuis un CDN** (Google Fonts, `cdn.jsdelivr.net`, `unpkg.com`, icônes…) : tout dans le build (`npm install` + import) | Certains réseaux d'Abidjan n'atteignent pas ces CDN : constaté le 20/10/2026 sur Swagger (page blanche). La caisse doit s'afficher même ainsi |
+| Pas d'URL absolue de l'API dans le build | Le même build doit marcher sur la recette puis en production (`https://gestion.…`) |
+

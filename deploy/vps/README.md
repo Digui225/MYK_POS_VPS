@@ -214,3 +214,30 @@ Le reste (secrets, CORS, 502, SELinux…) : guide 05, §13.
 | Accents faux | Page de code | `PRINTER_CODEPAGE=CP850` |
 | Lignes coupées en deux | Largeur différente entre API et imprimante | `PRINTER_WIDTH=32` dans `/opt/caisse/api.env` **et** dans le `.env` du terminal |
 | `503 PRINT_AGENT_UNAVAILABLE` sur le tiroir ou le test | Aucun agent depuis 15 s | Normal tant que l'agent n'est pas en ligne |
+
+## 12. Accès du dev front
+
+Le dev front dépose son build dans `/opt/caisse/front-dist` avec un compte qui ne peut écrire
+que là (procédure côté front : [`docs/GUIDE-FRONT.md`](../../docs/GUIDE-FRONT.md) §10). Il envoie
+sa **clé publique** SSH ; on ne lui donne jamais le mot de passe `root`.
+
+```bash
+# Sur le VPS
+id caisse-front 2>/dev/null || useradd -m caisse-front
+mkdir -p /home/caisse-front/.ssh
+nano /home/caisse-front/.ssh/authorized_keys          # coller sa clé publique (une ligne ssh-ed25519 …)
+chown -R caisse-front: /home/caisse-front/.ssh
+chmod 700 /home/caisse-front/.ssh && chmod 600 /home/caisse-front/.ssh/authorized_keys
+
+chown -R caisse-front: /opt/caisse/front-dist
+chmod 755 /opt/caisse
+ls -l /opt/caisse/db.env /opt/caisse/api.env          # -rw------- root : illisibles pour lui
+```
+
+Test depuis sa machine : `ssh caisse-front@162.215.172.50 "ls /opt/caisse/front-dist"`.
+
+À lui transmettre :
+- `docs/GUIDE-FRONT.md` (branchement, déploiement §10, nouveautés) et
+  `docs/ENDPOINTS-TESTABLES.md` (détail des routes), ou un accès en lecture au dépôt ;
+- un PIN par rôle (`CAISSIER`, `RESPONSABLE`, `ADMIN`), **par un canal privé** ;
+- pas le jeton du terminal d'impression : il ne sert qu'à l'agent.

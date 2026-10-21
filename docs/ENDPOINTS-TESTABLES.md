@@ -1,6 +1,6 @@
 # Endpoints testables — état au 20/10/2026
 
-Ce document décrit les **routes réellement implémentées** dans `caisse-backend`, telles que le code les expose aujourd'hui. Le contrat cible complet est dans [`03-CONTRAT-API.md`](../../projet_caisse_MYK/03-CONTRAT-API.md). Toute route du contrat absente d'ici renvoie `404 NOT_FOUND`.
+Ce document décrit les **routes réellement implémentées** dans ce backend (`MYK_POS_VPS`), telles que le code les expose aujourd'hui. Le contrat cible complet est dans [`03-CONTRAT-API.md`](../../projet_caisse_MYK/03-CONTRAT-API.md). Toute route du contrat absente d'ici renvoie `404 NOT_FOUND`.
 
 **Pour le front** : commencer par [`GUIDE-FRONT.md`](GUIDE-FRONT.md) (règles de travail, conventions, correspondance avec la branche `aziz`, routes par écran).
 
@@ -106,7 +106,7 @@ Les fonctions développées sur la branche `aziz` sont reprises ici **sous les r
 **Par où commencer :**
 
 1. Préparer la base avec `docker compose exec api python -m caisse.cli …` : `bootstrap` (caisse n° 1), `create-user` (un ADMIN), `seed --demo` (menu + 15 tables).
-2. Ouvrir Swagger (http://localhost:8001/docs), se connecter avec `POST /auth/login`, coller l'`access_token` dans **Authorize**.
+2. Ouvrir Swagger (recette : http://162.215.172.50:8083/docs), se connecter avec `POST /auth/login`, coller l'`access_token` dans **Authorize**.
    Pour le menu réel du restaurant avec son stock : `import-catalog` puis `import-stock --stock-initial` (§11).
 3. Suivre le parcours d'une journée : ouvrir la caisse (§6) → prendre des commandes (§7) → encaisser (§8) → clôturer (§6). Le [§14](#14-scénario-de-test-complet-curl--jq) fait la même chose en curl.
 
@@ -116,12 +116,14 @@ Les fonctions développées sur la branche `aziz` sont reprises ici **sous les r
 
 ### Adresses
 
-| | |
-|---|---|
-| API (Docker) | `http://localhost:8001` |
-| Préfixe métier | `/api/v1` |
-| Swagger | http://localhost:8001/docs (bouton **Authorize** → coller l'`access_token`) |
-| OpenAPI brut | http://localhost:8001/openapi.json |
+| | Recette (en ligne) | Backend en local (Docker) |
+|---|---|---|
+| API | `http://162.215.172.50:8083` | `http://localhost:8001` |
+| Préfixe métier | `/api/v1` | `/api/v1` |
+| Swagger | http://162.215.172.50:8083/docs | http://localhost:8001/docs |
+| OpenAPI brut | http://162.215.172.50:8083/openapi.json | http://localhost:8001/openapi.json |
+
+Swagger : bouton **Authorize** → coller l'`access_token`. Les exemples `curl` de ce document visent `localhost:8001` : remplacer par `162.215.172.50:8083` pour la recette.
 
 ### En-têtes
 
