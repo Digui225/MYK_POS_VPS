@@ -2,7 +2,7 @@
 # Dump de la base caisse (et d'elle seule) dans /opt/caisse/backups, conservé 14 jours.
 # Cron : 0 2 * * * bash /opt/caisse/backend/deploy/vps/backup.sh >> /opt/caisse/backups/backup.log 2>&1
 set -euo pipefail
-DEST="${BACKUP_DEST:-/opt/caisse/backups}"
+DEST="${BACKUP_DEST:-${CAISSE_ROOT:-/opt/caisse}/backups}"
 KEEP_DAYS="${KEEP_DAYS:-14}"
 
 mkdir -p "$DEST"

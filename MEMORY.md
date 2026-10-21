@@ -24,6 +24,7 @@ Faire tourner la caisse **en ligne** : backend et base sur un VPS, terminal du r
 | 20/10/2026 | Impression : le paiement répond tout de suite (`receipt.status = QUEUED`, `drawer_opened = null`) ; le front suit `GET /printing/jobs/{id}`. Pas d'attente de l'agent dans la requête |
 | 20/10/2026 | Tiroir : s'ouvre **toujours** avec le ticket, même sorti en retard (retour de l'agent après coupure). Mais l'ouverture manuelle et le test sont refusés (`503`) si aucun agent ne s'est signalé depuis 15 s |
 | 20/10/2026 | Une seule file d'impression, jeton de terminal non rattaché à une caisse (un seul poste) ; rattachement à prévoir s'il y a un 2ᵉ poste |
+| 21/10/2026 | **Risque accepté** : coupure Internet au restaurant = pas de vente ni d'impression (pas de mode hors ligne) |
 | 20/10/2026 | Agent : interrogation courte toutes les 2 s (`POST /print-agent/poll`), un travail à la fois ; jamais de remise en file automatique d'un travail `PRINTING` (double ticket), rejeu manuel après 2 min |
 
 ## Périmètre de la refonte
@@ -34,11 +35,10 @@ Faire tourner la caisse **en ligne** : backend et base sur un VPS, terminal du r
 4. **Déploiement de prod** : HTTPS sur le domaine, `deploy/` adapté.
 5. **Nettoyage** de ce qui ne sert qu'au mode local (socle `infra_shared`, `scripts/demarrer-caisse.sh`…).
 
-Hors périmètre : mode hors ligne. **Conséquence assumée à confirmer : sans Internet au restaurant, pas de vente ni d'impression.**
+Hors périmètre : mode hors ligne. **Conséquence acceptée le 21/10/2026 : sans Internet au restaurant, pas de vente ni d'impression.**
 
 ## Questions ouvertes
 
-- [ ] Confirmer par écrit l'acceptation du risque « coupure Internet = caisse arrêtée »
 - [ ] **Serveur de prod** : le VPS partagé `162.215.172.50` est sous CentOS 7 (sans mises à jour depuis 06/2024), partagé avec ~20 projets, accès `root` commun. Recommandé : VPS dédié Ubuntu 24.04. Décider avant la prod
 - [ ] Terminal : caractéristiques (RAM, CPU, disque) ; **Windows 10 sans mises à jour depuis le 14/10/2025** → Windows 11 si compatible, ou ESU
 - [ ] Imprimante : **Xprinter 58 mm** (à confirmer : modèle exact, coupe-papier ?), pilote installé sur le Windows de la caisse. Tiroir branché sur l'imprimante (RJ11) ?
@@ -51,16 +51,13 @@ Hors périmètre : mode hors ligne. **Conséquence assumée à confirmer : sans 
 
 ## État du VPS `162.215.172.50` (recette)
 
-Guide : [`deploy/vps/README.md`](deploy/vps/README.md) (adapté à ce dépôt, reprend après les étapes 1 et 2 ci-dessous ; `projet_caisse_MYK/05-DEPLOIEMENT-VPS.md` reste la référence pour `Caisse_MYK_backend`).
+Guide : [`deploy/vps/README.md`](deploy/vps/README.md). **Mise à jour : `deploy/vps/redeploy.sh`** depuis le poste de dev (`deploy.sh` : première installation sur un autre serveur). Scripts testés de bout en bout sur une simulation locale le 21/10/2026 (bascule ≈ 3 s).
 
-**Fait :**
-- Étape 1 (inventaire) ✅ — Compose v2.27.1, SELinux **désactivé** (sauter §7.1), 298 Go libres, aucun conteneur/réseau/volume `caisse`.
-- Étape 2 ✅ — `/opt/caisse/{backend,front-dist,backups}` créés ; `/opt/caisse/backend` contient **`Caisse_MYK_backend` @ `9e9ec8b`**.
+**Déployé le 21/10/2026** : ce dépôt @ `3170d4d` (Swagger servi par l'API), migration 0007, menu et stock réels, 15 tables, ADMIN créé, terminal d'impression « Comptoir » créé (jeton noté hors dépôt), Nginx sur 8083, pare-feu ouvert. SELinux désactivé. Swagger et connexion par PIN vérifiés.
 
-**À la reprise (« étape 3 un jour prochain ») :**
-1. Remplacer `/opt/caisse/backend` par **ce dépôt** : `ssh root@… "rm -rf /opt/caisse/backend && mkdir -p /opt/caisse/backend"` puis `git archive main | ssh root@… "tar -x -C /opt/caisse/backend"`.
-2. Étape 3 : secrets (`db.env`, `api.env` depuis les modèles). Rien n'a encore été créé ; ensuite ne plus régénérer `db.env` après le premier démarrage de la base.
-3. Travailler dans `tmux` et avec `ssh -o ServerAliveInterval=30` (coupures SSH constatées).
+**Reste :** comptes CAISSIER et RESPONSABLE pour le dev front ; cron de sauvegarde (§9 du guide) à vérifier ; front à déployer par le dev front (`docs/GUIDE-FRONT.md` §10, avec son accès SSH existant) ; puis installation et recette de l'agent Windows (§7-8).
+
+**Réseau du bureau (Wi-Fi OSIS GROUP)** : une plage d'adresses Cloudflare (104.16.x–104.23.x : `cdn.jsdelivr.net`, `unpkg.com`, `registry.npmjs.org`, Docker Hub) ne répond pas au-delà de la connexion TCP. Contourné pour Swagger (servi par l'API). Docker Hub et npm injoignables depuis ce réseau : passer par PyPI, `fastly.jsdelivr.net` ou `registry.npmmirror.com`.
 
 **Ports :**
 

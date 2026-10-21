@@ -29,6 +29,42 @@ guide-là déjà faites** (inventaire, dossiers `/opt/caisse/{backend,front-dist
 
 ---
 
+## Scripts : déploiement et mise à jour en une commande
+
+À lancer **depuis ta machine**, à la racine du dépôt. Ils ne déploient que le contenu **commité**
+(arrêt si des modifications sont en attente), demandent confirmation, et n'ouvrent qu'une
+connexion SSH (le mot de passe n'est demandé qu'une fois).
+
+| Script | Quand | Ce qu'il fait |
+|---|---|---|
+| `deploy/vps/deploy.sh` | **Première installation** sur un serveur vierge (refuse si la caisse y est déjà) | Étapes 1 à 6 et 9 ci-dessous : code, secrets, conteneurs, migrations, menu, stock et tables, premier ADMIN (PIN demandé au clavier), terminal d'impression (**jeton affiché une fois**), Nginx, SELinux si actif, pare-feu (8083), sauvegarde quotidienne |
+| `deploy/vps/redeploy.sh` | **Toute mise à jour** de la caisse déjà installée (le cas de ce VPS) | Étape 10 : nouvelle image construite pendant que l'API tourne, sauvegarde, migrations, bascule, contrôle de santé, recopie de `caisse.conf` s'il a changé (`nginx -t` puis `reload`, ancienne version remise si le test échoue) |
+
+```bash
+deploy/vps/redeploy.sh                 # déploie main sur le VPS de recette
+deploy/vps/redeploy.sh 3170d4d         # retour arrière vers une version précédente
+deploy/vps/redeploy.sh --yes           # sans question de confirmation
+deploy/vps/deploy.sh --host root@<IP>  # première installation sur un autre serveur
+```
+
+Ce que `redeploy.sh` garantit :
+- **avant de toucher à quoi que ce soit**, il affiche les commits ajoutés (ou retirés en cas de
+  retour arrière) et les fichiers sensibles modifiés (`api.env.example`, `caisse.conf`, Compose,
+  migrations) ;
+- il **s'arrête sans rien modifier** si `api.env` n'a pas une variable ajoutée au modèle, en
+  l'affichant avec son commentaire : l'ajouter (`nano /opt/caisse/api.env`) puis relancer ;
+- construction ou migration en échec : l'API en place continue de tourner sur l'ancien code ;
+- coupure mesurée lors de la bascule : **environ 3 s** (aucune quand l'image ne change pas).
+  En production, déployer hors service ;
+- l'ancien code reste dans `/opt/caisse/backend.prev` et l'ancienne image en `caisse-api:previous`.
+
+Une migration n'est jamais annulée automatiquement : un retour arrière vers une version
+antérieure à une migration s'arrête avec un message (« alembic downgrade » à faire d'abord).
+
+Les sections ci-dessous détaillent les mêmes étapes à la main (dépannage, ou serveur particulier).
+
+---
+
 ## 1. Remplacer le code
 
 `/opt/caisse/backend` contient encore `Caisse_MYK_backend` @ `9e9ec8b` (jamais démarré) : on le
@@ -182,6 +218,8 @@ bash /opt/caisse/backend/deploy/vps/backup.sh && ls -lh /opt/caisse/backups
 Restauration et commandes du quotidien : guide 05, §10 et §12 (identiques).
 
 ## 10. Mise à jour
+
+Avec le script : `deploy/vps/redeploy.sh` (voir plus haut). À la main :
 
 ```bash
 # Sur ta machine
