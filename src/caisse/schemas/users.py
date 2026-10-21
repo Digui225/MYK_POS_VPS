@@ -12,7 +12,7 @@ _PIN_DESCRIPTION = "Code PIN à 6 chiffres, unique parmi les utilisateurs actifs
 class UserDetail(Schema):
     id: uuid.UUID = Field(description="Identifiant de l'utilisateur")
     full_name: str = Field(description="Nom complet", examples=["Awa Koné"])
-    role: UserRole = Field(description="Rôle : CAISSIER < RESPONSABLE < ADMIN")
+    role: UserRole = Field(description="Rôle : ACHETEUR < CAISSIER < RESPONSABLE < ADMIN")
     is_active: bool = Field(description="Faux : connexion impossible et jetons refusés")
     last_login_at: datetime | None = Field(description="Dernière connexion réussie")
     created_at: datetime = Field(description="Date de création")
@@ -26,7 +26,7 @@ class UserCreate(Schema):
     )
 
     full_name: str = Field(min_length=1, max_length=120, description="Nom complet")
-    role: UserRole = Field(description="Rôle : CAISSIER < RESPONSABLE < ADMIN")
+    role: UserRole = Field(description="Rôle : ACHETEUR < CAISSIER < RESPONSABLE < ADMIN")
     pin: str = Field(pattern=r"^\d{4,8}$", description=_PIN_DESCRIPTION)
 
 

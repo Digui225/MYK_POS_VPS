@@ -218,7 +218,37 @@ def move(
     return movement
 
 
-def _lock_existing(db: Session, article_ids: list[uuid.UUID]) -> dict[uuid.UUID, StockArticle]:
+def record_purchase(
+    db: Session,
+    article: StockArticle,
+    quantity: Decimal,
+    unit_cost: Decimal,
+    *,
+    business_date: date,
+    user_id: uuid.UUID,
+    supplier: str | None,
+    reason: str | None,
+) -> StockMovement:
+    """Entrée d'achat sur un article verrouillé : coût moyen pondéré recalculé avec le prix
+    payé. Sert à `receive` et à la réception d'une demande d'achat."""
+    unit_cost = stock_rules.quantize_cost(unit_cost)
+    article.avg_cost_xof = stock_rules.weighted_average_cost(
+        article.quantity, article.avg_cost_xof, quantity, unit_cost
+    )
+    return move(
+        db,
+        article,
+        StockMovementType.PURCHASE_IN,
+        quantity,
+        unit_cost=unit_cost,
+        business_date=business_date,
+        user_id=user_id,
+        supplier=supplier,
+        reason=reason,
+    )
+
+
+def lock_existing(db: Session, article_ids: list[uuid.UUID]) -> dict[uuid.UUID, StockArticle]:
     articles = stock_repo.lock_articles(db, article_ids)
     missing = [str(i) for i in article_ids if i not in articles]
     if missing:
@@ -304,25 +334,19 @@ def receive(
 
     def operation() -> StockOperationOut:
         day = business_day(db, body.business_date)
-        articles = _lock_existing(db, [line.article_id for line in body.lines])
+        articles = lock_existing(db, [line.article_id for line in body.lines])
         movements: list[StockMovement] = []
         for line in body.lines:
-            article = articles[line.article_id]
             if line.unit_cost_xof is not None:
                 unit_cost = line.unit_cost_xof
             else:
                 unit_cost = Decimal(line.total_cost_xof or 0) / line.quantity
-            unit_cost = stock_rules.quantize_cost(unit_cost)
-            article.avg_cost_xof = stock_rules.weighted_average_cost(
-                article.quantity, article.avg_cost_xof, line.quantity, unit_cost
-            )
             movements.append(
-                move(
+                record_purchase(
                     db,
-                    article,
-                    StockMovementType.PURCHASE_IN,
+                    articles[line.article_id],
                     line.quantity,
-                    unit_cost=unit_cost,
+                    unit_cost,
                     business_date=day,
                     user_id=user.id,
                     supplier=body.supplier,
@@ -364,7 +388,7 @@ def declare_loss(
 
     def operation() -> StockOperationOut:
         day = business_day(db, body.business_date)
-        articles = _lock_existing(db, [line.article_id for line in body.lines])
+        articles = lock_existing(db, [line.article_id for line in body.lines])
         movements = [
             move(
                 db,
@@ -410,7 +434,7 @@ def count(
 
     def operation() -> StockOperationOut:
         day = business_day(db, body.business_date)
-        articles = _lock_existing(db, [line.article_id for line in body.lines])
+        articles = lock_existing(db, [line.article_id for line in body.lines])
         movements = [
             move(
                 db,

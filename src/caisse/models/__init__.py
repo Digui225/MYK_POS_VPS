@@ -11,6 +11,7 @@ from caisse.models.outbox import OutboxEvent
 from caisse.models.payment import Payment
 from caisse.models.print_job import PrintJob
 from caisse.models.print_terminal import PrintTerminal
+from caisse.models.purchase import PurchaseRequest, PurchaseRequestLine
 from caisse.models.settings import AppSetting, IdempotencyRecord, SequenceCounter
 from caisse.models.stock import ProductComponent, StockArticle, StockMovement
 from caisse.models.table import RestaurantTable
@@ -38,6 +39,8 @@ __all__ = [
     "Product",
     "ProductComponent",
     "ProductPriceHistory",
+    "PurchaseRequest",
+    "PurchaseRequestLine",
     "RefreshToken",
     "RestaurantTable",
     "SequenceCounter",

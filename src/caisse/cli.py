@@ -82,7 +82,7 @@ def cmd_create_user(db: Session, args: argparse.Namespace) -> None:
             sys.exit(f"Variable d'environnement manquante : {exc.args[0]}")
     else:
         name = _ask("Nom complet : ")
-        role = _ask("Rôle [CAISSIER/RESPONSABLE/ADMIN] : ").upper()
+        role = _ask("Rôle [ACHETEUR/CAISSIER/RESPONSABLE/ADMIN] : ").upper()
         pin = _ask_pin()
     try:
         user = user_service.create_user(

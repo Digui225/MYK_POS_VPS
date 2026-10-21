@@ -27,7 +27,7 @@ class ApiWarning(Schema):
 class UserOut(Schema):
     id: uuid.UUID = Field(description="Identifiant de l'utilisateur")
     full_name: str = Field(description="Nom complet", examples=["Awa Koné"])
-    role: UserRole = Field(description="Rôle : CAISSIER < RESPONSABLE < ADMIN")
+    role: UserRole = Field(description="Rôle : ACHETEUR < CAISSIER < RESPONSABLE < ADMIN")
 
 
 class OpenSessionOut(Schema):

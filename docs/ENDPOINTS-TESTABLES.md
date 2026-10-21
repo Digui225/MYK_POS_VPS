@@ -9,6 +9,7 @@ Ce document décrit les **routes réellement implémentées** dans ce backend (`
 | Sujet | Ce qui change pour le front | Où |
 |---|---|---|
 | **Pagination** | `GET /orders`, `GET /cash-sessions`, `GET /stock/movements`, `GET /fne/documents` et `GET /printing/jobs` renvoient **100 éléments au plus** par défaut (`limit`, 500 au plus). Si `next_cursor` n'est pas `null`, il reste des éléments : refaire la même requête avec `cursor=<next_cursor>`. Avant : tout d'un coup (commandes, sessions) ou coupé sans prévenir (200 FNE, 200 tickets). | [§0 Listes](#listes) |
+| **Approvisionnement** | Nouveau rôle `ACHETEUR` et routes `/purchases` : l'acheteur saisit des quantités sans voir les prix et reçoit le montant à lui remettre ; le responsable valide, décaisse, réceptionne (entrées de stock automatiques). **L'ACHETEUR n'a accès à aucune autre route** que `/auth/me`, `/auth/logout` et `/purchases/articles`, `/purchases`, `/purchases/mine…` : `403` partout ailleurs. | [§15](#15-approvisionnement) |
 | **Renvoi automatique FNE** | Un document `QUEUED` repart tout seul à `next_retry_at` (1 min, 5 min, 15 min, puis toutes les heures). Le bouton `retry` reste disponible pour forcer un renvoi immédiat. Les documents refusés (`FAILED`) et incertains ne repartent jamais seuls. | [§9](#statuts-dun-document-fne) |
 
 ## Nouveautés du 20/10/2026 — impression tirée par le terminal (caisse en ligne)
@@ -73,7 +74,7 @@ Les fonctions développées sur la branche `aziz` sont reprises ici **sous les r
 | **Nouveaux codes d'erreur** | `PAYMENT_EXCEEDS_DUE` (déjà au contrat), `PAYMENT_METHOD_DISABLED`, `PAYMENT_NOT_VOIDABLE` ; `ORDER_NOT_EDITABLE` avec `meta.reason = "nothing_due"`. | [§0 Erreurs](#format-des-erreurs-applicationproblemjson) |
 | **Nouvel avertissement** | `FNE_ALREADY_ISSUED` à l'annulation d'un paiement d'une commande qui a déjà une FNE. | [§8](#8-paiements) |
 | **Écran d'avoir FNE** | Non prioritaire (rare au restaurant). | [§9](#9-clients-entreprise-et-fne) |
-| **Pas encore là** | Remboursement d'une commande soldée (`POST /orders/{id}/refunds`) ; ticket de caisse et tiroir (`/printing/*`) : fait depuis le 06/10/2026, voir [§10](#10-impression). | [§15](#15-pas-encore-testable) |
+| **Pas encore là** | Remboursement d'une commande soldée (`POST /orders/{id}/refunds`) ; ticket de caisse et tiroir (`/printing/*`) : fait depuis le 06/10/2026, voir [§10](#10-impression). | [§16](#16-pas-encore-testable) |
 
 ## Nouveautés du 01/10/2026 — FNE et TVA
 
@@ -108,7 +109,8 @@ Les fonctions développées sur la branche `aziz` sont reprises ici **sous les r
 | 12 | [Tableaux de bord](#12-tableaux-de-bord) | `GET /reports/dashboard`, `GET /reports/sales`, `GET /reports/stock` | Journée en cours (RESPONSABLE) ; ventes et stock sur une période (ADMIN) |
 | 13 | [Paramètres et caisses](#13-paramètres-et-caisses) | `GET/PUT /settings`, `GET/POST /cash-registers`, `PATCH /cash-registers/{id}` | Établissement, ticket, TVA, moyens de paiement, FNE ; caisses (ADMIN) |
 | 14 | [Scénario de test complet](#14-scénario-de-test-complet-curl--jq) | — | Tout le parcours en curl, de la connexion à la clôture |
-| 15 | [Pas encore testable](#15-pas-encore-testable) | — | Routes du contrat pas encore implémentées |
+| 15 | [Approvisionnement](#15-approvisionnement) | `GET /purchases/articles`, `POST /purchases`, `GET /purchases/mine`, `GET /purchases/mine/{id}`, `POST …/mine/{id}/cancel`, `GET /purchases`, `GET /purchases/pending-count`, `GET /purchases/{id}`, `POST …/{id}/approve`, `…/reject`, `…/disburse`, `…/receive` | Demandes d'achat : acheteur sans prix, validation, décaissement, réception |
+| 16 | [Pas encore testable](#16-pas-encore-testable) | — | Routes du contrat pas encore implémentées |
 
 **Par où commencer :**
 
@@ -144,12 +146,13 @@ Swagger : bouton **Authorize** → coller l'`access_token`. Les exemples `curl` 
 
 ### Rôles
 
-Hiérarchie : `CAISSIER < RESPONSABLE < ADMIN`. Un rôle hérite des droits des rôles inférieurs.
+Hiérarchie : `ACHETEUR < CAISSIER < RESPONSABLE < ADMIN`. Un rôle hérite des droits des rôles inférieurs.
 
 | Mention dans ce document | Signification |
 |---|---|
 | **public** | Aucun jeton |
-| **connecté** | N'importe quel utilisateur actif avec un `access_token` valide |
+| **connecté** | Utilisateur actif avec un `access_token` valide, **CAISSIER ou au-dessus** (un ACHETEUR reçoit `403 INSUFFICIENT_PRIVILEGE`, `meta.required_role = "CAISSIER"`) ; `/auth/me` et `/auth/logout` acceptent aussi l'ACHETEUR |
+| **ACHETEUR** | Tout rôle : ACHETEUR, CAISSIER, RESPONSABLE ou ADMIN (§15) |
 | **RESPONSABLE** | Rôle RESPONSABLE ou ADMIN, sinon `403 INSUFFICIENT_PRIVILEGE` |
 | **ADMIN** | Rôle ADMIN obligatoire, sinon `403 INSUFFICIENT_PRIVILEGE` |
 
@@ -237,6 +240,7 @@ Le front doit se fier à **`code`**, qui est stable. `title` et `detail` sont de
 | `PRODUCT_NAME_EXISTS` | 409 | Produit du menu déjà existant sous ce nom (`meta.product_id`) |
 | `PRODUCT_SKU_EXISTS` | 409 | Code article (`sku`) déjà utilisé |
 | `STOCK_ARTICLE_NAME_EXISTS` | 409 | Article de stock déjà existant sous ce nom, sans tenir compte de la casse (`meta.article_id`) |
+| `PURCHASE_STATE` | 409 | Action impossible dans l'état actuel d'une demande d'achat (`meta.status`, `meta.expected`) : déjà validée, pas encore décaissée… (§15) |
 | `PRINT_JOB_NOT_RETRYABLE` | 409 | `POST /printing/jobs/{id}/retry` sur un travail déjà `DONE`, déjà en file (`QUEUED`) ou pris à l'instant par l'agent |
 | `PRINTER_UNAVAILABLE` | 503 | Action directe (`/printing/open-drawer`, `/printing/test`) : l'agent se signale, mais rapporte l'imprimante hors ligne. **Jamais** renvoyé par `/orders/{id}/payments` ou `/cash-sessions/{id}/close` : voir [§10](#10-impression). |
 | `PRINT_AGENT_UNAVAILABLE` | 503 | Action directe : aucun agent ne s'est signalé depuis 15 s. Mêmes réserves que ci-dessus. |
@@ -2258,7 +2262,60 @@ docker exec infra-db sh -c 'psql -U "$POSTGRES_USER" -d caisse -c \
 
 ---
 
-## 15. Pas encore testable
+## 15. Approvisionnement
+
+Un acheteur (rôle `ACHETEUR`, créé par l'ADMIN : `POST /users {"role": "ACHETEUR"}`) prépare ses courses **sans voir les prix** ; le responsable ou l'admin suit, valide, remet l'argent, puis réceptionne.
+
+```
+SUBMITTED ──approve──▶ APPROVED ──disburse──▶ DISBURSED ──receive──▶ RECEIVED
+    │                      │
+    ├─cancel (acheteur)    └─reject ──▶ REJECTED
+    └─reject ──▶ REJECTED        CANCELLED
+```
+
+**Montant remis** : quantité × **dernier prix d'achat** de l'article (prix payé à sa dernière entrée de stock), à défaut son coût moyen (prix de l'Excel pour les articles importés). Un article sans aucun prix compte 0 (`price_missing: true` côté responsable) : le corriger à la validation. Les montants sont arrondis au franc.
+
+**Ce que voit l'acheteur** : quantités demandées, validées et reçues, et seulement des totaux (`amount_xof` à lui remettre, `disbursed_xof`, `received_total_xof`, `change_due_xof`). Aucun prix d'une unité, aucun montant par ligne, aucune valeur de stock.
+
+**Pour le responsable** : la demande apparaît dès l'envoi dans `GET /purchases?status=SUBMITTED` ; `GET /purchases/pending-count` donne les compteurs d'un badge. Pas de notification hors de l'application (SMS, WhatsApp) : rafraîchir le compteur.
+
+### Acheteur (ACHETEUR et au-dessus)
+
+| Route | Effet |
+|---|---|
+| `GET /purchases/articles?category=&search=` | Articles actifs par famille puis par nom : `{id, name, category, unit, quantity, is_low}`, sans prix |
+| `POST /purchases` | `{note?, lines: [{article_id, quantity}]}` → `201` la demande avec `amount_xof`. **`Idempotency-Key` obligatoire** (rejeu : `200`, `Idempotent-Replay: true`). `404 NOT_FOUND` (`meta.article_ids`) : article inconnu ou désactivé |
+| `GET /purchases/mine?status=` | Ses demandes, sans les lignes, paginées ([§0 Listes](#listes)) |
+| `GET /purchases/mine/{id}` | Sa demande avec les lignes. `404` pour la demande d'un autre |
+| `POST /purchases/mine/{id}/cancel` | `{reason?}` : retrait, seulement en `SUBMITTED` |
+
+Réponse (vue acheteur) :
+
+```json
+{ "id": "…", "number": "ACH-0001", "status": "APPROVED", "note": "Marché du matin",
+  "amount_xof": 14800, "disbursed_xof": null, "received_total_xof": null, "change_due_xof": null,
+  "closed_reason": null, "created_at": "…", "updated_at": "…",
+  "lines": [ { "id": "…", "article_id": "…", "article_name": "Bœuf", "unit": "kg",
+               "requested_quantity": 3, "approved_quantity": 2.5, "received_quantity": null } ] }
+```
+
+### Responsable (RESPONSABLE et ADMIN)
+
+| Route | Effet |
+|---|---|
+| `GET /purchases?status=` | Toutes les demandes, paginées, avec tous les montants et `requested_by`, `approved_by`… (`{id, full_name, role}`) |
+| `GET /purchases/pending-count` | `{submitted, approved, disbursed}` : à valider, à décaisser, à réceptionner |
+| `GET /purchases/{id}` | Détail : par ligne `unit_price_xof`, `amount_xof`, `price_missing`, `received_quantity`, `received_cost_xof` |
+| `POST /purchases/{id}/approve` | `{lines?: [{line_id, quantity?, unit_price_xof?}]}` : `SUBMITTED` → `APPROVED`. Une ligne non citée est validée telle que demandée ; `quantity: 0` la retire. `approved_total_xof` devient le montant affiché à l'acheteur. `422` si tout est à 0 (refuser plutôt) |
+| `POST /purchases/{id}/reject` | `{reason}` : depuis `SUBMITTED` ou `APPROVED` ; le motif est visible par l'acheteur |
+| `POST /purchases/{id}/disburse` | `{amount_xof?}` : `APPROVED` → `DISBURSED`, argent remis (défaut : total validé ; obligatoire si ce total vaut 0). Enregistrement seulement : **aucun mouvement de tiroir** |
+| `POST /purchases/{id}/receive` | `{supplier?, business_date?, lines: [{line_id, quantity, total_cost_xof}]}` : `DISBURSED` → `RECEIVED`. Une entrée de stock `PURCHASE_IN` par article acheté, au prix payé (coût moyen recalculé, motif « Demande d'achat ACH-0001 ») ; une ligne validée absente compte comme non trouvée. `change_due_xof` = remis - dépensé (négatif : la caisse doit à l'acheteur) |
+
+Erreurs communes : `404 NOT_FOUND` (`meta.line_ids` pour une ligne d'une autre demande), `409 PURCHASE_STATE` (`meta.status` : état actuel, `meta.expected` : états acceptés, par exemple un double clic sur « Valider »), `422 VALIDATION_ERROR`.
+
+Une entrée de stock hors demande (achat imprévu) reste possible par `POST /stock/receipts` (§11).
+
+## 16. Pas encore testable
 
 | Lot | Routes du contrat absentes |
 |---|---|

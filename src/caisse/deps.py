@@ -48,7 +48,7 @@ OverrideTokenHeader = Annotated[
 ]
 
 
-def current_user(
+def authenticated_user(
     db: DbSession,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
 ) -> User:
@@ -57,13 +57,14 @@ def current_user(
     return auth_service.authenticate_access(db, credentials.credentials)
 
 
-CurrentUser = Annotated[User, Depends(current_user)]
+# Tout utilisateur connecté, ACHETEUR compris : seulement /auth/me, /auth/logout et /purchases
+AuthenticatedUser = Annotated[User, Depends(authenticated_user)]
 
 
 def require_role(minimum: UserRole) -> Callable[[User], User]:
     """Rôle minimal requis (CAISSIER < RESPONSABLE < ADMIN)."""
 
-    def _check(user: CurrentUser) -> User:
+    def _check(user: AuthenticatedUser) -> User:
         if not role_at_least(user.role, minimum):
             raise InsufficientPrivilegeError(meta={"required_role": minimum})
         return user
@@ -71,6 +72,9 @@ def require_role(minimum: UserRole) -> Callable[[User], User]:
     return _check
 
 
+# Tout rôle de la caisse (CAISSIER et au-dessus) : l'ACHETEUR n'y a pas accès
+CurrentUser = Annotated[User, Depends(require_role(UserRole.CAISSIER))]
+Acheteur = Annotated[User, Depends(require_role(UserRole.ACHETEUR))]
 Responsable = Annotated[User, Depends(require_role(UserRole.RESPONSABLE))]
 Admin = Annotated[User, Depends(require_role(UserRole.ADMIN))]
 

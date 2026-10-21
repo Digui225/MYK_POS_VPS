@@ -70,7 +70,7 @@ curl -s localhost:8001/health/ready
 | Préfixe | `/api/v1` pour tout, sauf `/health` et `/health/ready` |
 | Authentification | `Authorization: Bearer <access_token>` ; jeton d'accès de 15 min, jeton de renouvellement de 12 h |
 | Poste | `X-Device-Id: <identifiant du poste>` sur toutes les requêtes (blocage des PIN, audit). `device_id` aussi dans le corps de `POST /auth/login` |
-| Rôles | `CAISSIER < RESPONSABLE < ADMIN` : un rôle a les droits des rôles inférieurs. Rôle insuffisant : `403 INSUFFICIENT_PRIVILEGE` |
+| Rôles | `ACHETEUR < CAISSIER < RESPONSABLE < ADMIN` : un rôle a les droits des rôles inférieurs. Rôle insuffisant : `403 INSUFFICIENT_PRIVILEGE`. **L'ACHETEUR n'a que l'écran d'achats** (§5.8) : après la connexion, `GET /auth/me` → `user.role` dit quel écran ouvrir |
 | Identifiants | UUID (chaînes) |
 | Montants | **Entiers en XOF** (`price_xof`, `total_ttc_xof`…). Seuls les taux de TVA et les quantités de stock sont décimaux |
 | Dates | ISO 8601 en UTC (Abidjan est à UTC). `business_date` = journée comptable de la session de caisse |
@@ -225,10 +225,19 @@ Correspondance des champs du tableau du jour (`aziz` → ici) : `total_sales_ttc
 | Terminaux d'impression | `GET/POST /printing/terminals`, `POST /printing/terminals/{id}/revoke` (jeton de l'agent, affiché une fois) | ADMIN |
 | FNE | `GET /fne/documents`, `…/retry`, `…/resolve`, `…/refund`, `GET /fne/documents/export`, `GET /fne/daily-summary` | RESPONSABLE |
 
+### 5.8 Approvisionnement (ACHETEUR, puis RESPONSABLE)
+
+**Écran de l'acheteur** (seul écran d'un compte `ACHETEUR`) : liste `GET /purchases/articles?category=` (filtre par famille, sans prix), saisie des quantités, envoi `POST /purchases` (`Idempotency-Key`) → afficher `amount_xof`, le montant qui lui sera remis. Suivi : `GET /purchases/mine`, `GET /purchases/mine/{id}` ; retrait tant que ce n'est pas validé : `POST /purchases/mine/{id}/cancel`. Jamais de prix à l'écran : l'API n'en renvoie pas.
+
+**Écran du responsable / de l'admin** : badge `GET /purchases/pending-count` ; liste `GET /purchases?status=SUBMITTED` ; détail `GET /purchases/{id}` avec les prix ; puis `…/approve` (corrections), `…/disburse` (argent remis), `…/receive` au retour (quantités et montants payés → entrées de stock, monnaie à rendre `change_due_xof`). Refus : `…/reject`. Détail : `ENDPOINTS-TESTABLES` §15.
+
 ## 6. Nouveautés depuis le 06/10/2026
 
 | Sujet | En bref | Détail |
 |---|---|---|
+| **Approvisionnement (21/10)** | Rôle `ACHETEUR` et routes `/purchases` : demande sans prix, validation, décaissement, réception avec entrées de stock automatiques | §5.8 |
+| **Pagination (21/10)** | Commandes, sessions, mouvements de stock, FNE et tickets : 100 par page, suivre `next_cursor` | §3 |
+| **Renvoi automatique FNE (21/10)** | Une FNE `QUEUED` repart toute seule ; `retry` reste possible | `ENDPOINTS-TESTABLES` §9 |
 | **Impression tirée par le terminal (20/10)** | La caisse est en ligne : l'agent du terminal vient chercher les tickets. Le paiement répond `receipt.status = "QUEUED"` et `drawer_opened = null` ; suivre `GET /printing/jobs/{id}`. Tiroir manuel et ticket de test : `202` | `ENDPOINTS-TESTABLES` §10 |
 | **Stock par articles et fiches techniques** | Le gestionnaire saisit entrées, pertes et inventaires ; **les plats vendus déstockent automatiquement** les articles de leur fiche (0,2 kg de bœuf par plat, 1 bouteille par boisson…). Les légumes, condiments et le gaz se suivent par inventaire. `GET /products` : `stock_quantity` = portions encore vendables | `ENDPOINTS-TESTABLES` §11 |
 | **Tableaux de M. Yapi** | Ventes (marges par plat) et stock (écart entre stock théorique et compté) sur une période | §12 |
@@ -242,14 +251,26 @@ Correspondance des champs du tableau du jour (`aziz` → ici) : `total_sales_ttc
 | **Sécurité** | `429` au-delà de 10 connexions/min par IP, `413` au-delà de 2 Mo, en-têtes de sécurité, Swagger coupé en production | §0, §2 |
 | **Annulation de paiement** | N'est plus refusée quand la table a été rouverte (`table_reoccupied` supprimé) | §8 |
 
-Nouveaux codes d'erreur : `STOCK_ARTICLE_NAME_EXISTS`, `CATEGORY_NAME_EXISTS`, `CATEGORY_NOT_EMPTY`, `PRODUCT_NAME_EXISTS`, `PRODUCT_SKU_EXISTS`, `ORDER_LABEL_TAKEN`, `TABLE_LABEL_EXISTS`, `TABLE_HAS_ACTIVE_ORDERS`, `CASH_REGISTER_NAME_EXISTS`, `CASH_REGISTER_HAS_OPEN_SESSION`, `RATE_LIMIT_EXCEEDED` (429), `PAYLOAD_TOO_LARGE` (413). Nouvel avertissement : `STOCK_NEGATIVE_WARNING`. Le catalogue complet des codes est dans `ENDPOINTS-TESTABLES` §0.
+Nouveaux codes d'erreur : `PURCHASE_STATE` (21/10), `STOCK_ARTICLE_NAME_EXISTS`, `CATEGORY_NAME_EXISTS`, `CATEGORY_NOT_EMPTY`, `PRODUCT_NAME_EXISTS`, `PRODUCT_SKU_EXISTS`, `ORDER_LABEL_TAKEN`, `TABLE_LABEL_EXISTS`, `TABLE_HAS_ACTIVE_ORDERS`, `CASH_REGISTER_NAME_EXISTS`, `CASH_REGISTER_HAS_OPEN_SESSION`, `RATE_LIMIT_EXCEEDED` (429), `PAYLOAD_TOO_LARGE` (413). Nouvel avertissement : `STOCK_NEGATIVE_WARNING`. Le catalogue complet des codes est dans `ENDPOINTS-TESTABLES` §0.
 
 ## 7. Toutes les routes
 
-« connecté » = n'importe quel utilisateur avec un jeton valide ; un rôle cité inclut les rôles au-dessus.
+« connecté » = utilisateur avec un jeton valide, CAISSIER ou au-dessus (l'ACHETEUR reçoit `403`, sauf sur `/auth/me` et `/auth/logout`) ; un rôle cité inclut les rôles au-dessus.
 
 | Domaine | Méthode | Route | Accès | Description |
 |---|---|---|---|---|
+| Approvisionnement | `GET` | `/purchases/articles` | ACHETEUR | Articles à acheter (sans prix) |
+| Approvisionnement | `POST` | `/purchases` | ACHETEUR | Envoyer une demande d'achat (`Idempotency-Key`) |
+| Approvisionnement | `GET` | `/purchases/mine` | ACHETEUR | Mes demandes d'achat |
+| Approvisionnement | `GET` | `/purchases/mine/{purchase_id}` | ACHETEUR | Ma demande |
+| Approvisionnement | `POST` | `/purchases/mine/{purchase_id}/cancel` | ACHETEUR | Retirer ma demande |
+| Approvisionnement | `GET` | `/purchases` | RESPONSABLE | Demandes d'achat (suivi) |
+| Approvisionnement | `GET` | `/purchases/pending-count` | RESPONSABLE | Demandes en attente d'action |
+| Approvisionnement | `GET` | `/purchases/{purchase_id}` | RESPONSABLE | Détail d'une demande |
+| Approvisionnement | `POST` | `/purchases/{purchase_id}/approve` | RESPONSABLE | Valider |
+| Approvisionnement | `POST` | `/purchases/{purchase_id}/reject` | RESPONSABLE | Refuser |
+| Approvisionnement | `POST` | `/purchases/{purchase_id}/disburse` | RESPONSABLE | Décaisser |
+| Approvisionnement | `POST` | `/purchases/{purchase_id}/receive` | RESPONSABLE | Réceptionner |
 | Authentification | `POST` | `/auth/login` | public | Connexion par PIN |
 | Authentification | `POST` | `/auth/refresh` | public | Renouveler les jetons |
 | Authentification | `POST` | `/auth/logout` | connecté | Déconnexion |

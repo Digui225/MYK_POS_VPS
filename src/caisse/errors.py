@@ -121,6 +121,9 @@ CategoryNotEmptyError = _error(
 ProductNameExistsError = _error(
     "ProductNameExistsError", 409, "Un produit du menu porte déjà ce nom"
 )
+PurchaseStateError = _error(
+    "PurchaseStateError", 409, "Action impossible dans l'état actuel de la demande d'achat"
+)
 ProductSkuExistsError = _error("ProductSkuExistsError", 409, "Ce code article est déjà utilisé")
 
 

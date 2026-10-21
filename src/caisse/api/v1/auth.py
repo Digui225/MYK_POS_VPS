@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, status
 
-from caisse.deps import Ctx, CurrentUser, DbSession
+from caisse.deps import AuthenticatedUser, Ctx, CurrentUser, DbSession
 from caisse.rate_limit import per_ip
 from caisse.schemas.auth import (
     LoginRequest,
@@ -65,7 +65,7 @@ def refresh(body: RefreshRequest, db: DbSession, ctx: Ctx) -> TokenResponse:
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, summary="Déconnexion")
-def logout(body: RefreshRequest, user: CurrentUser, db: DbSession, ctx: Ctx) -> None:
+def logout(body: RefreshRequest, user: AuthenticatedUser, db: DbSession, ctx: Ctx) -> None:
     """Révoque le jeton de renouvellement. Répond `204` même s'il est déjà invalide.
 
     Le jeton d'accès reste valable jusqu'à son expiration : le client doit l'oublier.
@@ -74,7 +74,7 @@ def logout(body: RefreshRequest, user: CurrentUser, db: DbSession, ctx: Ctx) -> 
 
 
 @router.get("/me", response_model=MeResponse, summary="Utilisateur connecté")
-def me(user: CurrentUser, db: DbSession) -> MeResponse:
+def me(user: AuthenticatedUser, db: DbSession) -> MeResponse:
     """Utilisateur du jeton et session de caisse ouverte (null si aucune)."""
     session = auth_service.current_open_session(db)
     return MeResponse(
