@@ -6,21 +6,22 @@ moyen du moment de la vente) ; la consommation des articles suivis par inventair
 """
 
 from collections import defaultdict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from caisse.domain import stock_rules
-from caisse.domain.enums import StockMovementType, StockOutMode
+from caisse.domain.enums import OrderStatus, StockArticleCategory, StockMovementType, StockOutMode
 from caisse.errors import ValidationError
 from caisse.models.cash_session import CashSession
+from caisse.models.finance import BankDeposit, CashExpense
 from caisse.models.fne import FneDocument
 from caisse.models.order import Order, OrderItem
 from caisse.models.payment import Payment
-from caisse.models.stock import StockArticle
+from caisse.models.stock import ProductComponent, StockArticle, StockMovement
 from caisse.models.table import RestaurantTable
 from caisse.models.user import User
 from caisse.repositories import fne as fne_repo
@@ -52,6 +53,9 @@ from caisse.schemas.reports import (
     StockReportArticle,
     StockReportOut,
     StockTotals,
+    ProteinYieldItem,
+    ProteinYieldTotals,
+    ProteinYieldReportOut,
 )
 
 MAX_DAYS = 366
@@ -109,6 +113,26 @@ def sales_report(db: Session, date_from: date, date_to: date) -> SalesReportOut:
     recipe_cost = sum(p.recipe_cost_xof for p in by_product)
     consumption = _xof(non_sale.get(StockOutMode.INVENTORY, _ZERO))
     variance = _xof(non_sale.get(StockOutMode.RECIPE, _ZERO))
+    expense_rows = (
+        db.query(CashExpense.business_date, func.sum(CashExpense.amount_xof))
+        .filter(CashExpense.business_date >= date_from, CashExpense.business_date <= date_to)
+        .group_by(CashExpense.business_date)
+        .all()
+    )
+    expenses_by_day = {d: int(amt or 0) for d, amt in expense_rows}
+
+    deposit_rows = (
+        db.query(BankDeposit.business_date, func.sum(BankDeposit.amount_xof))
+        .filter(BankDeposit.business_date >= date_from, BankDeposit.business_date <= date_to)
+        .group_by(BankDeposit.business_date)
+        .all()
+    )
+    deposits_by_day = {d: int(amt or 0) for d, amt in deposit_rows}
+
+    total_expenses = sum(expenses_by_day.values())
+    total_deposits = sum(deposits_by_day.values())
+    gross_margin_total = revenue - recipe_cost - consumption - variance
+
     totals = SalesTotals(
         revenue_xof=revenue,
         orders_count=orders,
@@ -118,22 +142,82 @@ def sales_report(db: Session, date_from: date, date_to: date) -> SalesReportOut:
         uncosted_revenue_xof=sum(p.revenue_xof for p in by_product if not p.has_recipe),
         inventory_consumption_xof=consumption,
         stock_variance_xof=variance,
-        gross_margin_xof=revenue - recipe_cost - consumption - variance,
+        gross_margin_xof=gross_margin_total,
+        expenses_xof=total_expenses,
+        net_result_xof=gross_margin_total - total_expenses,
+        bank_deposit_xof=total_deposits,
     )
-    return SalesReportOut(
-        date_from=date_from,
-        date_to=date_to,
-        totals=totals,
-        by_day=[
+    purchases_by_day = reports_repo.purchases_by_day(db, date_from, date_to)
+    non_sale_by_day = reports_repo.non_sale_out_by_day(db, date_from, date_to)
+    sessions = reports_repo.cash_sessions(db, date_from, date_to)
+
+    cash_by_day: dict[date, dict[str, int]] = defaultdict(
+        lambda: {"expected": 0, "counted": 0, "variance": 0}
+    )
+    for s in sessions:
+        if s.business_date:
+            b = cash_by_day[s.business_date]
+            b["expected"] += s.expected_cash_xof or 0
+            b["counted"] += s.counted_cash_xof or 0
+            b["variance"] += s.variance_xof or 0
+
+    sales_map = {d: (n, total) for d, n, total in days}
+    all_dates = sorted(
+        set(sales_map.keys())
+        | set(purchases_by_day.keys())
+        | set(non_sale_by_day.keys())
+        | set(cash_by_day.keys())
+        | set(expenses_by_day.keys())
+        | set(deposits_by_day.keys())
+    )
+
+    cur = date_from
+    calendar_dates = []
+    while cur <= date_to:
+        calendar_dates.append(cur)
+        cur += timedelta(days=1)
+
+    target_dates = calendar_dates if (date_to - date_from).days <= 31 else (all_dates or calendar_dates)
+
+    by_day_list: list[SalesDay] = []
+    for d in target_dates:
+        n, total = sales_map.get(d, (0, 0))
+        r_cost = _xof(cost_by_day.get(d, _ZERO))
+        purchases = _xof(purchases_by_day.get(d, _ZERO))
+        conso = _xof(non_sale_by_day.get(d, _ZERO))
+        r_margin = total - r_cost
+        g_margin = total - r_cost - conso
+        g_rate = round((g_margin / total) * 100, 1) if total > 0 else 0.0
+        cash_info = cash_by_day[d]
+        exp = expenses_by_day.get(d, 0)
+        net_result = g_margin - exp
+        dep = deposits_by_day.get(d, 0)
+
+        by_day_list.append(
             SalesDay(
                 business_date=d,
                 orders_count=n,
                 revenue_xof=total,
-                recipe_cost_xof=_xof(cost_by_day.get(d, _ZERO)),
-                recipe_margin_xof=total - _xof(cost_by_day.get(d, _ZERO)),
+                recipe_cost_xof=r_cost,
+                recipe_margin_xof=r_margin,
+                purchases_xof=purchases,
+                inventory_consumption_xof=conso,
+                gross_margin_xof=g_margin,
+                gross_margin_rate=g_rate,
+                expenses_xof=exp,
+                net_result_xof=net_result,
+                expected_cash_xof=cash_info["expected"],
+                counted_cash_xof=cash_info["counted"],
+                cash_variance_xof=cash_info["variance"],
+                bank_deposit_xof=dep,
             )
-            for d, n, total in days
-        ],
+        )
+
+    return SalesReportOut(
+        date_from=date_from,
+        date_to=date_to,
+        totals=totals,
+        by_day=by_day_list,
         by_product=by_product,
         by_category=sorted(
             (
@@ -595,3 +679,183 @@ class ReportingService:
             closing_status=closing_status,
             sales_by_cashier=sales_by_cashier,
         )
+
+
+def protein_yield_report(db: Session, date_from: date, date_to: date) -> ProteinYieldReportOut:
+    """Rapport de contrôle des rendements de viandes et poissons (protéines) :
+    compare les quantités de matière sortie/consommée au nombre de portions théoriques,
+    aux plats réellement vendus en caisse et aux pertes déclarées."""
+    check_period(date_from, date_to)
+
+    # 1. Articles de catégorie PROTEINE
+    articles = (
+        db.query(StockArticle)
+        .filter(StockArticle.category == StockArticleCategory.PROTEINE)
+        .order_by(StockArticle.name)
+        .all()
+    )
+
+    # 2. Fiches techniques (ProductComponent) liées aux articles
+    components = (
+        db.query(ProductComponent)
+        .join(StockArticle, StockArticle.id == ProductComponent.article_id)
+        .filter(StockArticle.category == StockArticleCategory.PROTEINE)
+        .all()
+    )
+
+    article_components: dict[str, list[ProductComponent]] = defaultdict(list)
+    for c in components:
+        article_components[c.article_id].append(c)
+
+    # 3. Ventes des produits associés sur la période
+    all_product_ids = [c.product_id for c in components]
+    product_sales: dict[str, tuple[int, int]] = {}
+    if all_product_ids:
+        rows = db.execute(
+            select(
+                OrderItem.product_id,
+                func.sum(OrderItem.quantity),
+                func.sum(OrderItem.line_total_xof),
+            )
+            .join(Order, Order.id == OrderItem.order_id)
+            .join(CashSession, Order.cash_session_id == CashSession.id)
+            .where(
+                Order.status == OrderStatus.PAID,
+                CashSession.business_date >= date_from,
+                CashSession.business_date <= date_to,
+                OrderItem.product_id.in_(all_product_ids),
+                OrderItem.removed_at.is_(None),
+            )
+            .group_by(OrderItem.product_id)
+        )
+        for pid, qty, revenue in rows:
+            product_sales[str(pid)] = (int(qty or 0), int(revenue or 0))
+
+    # 4. Mouvements de stock sur la période
+    article_ids = [a.id for a in articles]
+    mov_rows = db.execute(
+        select(
+            StockMovement.article_id,
+            StockMovement.type,
+            func.sum(StockMovement.quantity),
+        )
+        .where(
+            StockMovement.article_id.in_(article_ids),
+            StockMovement.business_date >= date_from,
+            StockMovement.business_date <= date_to,
+        )
+        .group_by(StockMovement.article_id, StockMovement.type)
+    )
+    movements: dict[tuple[str, StockMovementType], float] = {}
+    for aid, m_type, q in mov_rows:
+        movements[(str(aid), m_type)] = float(q or 0)
+
+    items: list[ProteinYieldItem] = []
+    tot_consumed_cost = 0
+    tot_sold_revenue = 0
+    tot_gross_margin = 0
+    tot_theo = 0
+    tot_sold = 0
+    tot_var = 0
+    tot_financial_impact = 0
+    anomalies_count = 0
+
+    for a in articles:
+        comps = article_components.get(a.id, [])
+        standard_portion = float(comps[0].quantity) if comps else 1.0
+        yield_ratio = round(1.0 / standard_portion, 2) if standard_portion > 0 else 1.0
+
+        sold_dishes = 0
+        sold_revenue = 0
+        associated_products: list[str] = []
+        for c in comps:
+            if c.product:
+                associated_products.append(c.product.name)
+            p_qty, p_rev = product_sales.get(c.product_id, (0, 0))
+            sold_dishes += p_qty
+            sold_revenue += p_rev
+
+        sale_qty = -movements.get((a.id, StockMovementType.SALE_OUT), 0.0)
+        loss_qty = -movements.get((a.id, StockMovementType.LOSS_OUT), 0.0)
+        inv_qty = movements.get((a.id, StockMovementType.INVENTORY_COUNT), 0.0)
+
+        # Quantité consommée totale
+        consumed_qty = max(
+            sale_qty + loss_qty - (inv_qty if inv_qty < 0 else 0),
+            float(sold_dishes * standard_portion),
+        )
+        avg_cost = float(a.avg_cost_xof)
+        consumed_cost = int(round(consumed_qty * avg_cost))
+
+        theoretical_dishes = (
+            int(round(consumed_qty / standard_portion)) if standard_portion > 0 else int(consumed_qty)
+        )
+        loss_dishes = int(round(loss_qty / standard_portion)) if standard_portion > 0 else 0
+
+        # Écart de portions (Théorique - Vendu - Pertes déclarées)
+        variance_dishes = theoretical_dishes - sold_dishes - loss_dishes
+
+        # Impact financier : valorisé au prix moyen de vente du plat (ou à 2x le coût matière)
+        avg_dish_price = (
+            (sold_revenue / sold_dishes) if sold_dishes > 0 else (avg_cost * standard_portion * 2)
+        )
+        financial_impact = int(round(variance_dishes * avg_dish_price)) if variance_dishes > 0 else 0
+        gross_margin = sold_revenue - consumed_cost
+
+        if variance_dishes <= 0:
+            status = "NORMAL"
+        elif variance_dishes <= 3:
+            status = "WARNING"
+            anomalies_count += 1
+        else:
+            status = "CRITICAL"
+            anomalies_count += 1
+
+        items.append(
+            ProteinYieldItem(
+                article_id=str(a.id),
+                article_name=a.name,
+                category=a.category,
+                unit=a.unit,
+                avg_cost_xof=avg_cost,
+                standard_portion=standard_portion,
+                yield_ratio_per_unit=yield_ratio,
+                consumed_quantity=round(consumed_qty, 3),
+                consumed_cost_xof=consumed_cost,
+                theoretical_dishes=theoretical_dishes,
+                sold_dishes=sold_dishes,
+                sold_revenue_xof=sold_revenue,
+                gross_margin_xof=gross_margin,
+                loss_dishes=loss_dishes,
+                variance_dishes=variance_dishes,
+                financial_impact_xof=financial_impact,
+                status=status,
+                associated_products=associated_products,
+            )
+        )
+
+        tot_consumed_cost += consumed_cost
+        tot_sold_revenue += sold_revenue
+        tot_gross_margin += gross_margin
+        tot_theo += theoretical_dishes
+        tot_sold += sold_dishes
+        tot_var += max(0, variance_dishes)
+        tot_financial_impact += financial_impact
+
+    totals = ProteinYieldTotals(
+        total_consumed_cost_xof=tot_consumed_cost,
+        total_sold_revenue_xof=tot_sold_revenue,
+        total_gross_margin_xof=tot_gross_margin,
+        total_theoretical_dishes=tot_theo,
+        total_sold_dishes=tot_sold,
+        total_variance_dishes=tot_var,
+        total_financial_impact_xof=tot_financial_impact,
+        anomalies_count=anomalies_count,
+    )
+
+    return ProteinYieldReportOut(
+        date_from=date_from,
+        date_to=date_to,
+        totals=totals,
+        items=items,
+    )

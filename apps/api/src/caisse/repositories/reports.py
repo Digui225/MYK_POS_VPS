@@ -71,6 +71,34 @@ def recipe_cost_by_day(db: Session, date_from: date, date_to: date) -> dict[date
     return {d: Decimal(cost) for d, cost in rows}
 
 
+def purchases_by_day(db: Session, date_from: date, date_to: date) -> dict[date, Decimal]:
+    """Total des achats reçus (PURCHASE_IN) par jour ouvrable."""
+    rows = db.execute(
+        select(StockMovement.business_date, _value())
+        .where(
+            StockMovement.type == StockMovementType.PURCHASE_IN,
+            StockMovement.business_date >= date_from,
+            StockMovement.business_date <= date_to,
+        )
+        .group_by(StockMovement.business_date)
+    )
+    return {d: Decimal(val) for d, val in rows}
+
+
+def non_sale_out_by_day(db: Session, date_from: date, date_to: date) -> dict[date, Decimal]:
+    """Valeur des consommations hors vente (pertes, écarts d'inventaire) par jour ouvrable."""
+    rows = db.execute(
+        select(StockMovement.business_date, -_value())
+        .where(
+            StockMovement.type.in_(NON_SALE_OUT_TYPES),
+            StockMovement.business_date >= date_from,
+            StockMovement.business_date <= date_to,
+        )
+        .group_by(StockMovement.business_date)
+    )
+    return {d: Decimal(val) for d, val in rows}
+
+
 def sales_by_product(
     db: Session, date_from: date, date_to: date
 ) -> list[tuple[str, str, str, int, int]]:

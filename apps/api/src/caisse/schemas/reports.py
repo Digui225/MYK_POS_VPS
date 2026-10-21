@@ -36,6 +36,15 @@ class SalesTotals(Schema):
     gross_margin_xof: int = Field(
         description="Marge brute : chiffre d'affaires - coût matière - consommation - écarts"
     )
+    expenses_xof: int = Field(
+        default=0, description="Total des dépenses d'exploitation (décaissements)"
+    )
+    net_result_xof: int = Field(
+        default=0, description="Résultat net d'exploitation estimé (Marge brute - Dépenses)"
+    )
+    bank_deposit_xof: int = Field(
+        default=0, description="Total des versements bancaires"
+    )
 
 
 class SalesDay(Schema):
@@ -44,6 +53,18 @@ class SalesDay(Schema):
     revenue_xof: int = Field(description="Chiffre d'affaires")
     recipe_cost_xof: int = Field(description="Coût matière (fiches)")
     recipe_margin_xof: int = Field(description="Marge sur coût matière")
+    purchases_xof: int = Field(default=0, description="Achats / Réceptions de marchandises du jour")
+    inventory_consumption_xof: int = Field(
+        default=0, description="Consommations inventaire et pertes du jour"
+    )
+    gross_margin_xof: int = Field(default=0, description="Marge brute du jour (CA - Coût matière - Pertes/Conso)")
+    gross_margin_rate: float = Field(default=0.0, description="Taux de marge brute (%)")
+    expenses_xof: int = Field(default=0, description="Dépenses d'exploitation du jour (décaissements)")
+    net_result_xof: int = Field(default=0, description="Résultat net d'exploitation (Marge brute - Dépenses)")
+    expected_cash_xof: int = Field(default=0, description="Espèces attendues en caisse")
+    counted_cash_xof: int = Field(default=0, description="Espèces comptées / versées")
+    cash_variance_xof: int = Field(default=0, description="Écart de caisse (compté - attendu)")
+    bank_deposit_xof: int = Field(default=0, description="Versements en banque")
 
 
 class SalesProduct(Schema):
@@ -205,3 +226,49 @@ class DashboardOut(Schema):
     sessions: list[DashboardSession] = Field(description="Sessions de caisse de la journée")
     low_stock_articles: int = Field(description="Articles de stock en alerte (aujourd'hui)")
     fne: DashboardFne = Field(description="Factures normalisées de la journée")
+
+
+# --- Rendement & Contrôle des Protéines (Viandes & Poissons) -----------------------------
+
+
+class ProteinYieldItem(Schema):
+    article_id: str = Field(description="Identifiant de l'article de stock")
+    article_name: str = Field(description="Nom de la matière première (ex: Bœuf, Mouton)")
+    category: StockArticleCategory = Field(description="Famille de stock")
+    unit: str = Field(description="Unité de mesure (kg, pièce, morceau)")
+    avg_cost_xof: float = Field(description="Coût moyen unitaire d'achat (CMP)")
+    standard_portion: float = Field(description="Quantité standard consommée par plat (fiche)")
+    yield_ratio_per_unit: float = Field(description="Nombre de plats théoriques par unité")
+    consumed_quantity: float = Field(description="Quantité totale sortie / consommée")
+    consumed_cost_xof: int = Field(description="Valeur matière de la quantité sortie")
+    theoretical_dishes: int = Field(description="Nombre de plats théoriquement réalisables")
+    sold_dishes: int = Field(description="Nombre de plats réellement enregistrés et vendus")
+    sold_revenue_xof: int = Field(description="Chiffre d'affaires généré par ces plats")
+    gross_margin_xof: int = Field(description="Marge brute directe (Ventes - Coût matière)")
+    loss_dishes: int = Field(default=0, description="Portions couvertes par des pertes déclarées")
+    variance_dishes: int = Field(
+        description="Écart de portions (Théorique - Vendu - Pertes). Positif = manquant"
+    )
+    financial_impact_xof: int = Field(
+        description="Valeur financière estimée de l'écart de portions"
+    )
+    status: str = Field(description="Statut : NORMAL, WARNING ou CRITICAL")
+    associated_products: list[str] = Field(description="Plats qui consomment cet article")
+
+
+class ProteinYieldTotals(Schema):
+    total_consumed_cost_xof: int = Field(description="Coût matière total des viandes/poissons")
+    total_sold_revenue_xof: int = Field(description="Chiffre d'affaires total généré")
+    total_gross_margin_xof: int = Field(description="Marge brute directe totale")
+    total_theoretical_dishes: int = Field(description="Total des plats théoriques attendus")
+    total_sold_dishes: int = Field(description="Total des plats servis")
+    total_variance_dishes: int = Field(description="Total des portions manquantes")
+    total_financial_impact_xof: int = Field(description="Impact financier total des écarts")
+    anomalies_count: int = Field(description="Nombre d'articles en anomalie")
+
+
+class ProteinYieldReportOut(Schema):
+    date_from: date = Field(description="Première journée incluse")
+    date_to: date = Field(description="Dernière journée incluse")
+    totals: ProteinYieldTotals
+    items: list[ProteinYieldItem] = Field(description="Détail par viande/poisson")

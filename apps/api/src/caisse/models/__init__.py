@@ -12,6 +12,7 @@ from caisse.models.stock import StockArticle, ProductComponent, StockItem, Stock
 from caisse.models.customer import Customer
 from caisse.models.fne import FneDocument
 from caisse.models.outbox import OutboxEvent
+from caisse.models.finance import CashExpense, BankDeposit
 
 __all__ = [
     "Base",
@@ -38,4 +39,6 @@ __all__ = [
     "Customer",
     "FneDocument",
     "OutboxEvent",
+    "CashExpense",
+    "BankDeposit",
 ]
