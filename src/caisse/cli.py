@@ -9,6 +9,7 @@ python -m caisse.cli import-catalog [/data/menu.csv]     # défaut : seeds/data/
 python -m caisse.cli import-stock [--stock-initial]       # articles + fiches techniques
 python -m caisse.cli set-vat-rate 0 --all-products
 python -m caisse.cli create-print-terminal --name Comptoir   # jeton de l'agent d'impression
+python -m caisse.cli fne-worker [--interval 30] [--once]   # renvoi automatique FNE
 python -m caisse.cli fne-probe --point-of-sale "..." --client-phone ... --client-email ... --yes
 python -m caisse.cli fne-probe ... --template B2B --client-ncc 9502363N --client-name "SOCIETE X"
 """
@@ -18,18 +19,24 @@ import csv
 import getpass
 import json
 import os
+import signal
 import sys
+import threading
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
+import structlog
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from caisse.config import get_settings
 from caisse.database import get_sessionmaker
 from caisse.domain.enums import CategoryKind, UserRole
 from caisse.domain.fne import FneTemplate
 from caisse.errors import DomainError
+from caisse.infrastructure.fne import get_fne_provider
+from caisse.logging import configure_logging
 from caisse.models.catalog import Category, Product
 from caisse.models.settings import AppSetting
 from caisse.models.table import RestaurantTable
@@ -37,10 +44,12 @@ from caisse.repositories import settings as settings_repo
 from caisse.repositories import users as users_repo
 from caisse.seeds import stock_import
 from caisse.seeds.defaults import ensure_defaults
-from caisse.services import audit_service, print_terminal_service, user_service
+from caisse.services import audit_service, fne_service, print_terminal_service, user_service
 from caisse.services.audit_service import RequestContext
 
 CLI_CTX = RequestContext(device_id="cli")
+
+log = structlog.get_logger()
 
 
 def _ask(prompt: str) -> str:
@@ -326,6 +335,34 @@ def cmd_fne_probe(args: argparse.Namespace) -> None:
     print(f"Traces : {out}")
 
 
+def cmd_fne_worker(args: argparse.Namespace) -> None:
+    """Renvoi automatique FNE (PLAN-FNE phase 7) : vide la file des documents échus toutes les
+    `--interval` secondes, jusqu'à l'arrêt du conteneur (SIGTERM). L'envoi en cours est terminé
+    avant de s'arrêter : un document coupé en plein appel deviendrait incertain."""
+    configure_logging(json_logs=get_settings().is_production)
+    stop = threading.Event()
+    signal.signal(signal.SIGTERM, lambda *_: stop.set())
+    signal.signal(signal.SIGINT, lambda *_: stop.set())
+    provider = get_fne_provider()
+    if provider is None:
+        log.info("fne_worker_idle", reason="FNE_PROVIDER=manual : aucun envoi automatique")
+        if not args.once:
+            stop.wait()
+        return
+    log.info("fne_worker_started", provider=get_settings().fne_provider, interval=args.interval)
+    while not stop.is_set():
+        try:
+            with get_sessionmaker()() as db:
+                while not stop.is_set() and fne_service.retry_next_due(db, provider):
+                    pass
+        except Exception:  # base injoignable… : nouvel essai au passage suivant
+            log.exception("fne_worker_error")
+        if args.once:
+            break
+        stop.wait(args.interval)
+    log.info("fne_worker_stopped")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="caisse.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -358,6 +395,9 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--all-products", action="store_true", help="appliquer à tous les produits")
     p = sub.add_parser("create-print-terminal", help="Jeton de l'agent d'impression d'un poste")
     p.add_argument("--name", required=True)
+    p = sub.add_parser("fne-worker", help="Renvoi automatique des FNE en file (service)")
+    p.add_argument("--interval", type=float, default=30.0, help="secondes entre deux passages")
+    p.add_argument("--once", action="store_true", help="un seul passage, puis arrêt")
     p = sub.add_parser("fne-probe", help="Sonde de l'API FNE de test (consomme des stickers)")
     p.add_argument("--point-of-sale", required=True, help="tel que configuré dans l'espace FNE")
     p.add_argument(
@@ -379,6 +419,9 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
     if args.command == "fne-probe":  # aucun accès base
         cmd_fne_probe(args)
+        return
+    if args.command == "fne-worker":  # sessions de base propres à chaque passage
+        cmd_fne_worker(args)
         return
     handler = {
         "bootstrap": cmd_bootstrap,

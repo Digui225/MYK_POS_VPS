@@ -3,6 +3,8 @@
 Règle centrale (D5) : l'API FNE n'est pas idempotente. Un document est commité en `SUBMITTING`
 **avant** l'appel ; si l'issue est inconnue (délai dépassé, 500…), il reste `SUBMITTING` avec
 `is_uncertain` et n'est jamais renvoyé sans qu'un responsable ait vérifié l'espace FNE.
+Seuls les documents en file (`QUEUED` : rien n'a été certifié) repartent automatiquement
+(`retry_next_due`, en boucle dans `caisse.cli fne-worker`).
 """
 
 import uuid
@@ -57,6 +59,7 @@ RETRY_DELAYS = (
     timedelta(minutes=15),
     timedelta(hours=1),
 )
+WORKER_CTX = RequestContext(device_id="fne-worker")
 DEFAULT_WALK_IN = {"company_name": "CLIENT DIVERS", "phone": "", "email": ""}
 MEASUREMENT_UNIT = "U"
 
@@ -489,6 +492,18 @@ def retry(
     return doc
 
 
+def retry_next_due(db: Session, provider: FneProvider) -> FneDocument | None:
+    """Renvoi automatique du plus ancien document en file dont l'échéance est passée ; `None`
+    s'il n'y en a pas. Un nouvel échec certain le remet en file au palier suivant de
+    `RETRY_DELAYS`. Les documents refusés ou incertains restent manuels."""
+    doc = fne_repo.next_due(db, utcnow())
+    if doc is None:
+        db.rollback()  # referme la transaction de la recherche
+        return None
+    _submit(db, doc, provider, user_id=None, ctx=WORKER_CTX)
+    return doc
+
+
 def resolve(
     db: Session,
     document_id: uuid.UUID,
@@ -558,7 +573,7 @@ def _submit(
     doc: FneDocument,
     provider: FneProvider | None,
     *,
-    user_id: uuid.UUID,
+    user_id: uuid.UUID | None,
     ctx: RequestContext,
 ) -> None:
     if provider is None:  # FNE_PROVIDER=manual : saisie dans l'application FNE

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from caisse.domain.enums import ACTIVE_ORDER_STATUSES, OrderStatus
 from caisse.models.order import Order, OrderItem
+from caisse.pagination import PageRequest, newest_first
 
 
 def get(db: Session, order_id: uuid.UUID) -> Order | None:
@@ -29,10 +30,18 @@ def active_for_table(db: Session, table_id: uuid.UUID) -> list[Order]:
 
 
 def list_orders(
-    db: Session, *, business_date: date, status: OrderStatus | None = None
+    db: Session,
+    *,
+    business_date: date,
+    status: OrderStatus | None = None,
+    page: PageRequest | None = None,
 ) -> list[Order]:
-    stmt = (
-        select(Order).where(Order.business_date == business_date).order_by(Order.opened_at.desc())
+    """Une ligne de plus que la page (voir `pagination.split`)."""
+    stmt = newest_first(
+        select(Order).where(Order.business_date == business_date),
+        Order.opened_at,
+        Order.id,
+        page or PageRequest(),
     )
     if status is not None:
         stmt = stmt.where(Order.status == status)

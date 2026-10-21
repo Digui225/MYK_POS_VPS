@@ -93,7 +93,7 @@ MANUAL : document traité hors API.
 - [x] 11 tests d'intégration (`tests/integration/test_fne.py`) contre `MockFneProvider`
 
 ### Phase 7 — Worker de renvoi
-- [ ] `python -m caisse.cli fne-worker` (service dans `docker-compose.yml`) : traite les `QUEUED` échus avec un backoff exponentiel plafonné, ne touche jamais aux documents incertains (`is_uncertain`)
+- [x] `python -m caisse.cli fne-worker` (service `caisse-fne-worker` dans `deploy/vps/docker-compose.yml`, 21/10/2026) : traite les `QUEUED` échus un par un (`SKIP LOCKED`), paliers `RETRY_DELAYS` 1 min → 5 min → 15 min → 1 h (plafond), ne touche jamais aux documents incertains (`is_uncertain`) ni refusés ; termine l'envoi en cours avant de s'arrêter (SIGTERM)
 
 ### Phase 8 — Branchements (dépendent de L4)
 - [ ] Encaissement : `payment_method` déduit des paiements réels (testé aujourd'hui avec des paiements insérés en base)

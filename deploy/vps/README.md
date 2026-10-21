@@ -114,8 +114,9 @@ deviendrait une vraie facture).
 cd /opt/caisse/backend/deploy/vps
 docker compose build caisse-api
 docker compose up -d
-docker compose ps                         # caisse-db et caisse-api : healthy (≈ 30 s)
+docker compose ps                         # caisse-db et caisse-api : healthy (≈ 30 s) ; caisse-fne-worker : Up
 docker compose logs --tail 50 caisse-api
+docker compose logs --tail 20 caisse-fne-worker   # « fne_worker_started » (ou « idle » si FNE_PROVIDER=manual)
 ```
 
 ## 4. Base, données et terminal d'impression
@@ -231,13 +232,13 @@ git rev-parse --short main | ssh root@162.215.172.50 "cat > /opt/caisse/backend/
 # Sur le VPS
 bash /opt/caisse/backend/deploy/vps/backup.sh
 cd /opt/caisse/backend/deploy/vps
-docker compose build caisse-api && docker compose up -d caisse-api
+docker compose build caisse-api && docker compose up -d     # API et worker FNE (même image)
 docker compose exec caisse-api alembic upgrade head
 diff <(grep -oE '^[A-Z_]+=' api.env.example | sort) <(grep -oE '^[A-Z_]+=' /opt/caisse/api.env | sort)
 ```
 
 Nouvelle variable dans `api.env.example` : la reporter dans `/opt/caisse/api.env`, puis
-`docker compose up -d caisse-api`. `caisse.conf` modifié : le recopier, `nginx -t`, `reload`.
+`docker compose up -d --force-recreate caisse-api caisse-fne-worker` (les deux lisent `api.env`). `caisse.conf` modifié : le recopier, `nginx -t`, `reload`.
 
 ## 11. Dépannage de l'impression
 

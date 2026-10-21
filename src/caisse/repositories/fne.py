@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -15,6 +15,7 @@ from caisse.models.customer import Customer
 from caisse.models.fne import FneDocument
 from caisse.models.order import Order, OrderItem
 from caisse.models.payment import Payment
+from caisse.pagination import PageRequest, newest_first
 
 # en attente d'une action (certification, renvoi ou vérification)
 PENDING_STATUSES = (FneStatus.PENDING, FneStatus.QUEUED, FneStatus.SUBMITTING, FneStatus.FAILED)
@@ -26,6 +27,22 @@ def get(db: Session, document_id: uuid.UUID) -> FneDocument | None:
 
 def get_for_update(db: Session, document_id: uuid.UUID) -> FneDocument | None:
     return db.scalar(select(FneDocument).where(FneDocument.id == document_id).with_for_update())
+
+
+def next_due(db: Session, now: datetime) -> FneDocument | None:
+    """Plus ancien document en file dont le renvoi est échu, verrouillé ; un document déjà pris
+    par un autre processus est sauté. Jamais un document incertain (PLAN-FNE D5)."""
+    return db.scalar(
+        select(FneDocument)
+        .where(
+            FneDocument.status == FneStatus.QUEUED,
+            FneDocument.is_uncertain.is_(False),
+            FneDocument.next_retry_at <= now,
+        )
+        .order_by(FneDocument.next_retry_at, FneDocument.id)
+        .limit(1)
+        .with_for_update(skip_locked=True)
+    )
 
 
 def sale_for_order(db: Session, order_id: uuid.UUID) -> FneDocument | None:
@@ -47,9 +64,10 @@ def refunds_of(db: Session, parent_id: uuid.UUID) -> list[FneDocument]:
 
 
 def list_documents(
-    db: Session, *, status: FneStatus | None, business_date: date | None, limit: int = 200
+    db: Session, *, status: FneStatus | None, business_date: date | None, page: PageRequest
 ) -> list[FneDocument]:
-    stmt = select(FneDocument).order_by(FneDocument.created_at.desc()).limit(limit)
+    """Une ligne de plus que la page (voir `pagination.split`)."""
+    stmt = newest_first(select(FneDocument), FneDocument.created_at, FneDocument.id, page)
     if status is not None:
         stmt = stmt.where(FneDocument.status == status)
     if business_date is not None:

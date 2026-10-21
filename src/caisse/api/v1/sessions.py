@@ -1,12 +1,15 @@
 import uuid
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Path, Request, Response, status
 
 from caisse import idempotency
-from caisse.deps import Ctx, CurrentUser, DbSession, Responsable
+from caisse.deps import Ctx, CurrentUser, DbSession, Paging, Responsable
 from caisse.errors import NoOpenSessionError
 from caisse.idempotency import IdempotencyKey
+from caisse.models.cash_session import CashSession
+from caisse.pagination import split
 from caisse.repositories import sessions as sessions_repo
 from caisse.schemas.common import Page
 from caisse.schemas.printing import PrintJobOut
@@ -179,9 +182,17 @@ def reprint_z(session_id: SessionId, user: CurrentUser, db: DbSession, ctx: Ctx)
 
 
 @router.get("", response_model=Page[CashSessionOut], summary="Historique des sessions")
-def history(_: Responsable, db: DbSession) -> Page[CashSessionOut]:
-    """Sessions clôturées, les plus récentes en premier. Réservé au RESPONSABLE."""
-    return Page(items=[CashSessionOut.model_validate(s) for s in sessions_repo.list_history(db)])
+def history(_: Responsable, db: DbSession, page: Paging) -> Page[CashSessionOut]:
+    """Sessions clôturées, les plus récentes en premier, par pages de `limit` : `next_cursor`
+    donne la suivante. Réservé au RESPONSABLE."""
+    rows = sessions_repo.list_history(db, page=page)
+    sessions, next_cursor = split(rows, page, _closed_key)
+    return Page(items=[CashSessionOut.model_validate(s) for s in sessions], next_cursor=next_cursor)
+
+
+def _closed_key(session: CashSession) -> tuple[datetime, uuid.UUID]:
+    assert session.closed_at is not None  # sessions clôturées uniquement
+    return session.closed_at, session.id
 
 
 @router.post(

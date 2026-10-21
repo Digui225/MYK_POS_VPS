@@ -3,8 +3,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Path, Query, status
 
-from caisse.deps import Admin, Ctx, CurrentUser, DbSession, Responsable
+from caisse.deps import Admin, Ctx, CurrentUser, DbSession, Paging, Responsable
 from caisse.domain.enums import PrintJobStatus
+from caisse.pagination import split
 from caisse.schemas.common import Page
 from caisse.schemas.printing import (
     PrintingStatusOut,
@@ -48,10 +49,13 @@ def open_drawer(user: Responsable, db: DbSession, ctx: Ctx) -> PrintJobOut:
 def jobs(
     _: CurrentUser,
     db: DbSession,
+    page: Paging,
     status_filter: Annotated[PrintJobStatus | None, Query(alias="status")] = None,
 ) -> Page[PrintJobOut]:
-    items = printing_service.list_jobs(db, status=status_filter)
-    return Page(items=[PrintJobOut.model_validate(job) for job in items])
+    """Les plus récents en premier, par pages de `limit` : `next_cursor` donne la suivante."""
+    rows = printing_service.list_jobs(db, status=status_filter, page=page)
+    items, next_cursor = split(rows, page, lambda job: (job.created_at, job.id))
+    return Page(items=[PrintJobOut.model_validate(job) for job in items], next_cursor=next_cursor)
 
 
 @router.get("/jobs/{job_id}", response_model=PrintJobOut, summary="Travail d'impression")

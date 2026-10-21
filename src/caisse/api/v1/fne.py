@@ -6,8 +6,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Path, Query, Response, status
 
-from caisse.deps import Ctx, CurrentUser, DbSession, FneProviderDep, Responsable
+from caisse.deps import Ctx, CurrentUser, DbSession, FneProviderDep, Paging, Responsable
 from caisse.domain.enums import FneStatus
+from caisse.pagination import split
 from caisse.repositories import fne as fne_repo
 from caisse.schemas.common import Page
 from caisse.schemas.fne import (
@@ -89,6 +90,7 @@ def get_for_order(order_id: OrderId, _: CurrentUser, db: DbSession) -> FneDocume
 def list_documents(
     _: Responsable,
     db: DbSession,
+    page: Paging,
     status_filter: Annotated[
         FneStatus | None, Query(alias="status", description="Filtrer sur un statut")
     ] = None,
@@ -96,9 +98,10 @@ def list_documents(
         date | None, Query(description="Journée comptable de la commande")
     ] = None,
 ) -> Page[FneDocumentOut]:
-    """200 documents au plus, les plus récents en premier."""
-    docs = fne_repo.list_documents(db, status=status_filter, business_date=business_date)
-    return Page(items=fne_service.to_out_many(db, docs))
+    """Les plus récents en premier, par pages de `limit` : `next_cursor` donne la suivante."""
+    rows = fne_repo.list_documents(db, status=status_filter, business_date=business_date, page=page)
+    docs, next_cursor = split(rows, page, lambda d: (d.created_at, d.id))
+    return Page(items=fne_service.to_out_many(db, docs), next_cursor=next_cursor)
 
 
 EXPORT_COLUMNS = [

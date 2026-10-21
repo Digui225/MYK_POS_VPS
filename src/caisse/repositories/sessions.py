@@ -16,6 +16,7 @@ from caisse.models.cash_session import CashMovement, CashRegister, CashSession
 from caisse.models.order import Order, OrderItem
 from caisse.models.payment import Payment
 from caisse.models.print_job import PrintJob
+from caisse.pagination import PageRequest, newest_first
 
 
 def list_registers(db: Session, *, is_active: bool | None = True) -> list[CashRegister]:
@@ -53,11 +54,15 @@ def get_closed_same_day(
     )
 
 
-def list_history(db: Session, *, register_id: uuid.UUID | None = None) -> list[CashSession]:
-    stmt = (
-        select(CashSession)
-        .where(CashSession.status == CashSessionStatus.CLOSED)
-        .order_by(CashSession.closed_at.desc())
+def list_history(
+    db: Session, *, register_id: uuid.UUID | None = None, page: PageRequest | None = None
+) -> list[CashSession]:
+    """Une ligne de plus que la page (voir `pagination.split`)."""
+    stmt = newest_first(
+        select(CashSession).where(CashSession.status == CashSessionStatus.CLOSED),
+        CashSession.closed_at,
+        CashSession.id,
+        page or PageRequest(),
     )
     if register_id is not None:
         stmt = stmt.where(CashSession.cash_register_id == register_id)

@@ -5,6 +5,7 @@ Les paiements (lot L4) n'existent pas encore : les commandes sont soldées direc
 
 import uuid
 from collections.abc import Iterator
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -12,13 +13,24 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from caisse import cli
 from caisse.deps import fne_provider
 from caisse.domain.enums import OrderStatus, PaymentMethod, UserRole
 from caisse.domain.ports import FneRejectedError, FneUnavailableError, FneUncertainError
 from caisse.infrastructure.fne import MockFneProvider
-from caisse.models import AppSetting, CashRegister, Order, Payment, Product, User
+from caisse.models import (
+    AppSetting,
+    AuditLog,
+    CashRegister,
+    FneDocument,
+    Order,
+    Payment,
+    Product,
+    User,
+)
 from caisse.security import utcnow
 from caisse.seeds.demo import load_demo_menu
+from caisse.services import fne_service
 
 from .conftest import auth, login
 
@@ -290,6 +302,79 @@ def test_unavailable_is_queued_then_retried_by_manager(
     assert retried.status_code == 200, retried.text
     assert retried.json()["document"]["status"] == "CERTIFIED"
     assert retried.json()["document"]["attempts"] == 2
+
+
+def _queued(
+    client: TestClient, db: Session, setup: dict[str, Any], mock_fne: MockFneProvider
+) -> FneDocument:
+    order = _paid_order(client, db, setup, [("Poisson braisé", 1)])
+    mock_fne.fail_next.append(FneUnavailableError("connexion refusée"))
+    doc_id = _issue(client, setup["cashier"], order["id"]).json()["document"]["id"]
+    doc = db.get(FneDocument, uuid.UUID(doc_id))
+    assert doc is not None
+    assert doc.status == "QUEUED"
+    return doc
+
+
+def _make_due(db: Session, doc: FneDocument) -> None:
+    doc.next_retry_at = utcnow() - timedelta(seconds=1)
+    db.commit()
+
+
+def test_worker_resends_queued_document_once_due(
+    fne_client: TestClient, db: Session, setup: dict[str, Any], mock_fne: MockFneProvider
+) -> None:
+    doc = _queued(fne_client, db, setup, mock_fne)
+    assert fne_service.retry_next_due(db, mock_fne) is None  # pas encore échu (1 min)
+
+    _make_due(db, doc)
+    assert fne_service.retry_next_due(db, mock_fne) is not None
+    db.refresh(doc)
+    assert (doc.status, doc.attempts, doc.next_retry_at) == ("CERTIFIED", 2, None)
+    assert fne_service.retry_next_due(db, mock_fne) is None
+    audit = db.scalars(
+        select(AuditLog).where(AuditLog.action == "fne.submit").order_by(AuditLog.created_at)
+    ).all()
+    assert audit[-1].user_id is None
+    assert audit[-1].device_id == "fne-worker"
+
+
+def test_worker_requeues_on_next_delay_and_skips_uncertain(
+    fne_client: TestClient, db: Session, setup: dict[str, Any], mock_fne: MockFneProvider
+) -> None:
+    doc = _queued(fne_client, db, setup, mock_fne)
+    _make_due(db, doc)
+    mock_fne.fail_next.append(FneUnavailableError("toujours hors ligne"))
+    fne_service.retry_next_due(db, mock_fne)
+    db.refresh(doc)
+    assert doc.status == "QUEUED"
+    assert doc.next_retry_at is not None
+    assert doc.next_retry_at - utcnow() > timedelta(minutes=4)  # 2e palier : 5 min
+
+    _make_due(db, doc)
+    mock_fne.fail_next.append(FneUncertainError("délai dépassé"))
+    fne_service.retry_next_due(db, mock_fne)
+    db.refresh(doc)
+    assert (doc.status, doc.is_uncertain) == ("SUBMITTING", True)
+    _make_due(db, doc)
+    assert fne_service.retry_next_due(db, mock_fne) is None  # jamais renvoyée sans vérification
+
+
+def test_worker_command_runs_one_pass(
+    fne_client: TestClient,
+    db: Session,
+    setup: dict[str, Any],
+    mock_fne: MockFneProvider,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first, second = (_queued(fne_client, db, setup, mock_fne) for _ in range(2))
+    _make_due(db, first)
+    _make_due(db, second)
+    monkeypatch.setattr(cli, "get_fne_provider", lambda: mock_fne)
+    monkeypatch.setattr(cli.signal, "signal", lambda *_: None)  # garder ceux de pytest
+    cli.main(["fne-worker", "--once"])
+    db.expire_all()
+    assert [first.status, second.status] == ["CERTIFIED", "CERTIFIED"]
 
 
 def test_uncertain_is_never_resent_without_resolution(

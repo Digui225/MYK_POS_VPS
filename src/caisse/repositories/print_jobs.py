@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from caisse.domain.enums import PrintJobStatus, PrintJobType
 from caisse.models.print_job import PrintJob
+from caisse.pagination import PageRequest, newest_first
 
 
 def get_for_update(db: Session, job_id: uuid.UUID) -> PrintJob | None:
@@ -24,8 +25,9 @@ def claim_next(db: Session) -> PrintJob | None:
     )
 
 
-def list_jobs(db: Session, *, status: PrintJobStatus | None, limit: int = 200) -> list[PrintJob]:
-    stmt = select(PrintJob).order_by(PrintJob.created_at.desc()).limit(limit)
+def list_jobs(db: Session, *, status: PrintJobStatus | None, page: PageRequest) -> list[PrintJob]:
+    """Une ligne de plus que la page (voir `pagination.split`)."""
+    stmt = newest_first(select(PrintJob), PrintJob.created_at, PrintJob.id, page)
     if status is not None:
         stmt = stmt.where(PrintJob.status == status)
     return list(db.scalars(stmt))

@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from typing import Annotated
 
-from fastapi import Depends, Header, Request
+from fastapi import Depends, Header, Query, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -18,6 +18,7 @@ from caisse.errors import (
 from caisse.infrastructure.fne import get_fne_provider
 from caisse.models.print_terminal import PrintTerminal
 from caisse.models.user import User
+from caisse.pagination import DEFAULT_LIMIT, MAX_LIMIT, PageRequest, decode_cursor
 from caisse.services import auth_service, print_terminal_service
 from caisse.services.audit_service import RequestContext
 
@@ -80,6 +81,20 @@ def fne_provider() -> FneProvider | None:
 
 
 FneProviderDep = Annotated[FneProvider | None, Depends(fne_provider)]
+
+
+def page_request(
+    cursor: Annotated[
+        str | None, Query(description="`next_cursor` de la page précédente ; absent : 1re page")
+    ] = None,
+    limit: Annotated[
+        int, Query(ge=1, le=MAX_LIMIT, description="Nombre maximum d'éléments par page")
+    ] = DEFAULT_LIMIT,
+) -> PageRequest:
+    return PageRequest(after=decode_cursor(cursor), limit=limit)
+
+
+Paging = Annotated[PageRequest, Depends(page_request)]
 
 
 def current_terminal(

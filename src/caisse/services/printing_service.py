@@ -28,6 +28,7 @@ from caisse.errors import (
 )
 from caisse.models.print_job import PrintJob
 from caisse.models.print_terminal import PrintTerminal
+from caisse.pagination import PageRequest
 from caisse.repositories import print_jobs as print_jobs_repo
 from caisse.repositories import print_terminals as terminals_repo
 from caisse.schemas.printing import PrinterReport, PrintingStatusOut
@@ -114,8 +115,8 @@ def retry(db: Session, job_id: uuid.UUID, *, user_id: uuid.UUID, ctx: RequestCon
     return job
 
 
-def list_jobs(db: Session, *, status: PrintJobStatus | None) -> list[PrintJob]:
-    return print_jobs_repo.list_jobs(db, status=status)
+def list_jobs(db: Session, *, status: PrintJobStatus | None, page: PageRequest) -> list[PrintJob]:
+    return print_jobs_repo.list_jobs(db, status=status, page=page)
 
 
 def _online_terminal(db: Session) -> tuple[PrintTerminal | None, bool]:

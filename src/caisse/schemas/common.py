@@ -13,7 +13,8 @@ class Schema(BaseModel):
 class Page[T](Schema):
     items: list[T] = Field(description="Éléments de la page")
     next_cursor: str | None = Field(
-        default=None, description="Curseur de la page suivante (toujours null : pas de pagination)"
+        default=None,
+        description="Curseur de la page suivante (paramètre `cursor`) ; null : dernière page",
     )
 
 

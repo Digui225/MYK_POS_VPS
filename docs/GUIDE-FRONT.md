@@ -74,7 +74,7 @@ curl -s localhost:8001/health/ready
 | Identifiants | UUID (chaînes) |
 | Montants | **Entiers en XOF** (`price_xof`, `total_ttc_xof`…). Seuls les taux de TVA et les quantités de stock sont décimaux |
 | Dates | ISO 8601 en UTC (Abidjan est à UTC). `business_date` = journée comptable de la session de caisse |
-| Listes | Toujours enveloppées : `{ "items": [...], "next_cursor": null }` |
+| Listes | Toujours enveloppées : `{ "items": [...], "next_cursor": null }`. **Paginées** pour `GET /orders`, `/cash-sessions`, `/stock/movements`, `/fne/documents`, `/printing/jobs` : 100 par défaut (`limit` ≤ 500) ; si `next_cursor` n'est pas `null`, rappeler avec `cursor=<next_cursor>` et les mêmes filtres (`ENDPOINTS-TESTABLES` §0) |
 | Erreurs | `application/problem+json` : `{type, title, status, code, detail, meta, request_id}`. **Se fier à `code`**, jamais au texte |
 | Avertissements | Une réponse `200`/`201` peut porter `warnings: [{code, detail, meta}]` (non bloquant : afficher un bandeau) |
 | Idempotence | En-tête `Idempotency-Key` (une clé neuve par action, générée par le front) **obligatoire** sur : `POST /cash-sessions`, `POST /cash-sessions/{id}/close`, `POST /orders/{id}/payments`, `POST /stock/receipts`, `POST /stock/losses`, `POST /stock/counts`. Sans la clé : `422 VALIDATION_ERROR`. Rejouer la même clé renvoie la réponse d'origine en `200` avec `Idempotent-Replay: true` ; même clé, corps différent : `409 IDEMPOTENCY_CONFLICT` |
@@ -354,7 +354,7 @@ Le parcours détaillé, avec les réponses attendues, est dans [`CIRCUIT-TEST-SW
 | Sujet | Où en est-on |
 |---|---|
 | Temps réel (WebSocket) | Phase 2 du contrat. En attendant, rafraîchir `GET /tables/board` |
-| Renvoi automatique FNE | Manuel pour l'instant : `POST /fne/documents/{id}/retry`. Impression : les tickets attendent en file le retour de l'agent ; seul un échec (`FAILED`) se rejoue à la main, `POST /printing/jobs/{id}/retry` |
+| Rejeu automatique d'un ticket | Volontairement absent (risque de double ticket) : les tickets attendent en file le retour de l'agent ; un échec (`FAILED`) se rejoue à la main, `POST /printing/jobs/{id}/retry`. La FNE, elle, repart seule (`QUEUED`) |
 | Remboursement d'une commande soldée | `POST /orders/{id}/refunds`, reporté (rare au restaurant) |
 | Journal d'audit | `GET /reports/audit`, à venir |
 | Agent d'impression pour Windows | Écrit (spouleur Windows, Xprinter 58 mm) ; reste à le valider sur le terminal du restaurant. Tickets sur 32 caractères |

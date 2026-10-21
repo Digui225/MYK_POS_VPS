@@ -221,6 +221,31 @@ def test_list_orders_history_restricted(client: TestClient, setup: dict[str, Any
     assert client.get(other_day, headers=manager).json()["items"] == []
 
 
+def test_list_orders_pages_with_cursor(client: TestClient, setup: dict[str, Any]) -> None:
+    cashier = setup["cashier"]
+    created = [_create(client, cashier)["id"] for _ in range(5)]
+    seen: list[str] = []
+    url = "/api/v1/orders?limit=2"
+    pages = 0
+    while url:
+        page = client.get(url, headers=cashier).json()
+        pages += 1
+        seen += [o["id"] for o in page["items"]]
+        cursor = page["next_cursor"]
+        url = f"/api/v1/orders?limit=2&cursor={cursor}" if cursor else ""
+    assert pages == 3
+    assert seen == created[::-1]  # plus récentes en premier, ni doublon ni oubli
+
+    exact = client.get("/api/v1/orders?limit=5", headers=cashier).json()
+    assert len(exact["items"]) == 5
+    assert exact["next_cursor"] is None
+
+    bad = client.get("/api/v1/orders?cursor=pas-un-curseur", headers=cashier)
+    assert bad.status_code == 422
+    assert bad.json()["code"] == "VALIDATION_ERROR"
+    assert client.get("/api/v1/orders?limit=501", headers=cashier).status_code == 422
+
+
 def test_custom_product_is_orderable_but_not_listed(
     client: TestClient, db: Session, setup: dict[str, Any]
 ) -> None:

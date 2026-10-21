@@ -1,7 +1,7 @@
 # Projet caisse — rejoint le socle PostgreSQL partagé (../infra, réseau infra_shared).
-# Le service `web` (nginx + build React) arrivera avec le frontend ;
-# `worker` (renvoi automatique FNE/impression, aujourd'hui manuel via /fne/documents/{id}/retry
-# et /printing/jobs/{id}/retry) et `backup` avec un lot ultérieur.
+# Le service `web` (nginx + build React) arrivera avec le frontend ; `backup` avec un lot
+# ultérieur. Renvoi automatique FNE : `python -m caisse.cli fne-worker` (service
+# `caisse-fne-worker` de deploy/vps/docker-compose.yml).
 services:
   api:
     build:

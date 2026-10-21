@@ -25,6 +25,8 @@ Faire tourner la caisse **en ligne** : backend et base sur un VPS, terminal du r
 | 20/10/2026 | Tiroir : s'ouvre **toujours** avec le ticket, même sorti en retard (retour de l'agent après coupure). Mais l'ouverture manuelle et le test sont refusés (`503`) si aucun agent ne s'est signalé depuis 15 s |
 | 20/10/2026 | Une seule file d'impression, jeton de terminal non rattaché à une caisse (un seul poste) ; rattachement à prévoir s'il y a un 2ᵉ poste |
 | 21/10/2026 | **Risque accepté** : coupure Internet au restaurant = pas de vente ni d'impression (pas de mode hors ligne) |
+| 21/10/2026 | Pagination par curseur (keyset `horodatage, id`, du plus récent au plus ancien) sur les 5 listes qui grossissent : commandes, sessions, mouvements de stock, documents FNE, tickets. 100 par défaut, 500 au plus. Les listes courtes restent entières |
+| 21/10/2026 | Renvoi automatique FNE : conteneur `caisse-fne-worker` (même image que l'API, `cli fne-worker`), passage toutes les 30 s, `QUEUED` échus seulement ; jamais les incertains ni les refusés. Pas de renvoi automatique des tickets |
 | 20/10/2026 | Agent : interrogation courte toutes les 2 s (`POST /print-agent/poll`), un travail à la fois ; jamais de remise en file automatique d'un travail `PRINTING` (double ticket), rejeu manuel après 2 min |
 
 ## Périmètre de la refonte
@@ -55,7 +57,9 @@ Guide : [`deploy/vps/README.md`](deploy/vps/README.md). **Mise à jour : `deploy
 
 **Déployé le 21/10/2026** : ce dépôt @ `3170d4d` (Swagger servi par l'API), migration 0007, menu et stock réels, 15 tables, ADMIN créé, terminal d'impression « Comptoir » créé (jeton noté hors dépôt), Nginx sur 8083, pare-feu ouvert. SELinux désactivé. Swagger et connexion par PIN vérifiés.
 
-**Reste :** comptes CAISSIER et RESPONSABLE pour le dev front ; cron de sauvegarde (§9 du guide) à vérifier ; front à déployer par le dev front (`docs/GUIDE-FRONT.md` §10, avec son accès SSH existant) ; puis installation et recette de l'agent Windows (§7-8).
+Comptes CAISSIER et RESPONSABLE créés et remis au dev front (21/10/2026).
+
+**Reste :** cron de sauvegarde (§9 du guide) à vérifier ; front à déployer par le dev front (`docs/GUIDE-FRONT.md` §10, avec son accès SSH existant) ; puis installation et recette de l'agent Windows (§7-8).
 
 **Réseau du bureau (Wi-Fi OSIS GROUP)** : une plage d'adresses Cloudflare (104.16.x–104.23.x : `cdn.jsdelivr.net`, `unpkg.com`, `registry.npmjs.org`, Docker Hub) ne répond pas au-delà de la connexion TCP. Contourné pour Swagger (servi par l'API). Docker Hub et npm injoignables depuis ce réseau : passer par PyPI, `fastly.jsdelivr.net` ou `registry.npmmirror.com`.
 

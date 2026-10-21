@@ -1,8 +1,15 @@
-# Endpoints testables — état au 20/10/2026
+# Endpoints testables — état au 21/10/2026
 
 Ce document décrit les **routes réellement implémentées** dans ce backend (`MYK_POS_VPS`), telles que le code les expose aujourd'hui. Le contrat cible complet est dans [`03-CONTRAT-API.md`](../../projet_caisse_MYK/03-CONTRAT-API.md). Toute route du contrat absente d'ici renvoie `404 NOT_FOUND`.
 
 **Pour le front** : commencer par [`GUIDE-FRONT.md`](GUIDE-FRONT.md) (règles de travail, conventions, correspondance avec la branche `aziz`, routes par écran).
+
+## Nouveautés du 21/10/2026 — pagination et renvoi automatique FNE
+
+| Sujet | Ce qui change pour le front | Où |
+|---|---|---|
+| **Pagination** | `GET /orders`, `GET /cash-sessions`, `GET /stock/movements`, `GET /fne/documents` et `GET /printing/jobs` renvoient **100 éléments au plus** par défaut (`limit`, 500 au plus). Si `next_cursor` n'est pas `null`, il reste des éléments : refaire la même requête avec `cursor=<next_cursor>`. Avant : tout d'un coup (commandes, sessions) ou coupé sans prévenir (200 FNE, 200 tickets). | [§0 Listes](#listes) |
+| **Renvoi automatique FNE** | Un document `QUEUED` repart tout seul à `next_retry_at` (1 min, 5 min, 15 min, puis toutes les heures). Le bouton `retry` reste disponible pour forcer un renvoi immédiat. Les documents refusés (`FAILED`) et incertains ne repartent jamais seuls. | [§9](#statuts-dun-document-fne) |
 
 ## Nouveautés du 20/10/2026 — impression tirée par le terminal (caisse en ligne)
 
@@ -156,7 +163,18 @@ Hiérarchie : `CAISSIER < RESPONSABLE < ADMIN`. Un rôle hérite des droits des 
 
 ### Listes
 
-Les listes renvoient `{"items": [...], "next_cursor": null}`. Il n'y a **pas encore de pagination** : `next_cursor` est toujours `null` et tout est renvoyé en une fois.
+Les listes renvoient `{"items": [...], "next_cursor": null}`.
+
+Les listes qui grossissent avec le temps sont **paginées** : `GET /orders`, `GET /cash-sessions`, `GET /stock/movements`, `GET /fne/documents`, `GET /printing/jobs`. Elles vont du plus récent au plus ancien et acceptent :
+
+| Paramètre | Effet |
+|---|---|
+| `limit` | Éléments par page : 100 par défaut, de 1 à 500 (au-delà : `422 VALIDATION_ERROR`) |
+| `cursor` | `next_cursor` de la page précédente. Absent : première page |
+
+`next_cursor` non `null` : il reste des éléments ; refaire **la même requête, mêmes filtres**, avec `cursor=<next_cursor>`. `null` : c'est la dernière page. Le curseur est opaque : ne pas le décoder ni le fabriquer (un curseur illisible renvoie `422 VALIDATION_ERROR`, `meta.fields[0].loc = ["query", "cursor"]`). Un élément créé pendant qu'on parcourt les pages apparaît en tête de la première page, jamais en double.
+
+Les autres listes (catégories, produits, tables, clients, utilisateurs, caisses, terminaux, historique des prix) sont courtes : tout est renvoyé, `next_cursor` vaut toujours `null`.
 
 ### Montants
 
@@ -992,7 +1010,7 @@ Réponse `200` : `ZReportOut`, identique à la réponse de clôture, relue depui
 
 **Accès : RESPONSABLE**, sinon `403 INSUFFICIENT_PRIVILEGE`.
 
-Réponse `200` : `{"items": [CashSessionOut…], "next_cursor": null}`, sessions **clôturées** uniquement, les plus récentes en premier.
+Réponse `200` : `{"items": [CashSessionOut…], "next_cursor": …}`, sessions **clôturées** uniquement, les plus récentes en premier, paginées (`limit`, `cursor` : [§0 Listes](#listes)).
 
 ### `POST /cash-sessions/{id}/movements` — entrée ou sortie de tiroir
 
@@ -1126,7 +1144,7 @@ Paramètres de requête, facultatifs :
 | `business_date` | Journée comptable. Défaut : celle de la session ouverte, sinon le jour (UTC) |
 | `status` | `OPEN`, `PARTIALLY_PAID`, `PAID`, `CANCELLED`, `REFUNDED` |
 
-Réponse `200` : `{"items": [...], "next_cursor": null}`, les plus récentes en premier. Chaque élément a les mêmes champs que `order` ci-dessus **sans `items`** (détail : `GET /orders/{id}`).
+Réponse `200` : `{"items": [...], "next_cursor": …}`, les plus récentes en premier, paginées (`limit`, `cursor` : [§0 Listes](#listes)). Chaque élément a les mêmes champs que `order` ci-dessus **sans `items`** (détail : `GET /orders/{id}`).
 
 Utile pour retrouver les ventes à emporter en cours, qui n'apparaissent pas sur le plan de salle : `GET /orders?status=OPEN`.
 
@@ -1423,7 +1441,7 @@ La **FNE** (facture normalisée électronique) est certifiée par la plateforme 
 | `status` | `is_uncertain` | Sens | Action |
 |---|---|---|---|
 | `CERTIFIED` | false | Certifiée : `external_number` et `qr_payload` (lien de vérification DGI = page A4 imprimable) | — |
-| `QUEUED` | false | FNE injoignable ou clé refusée : rien n'a été certifié | `retry` (renvoi automatique : à venir) |
+| `QUEUED` | false | FNE injoignable ou clé refusée : rien n'a été certifié | Renvoi automatique à `next_retry_at` (1 min, 5 min, 15 min, puis toutes les heures) ; `retry` pour renvoyer tout de suite |
 | `FAILED` | false | Refusée par la DGI (données) | Corriger (client, paramètres) puis `retry` ou réémettre |
 | `SUBMITTING` | **true** | Issue inconnue (délai dépassé, erreur 500) : la facture a **peut-être** été créée | Vérifier dans l'espace FNE, puis `resolve` |
 | `MANUAL` | false | Mode manuel | Saisie dans l'application FNE |
@@ -1571,11 +1589,11 @@ Rôle : CAISSIER. `404 NOT_FOUND` si aucune FNE n'a été émise.
 
 ### `GET /fne/documents?status=&business_date=` — suivi
 
-Rôle : RESPONSABLE. 200 documents au plus, les plus récents en premier.
+Rôle : RESPONSABLE. Les plus récents en premier, paginés (`limit`, `cursor` : [§0 Listes](#listes)).
 
 ### `POST /fne/documents/{id}/retry` — renvoyer
 
-Rôle : RESPONSABLE. Pour un document `QUEUED`, `FAILED` (reconstruit avec le client et les paramètres actuels) ou `PENDING`. Réponse `200` : `{ document, warnings }`.
+Rôle : RESPONSABLE. Pour un document `QUEUED` (sans attendre le renvoi automatique), `FAILED` (reconstruit avec le client et les paramètres actuels) ou `PENDING`. Réponse `200` : `{ document, warnings }`.
 
 `409 FNE_DOCUMENT_STATE` : `meta.reason = "uncertain"` (passer par `resolve`) ou `"not_retryable"` (certifié, manuel ou en cours).
 
@@ -1680,7 +1698,7 @@ Réponse `202` : le travail mis en file (`"type": "DRAWER"`, `"status": "QUEUED"
 
 ### `GET /printing/jobs?status=` — file d'impression
 
-**Accès** : connecté. `status` facultatif : `QUEUED`, `PRINTING`, `DONE`, `FAILED`.
+**Accès** : connecté. `status` facultatif : `QUEUED`, `PRINTING`, `DONE`, `FAILED`. Les plus récents en premier, paginés (`limit`, `cursor` : [§0 Listes](#listes)).
 
 ```json
 {
@@ -1869,7 +1887,7 @@ Le stock de chaque article **devient** la quantité comptée, et le mouvement po
 
 ### `GET /stock/movements` — journal
 
-Paramètres facultatifs : `article_id`, `type`, `date_from`, `date_to` (journées incluses), `limit` (100 par défaut, 500 au plus). Réponse `200` : `{ "items": [mouvement…] }`, du plus récent au plus ancien. `reference_order_id` renvoie à la commande pour une vente ou une remise en stock.
+Paramètres facultatifs : `article_id`, `type`, `date_from`, `date_to` (journées incluses), `limit` (100 par défaut, 500 au plus), `cursor` ([§0 Listes](#listes)). Réponse `200` : `{ "items": [mouvement…], "next_cursor": … }`, du plus récent au plus ancien. `reference_order_id` renvoie à la commande pour une vente ou une remise en stock.
 
 ### `GET /products/{id}/components` — fiche technique d'un plat
 
@@ -2245,5 +2263,5 @@ docker exec infra-db sh -c 'psql -U "$POSTGRES_USER" -d caisse -c \
 | Lot | Routes du contrat absentes |
 |---|---|
 | L4 | `POST /orders/{id}/refunds` (remboursement d'une commande soldée, reporté : rare au restaurant) |
-| L6 | `GET /fne/daily-summary/{id}/export` (export du récapitulatif figé à la clôture), worker de renvoi automatique (le renvoi FNE/impression reste manuel pour l'instant) |
+| L6 | `GET /fne/daily-summary/{id}/export` (export du récapitulatif figé à la clôture). Le renvoi automatique existe pour la FNE ; un ticket `FAILED` se rejoue toujours à la main (jamais de double ticket) |
 | L5–L6 | `GET /reports/audit` (les tableaux du jour, des ventes et du stock sont là : §12) |

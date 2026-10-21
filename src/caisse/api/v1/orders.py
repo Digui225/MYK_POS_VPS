@@ -5,9 +5,10 @@ from typing import Annotated
 from fastapi import APIRouter, Path, Query, status
 from sqlalchemy.orm import Session
 
-from caisse.deps import Ctx, CurrentUser, DbSession, OverrideTokenHeader
+from caisse.deps import Ctx, CurrentUser, DbSession, OverrideTokenHeader, Paging
 from caisse.domain.enums import OrderStatus, UserRole, role_at_least
 from caisse.errors import InsufficientPrivilegeError
+from caisse.pagination import split
 from caisse.repositories import orders as orders_repo
 from caisse.schemas.common import Page
 from caisse.schemas.orders import (
@@ -66,6 +67,7 @@ def create_order(body: OrderCreate, user: CurrentUser, db: DbSession, ctx: Ctx) 
 def list_orders(
     user: CurrentUser,
     db: DbSession,
+    page: Paging,
     business_date: Annotated[
         date | None,
         Query(
@@ -77,8 +79,9 @@ def list_orders(
     ] = None,
 ) -> Page[OrderSummaryOut]:
     """Commandes d'une journée, les plus récentes en premier (sans les lignes : voir
-    `GET /orders/{id}`). Le CAISSIER ne voit que la journée de la session ouverte ;
-    les autres journées sont réservées au RESPONSABLE.
+    `GET /orders/{id}`), par pages de `limit` : `next_cursor` donne la suivante. Le CAISSIER
+    ne voit que la journée de la session ouverte ; les autres journées sont réservées au
+    RESPONSABLE.
 
     Erreurs : `403 INSUFFICIENT_PRIVILEGE`.
     """
@@ -87,8 +90,11 @@ def list_orders(
     effective_date = business_date or current_date or utcnow().date()
     if effective_date != current_date and not role_at_least(user.role, UserRole.RESPONSABLE):
         raise InsufficientPrivilegeError(meta={"required_role": UserRole.RESPONSABLE})
-    orders = orders_repo.list_orders(db, business_date=effective_date, status=status_filter)
-    return Page(items=[order_service.to_summary(o) for o in orders])
+    rows = orders_repo.list_orders(
+        db, business_date=effective_date, status=status_filter, page=page
+    )
+    orders, next_cursor = split(rows, page, lambda o: (o.opened_at, o.id))
+    return Page(items=[order_service.to_summary(o) for o in orders], next_cursor=next_cursor)
 
 
 @router.get("/{order_id}", response_model=OrderOut, summary="Détail d'une commande")

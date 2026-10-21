@@ -142,6 +142,31 @@ def test_article_create_update(client: TestClient, setup: dict[str, Any]) -> Non
     assert [a["name"] for a in listed["items"]] == ["Bœuf"]
 
 
+def test_movements_page_through_lines_of_one_receipt(
+    client: TestClient, setup: dict[str, Any]
+) -> None:
+    """Les lignes d'une même saisie ont le même horodatage : l'id les départage."""
+    url = "/api/v1/stock/movements?type=PURCHASE_IN&limit=2"
+    manager = setup["manager"]
+    lines = [
+        {
+            "article_id": _article(client, manager, name=name)["id"],
+            "quantity": 1,
+            "total_cost_xof": 1000,
+        }
+        for name in ("Bœuf", "Mouton", "Poulet")
+    ]
+    assert _post(client, manager, "receipts", "r1", {"lines": lines}).status_code == 201
+
+    first = client.get(url, headers=manager).json()
+    assert len(first["items"]) == 2
+    rest = client.get(f"{url}&cursor={first['next_cursor']}", headers=manager).json()
+    assert len(rest["items"]) == 1
+    assert rest["next_cursor"] is None
+    ids = {m["id"] for m in first["items"] + rest["items"]}
+    assert len(ids) == 3
+
+
 def test_receipt_weighted_cost_and_idempotency(client: TestClient, setup: dict[str, Any]) -> None:
     manager = setup["manager"]
     beef = _article(client, manager, name="Bœuf")

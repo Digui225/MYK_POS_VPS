@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from caisse.domain.enums import StockArticleCategory, StockMovementType
 from caisse.models.stock import ProductComponent, StockArticle, StockMovement
+from caisse.pagination import PageRequest, newest_first
 
 SALE_TYPES = (StockMovementType.SALE_OUT, StockMovementType.RETURN_IN)
 
@@ -106,13 +107,16 @@ def list_movements(
     movement_type: StockMovementType | None,
     date_from: date | None,
     date_to: date | None,
-    limit: int,
+    page: PageRequest,
 ) -> list[tuple[StockMovement, str]]:
-    stmt = (
-        select(StockMovement, StockArticle.name)
-        .join(StockArticle, StockArticle.id == StockMovement.article_id)
-        .order_by(StockMovement.created_at.desc(), StockMovement.id.desc())
-        .limit(limit)
+    """Une ligne de plus que la page (voir `pagination.split`)."""
+    stmt = newest_first(
+        select(StockMovement, StockArticle.name).join(
+            StockArticle, StockArticle.id == StockMovement.article_id
+        ),
+        StockMovement.created_at,
+        StockMovement.id,
+        page,
     )
     if article_id is not None:
         stmt = stmt.where(StockMovement.article_id == article_id)
