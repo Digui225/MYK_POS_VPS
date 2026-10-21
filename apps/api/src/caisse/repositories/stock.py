@@ -1,59 +1,134 @@
-from sqlalchemy.orm import Session, joinedload
-from caisse.models.catalog import Product
-from caisse.models.stock import StockItem, StockMovement
-from caisse.repositories.base import BaseRepository
+from collections import defaultdict
+from collections.abc import Iterable
+from datetime import date
+from decimal import Decimal
+
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from caisse.domain.enums import StockArticleCategory, StockMovementType
+from caisse.models.stock import ProductComponent, StockArticle, StockMovement
+
+SALE_TYPES = (StockMovementType.SALE_OUT, StockMovementType.RETURN_IN)
 
 
-class StockRepository(BaseRepository[StockItem]):
+def get_article(db: Session, article_id: str) -> StockArticle | None:
+    return db.get(StockArticle, article_id)
+
+
+def get_by_name(db: Session, name: str) -> StockArticle | None:
+    return db.scalar(select(StockArticle).where(func.lower(StockArticle.name) == name.lower()))
+
+
+def lock_articles(db: Session, article_ids: Iterable[str]) -> dict[str, StockArticle]:
+    """Verrou sur les articles, toujours dans le même ordre (pas d'interblocage entre deux
+    encaissements qui touchent les mêmes articles)."""
+    ids = sorted(set(article_ids))
+    if not ids:
+        return {}
+    rows = db.scalars(
+        select(StockArticle)
+        .where(StockArticle.id.in_(ids))
+        .order_by(StockArticle.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    return {a.id: a for a in rows}
+
+
+def list_articles(
+    db: Session,
+    *,
+    category: StockArticleCategory | None = None,
+    search: str | None = None,
+    is_active: bool | None = True,
+) -> list[StockArticle]:
+    stmt = select(StockArticle).order_by(StockArticle.category, StockArticle.name)
+    if category is not None:
+        stmt = stmt.where(StockArticle.category == category)
+    if search:
+        stmt = stmt.where(StockArticle.name.ilike(f"%{search}%"))
+    if is_active is not None:
+        stmt = stmt.where(StockArticle.is_active.is_(is_active))
+    return list(db.scalars(stmt))
+
+
+def components(db: Session, product_id: str) -> list[tuple[ProductComponent, StockArticle]]:
+    rows = db.execute(
+        select(ProductComponent, StockArticle)
+        .join(StockArticle, StockArticle.id == ProductComponent.article_id)
+        .where(ProductComponent.product_id == product_id)
+        .order_by(StockArticle.name)
+    )
+    return [(c, a) for c, a in rows]
+
+
+def components_by_product(
+    db: Session, product_ids: Iterable[str]
+) -> dict[str, list[tuple[Decimal, StockArticle]]]:
+    """Fiche technique de chaque produit : [(quantité par portion, article)]."""
+    ids = list(set(product_ids))
+    result: dict[str, list[tuple[Decimal, StockArticle]]] = defaultdict(list)
+    if not ids:
+        return result
+    rows = db.execute(
+        select(ProductComponent.product_id, ProductComponent.quantity, StockArticle)
+        .join(StockArticle, StockArticle.id == ProductComponent.article_id)
+        .where(ProductComponent.product_id.in_(ids))
+    )
+    for product_id, quantity, article in rows:
+        result[product_id].append((quantity, article))
+    return result
+
+
+def has_movements(db: Session, article_id: str) -> bool:
+    return (
+        db.scalar(select(StockMovement.id).where(StockMovement.article_id == article_id).limit(1))
+        is not None
+    )
+
+
+def sale_movements(db: Session, order_id: str) -> list[StockMovement]:
+    return list(
+        db.scalars(
+            select(StockMovement)
+            .where(StockMovement.reference_order_id == order_id, StockMovement.type.in_(SALE_TYPES))
+            .order_by(StockMovement.created_at, StockMovement.id)
+        )
+    )
+
+
+def list_movements(
+    db: Session,
+    *,
+    article_id: str | None = None,
+    movement_type: StockMovementType | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    limit: int = 100,
+) -> list[tuple[StockMovement, str]]:
+    stmt = (
+        select(StockMovement, StockArticle.name)
+        .join(StockArticle, StockArticle.id == StockMovement.article_id)
+        .order_by(StockMovement.created_at.desc(), StockMovement.id.desc())
+        .limit(limit)
+    )
+    if article_id is not None:
+        stmt = stmt.where(StockMovement.article_id == article_id)
+    if movement_type is not None:
+        stmt = stmt.where(StockMovement.type == movement_type)
+    if date_from is not None:
+        stmt = stmt.where(StockMovement.business_date >= date_from)
+    if date_to is not None:
+        stmt = stmt.where(StockMovement.business_date <= date_to)
+    return [(m, name) for m, name in db.execute(stmt)]
+
+
+# Classe de compatibilité
+class StockRepository:
     def __init__(self, db: Session):
-        super().__init__(db, StockItem)
+        self.db = db
 
-    def get_by_product_id(self, product_id: str) -> StockItem | None:
-        return (
-            self.db.query(StockItem)
-            .options(joinedload(StockItem.product))
-            .filter(StockItem.product_id == product_id)
-            .first()
-        )
+    def list_items(self) -> list[StockArticle]:
+        return list_articles(self.db)
 
-    def get_or_create_for_product(
-        self,
-        product_id: str,
-        default_unit: str = "bouteille",
-        alert_threshold: float = 5.0,
-    ) -> StockItem:
-        item = self.get_by_product_id(product_id)
-        if not item:
-            item = StockItem(
-                product_id=product_id,
-                quantity=0.0,
-                unit=default_unit,
-                alert_threshold=alert_threshold,
-            )
-            self.db.add(item)
-            self.db.flush()
-        return item
-
-    def list_items(self) -> list[StockItem]:
-        return (
-            self.db.query(StockItem)
-            .options(joinedload(StockItem.product))
-            .join(Product, StockItem.product_id == Product.id)
-            .filter(Product.track_stock.is_(True))
-            .order_by(StockItem.quantity.asc())
-            .all()
-        )
-
-    def add_movement(self, movement: StockMovement) -> StockMovement:
-        self.db.add(movement)
-        self.db.flush()
-        return movement
-
-    def list_movements(self, product_id: str | None = None, limit: int = 50) -> list[StockMovement]:
-        query = self.db.query(StockMovement).options(
-            joinedload(StockMovement.product),
-            joinedload(StockMovement.user),
-        )
-        if product_id:
-            query = query.filter(StockMovement.product_id == product_id)
-        return query.order_by(StockMovement.created_at.desc()).limit(limit).all()

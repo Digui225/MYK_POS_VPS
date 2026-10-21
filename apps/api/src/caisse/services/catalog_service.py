@@ -81,24 +81,43 @@ class CatalogService:
         )
 
     def list_products(self, category_id: str | None = None) -> list[ProductResponse]:
+        from caisse.domain import stock_rules
+        from caisse.repositories import stock as stock_repo
+
         products = self.repo.list_active_products(category_id)
-        return [
-            ProductResponse(
-                id=p.id,
-                category_id=p.category_id,
-                name=p.name,
-                short_name=p.short_name,
-                price_xof=p.price_xof,
-                vat_rate=float(p.vat_rate),
-                track_stock=p.track_stock,
-                is_custom=p.is_custom,
-                is_active=p.is_active,
-                sort_order=p.sort_order,
-                color=p.color,
-                sku=p.sku,
+        product_ids = [p.id for p in products]
+        recipes = stock_repo.components_by_product(self.db, product_ids)
+
+        result: list[ProductResponse] = []
+        for p in products:
+            recipe = recipes.get(p.id, [])
+            has_recipe = len(recipe) > 0
+            portions = (
+                stock_rules.portions_available(
+                    [(per_portion, article.quantity) for per_portion, article in recipe]
+                )
+                if has_recipe
+                else None
             )
-            for p in products
-        ]
+            result.append(
+                ProductResponse(
+                    id=p.id,
+                    category_id=p.category_id,
+                    name=p.name,
+                    short_name=p.short_name,
+                    price_xof=p.price_xof,
+                    vat_rate=float(p.vat_rate),
+                    track_stock=has_recipe or p.track_stock,
+                    stock_quantity=float(portions) if portions is not None else None,
+                    is_custom=p.is_custom,
+                    is_active=p.is_active,
+                    sort_order=p.sort_order,
+                    color=p.color,
+                    sku=p.sku,
+                )
+            )
+        return result
+
 
     def create_product(
         self,

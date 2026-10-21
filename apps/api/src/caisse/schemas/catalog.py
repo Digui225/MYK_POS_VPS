@@ -29,6 +29,7 @@ class ProductResponse(BaseSchema):
     price_xof: int
     vat_rate: float = 0.00
     track_stock: bool = False
+    stock_quantity: float | None = None
     is_custom: bool = False
     is_active: bool = True
     sort_order: int = 0

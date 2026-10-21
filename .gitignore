@@ -27,6 +27,9 @@ htmlcov/
 caisse_dev.db
 caisse_test.db
 fne-probe/
+Dossier_Homologation_FNE/
+Dossier_Homologation_FNE.zip
+*.zip
 
 # IDE
 .idea/

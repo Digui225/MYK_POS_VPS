@@ -143,6 +143,7 @@ class PaymentService:
         print_job_id = None
         fne_status: str | None = None
 
+        stock_warnings = []
         if order.due_xof == 0:
             order.status = OrderStatus.PAID
             order.paid_at = datetime.now(timezone.utc)
@@ -152,8 +153,8 @@ class PaymentService:
             drawer_opened = should_open_drawer(payload.method)
 
             # Décrément automatique du stock
-            from caisse.services.stock_service import StockService
-            StockService(self.db).record_sale_out_for_order(order, user_id)
+            from caisse.services import stock_service
+            stock_warnings = stock_service.apply_sale(self.db, order, user_id)
 
             fne_info = None
             # Facturation normalisée (FNE) : uniquement si expressément demandée par le client
@@ -270,7 +271,7 @@ class PaymentService:
             drawer_opened=drawer_opened,
             print_job_id=print_job_id,
             fne_status=fne_status,
-            warnings=[],
+            warnings=stock_warnings or [],
         )
 
         # 9. Enregistrement Idempotence

@@ -19,6 +19,11 @@ ph = PasswordHasher(
 )
 
 
+def utcnow() -> datetime:
+    """Horodatage UTC actuel."""
+    return datetime.now(timezone.utc)
+
+
 def hash_pin(pin: str) -> str:
     """Hache un code PIN avec Argon2id."""
     return ph.hash(pin)

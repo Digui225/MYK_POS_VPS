@@ -278,7 +278,7 @@ def format_receipt_text(
     if name and name not in ("SYLLA PLUS", "RESTAURANT MYK", "CHEZ SYLLA PLUS"):
         lines.append(center(name))
 
-    addr = restaurant_info.get("address", "Cocody Riviera Palmeraie · Abidjan")
+    addr = restaurant_info.get("address", "Abidjan, Plateau")
     if addr:
         for part in addr.split("·"):
             part_clean = part.strip()
@@ -436,7 +436,7 @@ def format_z_report_text(
     if name and name not in ("SYLLA PLUS", "RESTAURANT MYK", "CHEZ SYLLA PLUS"):
         lines.append(center(name))
 
-    addr = restaurant_info.get("address", "Cocody Riviera Palmeraie · Abidjan")
+    addr = restaurant_info.get("address", "Abidjan, Plateau")
     if addr:
         for part in addr.split("·"):
             part_clean = part.strip()

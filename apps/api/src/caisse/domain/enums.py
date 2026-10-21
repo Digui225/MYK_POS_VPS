@@ -26,6 +26,18 @@ class OrderStatus(StrEnum):
     REFUNDED = "REFUNDED"
 
 
+ACTIVE_ORDER_STATUSES = (OrderStatus.OPEN, OrderStatus.PARTIALLY_PAID)
+CashSessionStatus = SessionStatus
+
+
+class PaymentStatus(StrEnum):
+    PENDING = "PENDING"
+    CAPTURED = "CAPTURED"
+    FAILED = "FAILED"
+    REFUNDED = "REFUNDED"
+    CANCELLED = "CANCELLED"
+
+
 class PaymentMethod(StrEnum):
     CASH = "CASH"
     MOBILE_MONEY = "MOBILE_MONEY"
@@ -37,11 +49,26 @@ class PaymentMethod(StrEnum):
 
 class StockMovementType(StrEnum):
     PURCHASE_IN = "PURCHASE_IN"
-    SALE_OUT = "SALE_OUT"
-    RETURN_IN = "RETURN_IN"
+    SALE_OUT = "SALE_OUT"  # sortie automatique à l'encaissement (fiche technique)
+    RETURN_IN = "RETURN_IN"  # remise en stock : paiement annulé, la commande n'est plus soldée
     LOSS_OUT = "LOSS_OUT"
     ADJUSTMENT = "ADJUSTMENT"
-    INVENTORY_COUNT = "INVENTORY_COUNT"
+    INVENTORY_COUNT = "INVENTORY_COUNT"  # écart constaté au comptage
+    OPENING = "OPENING"  # stock de départ : premier comptage d'un article sans mouvement
+
+
+class StockArticleCategory(StrEnum):
+    PROTEINE = "PROTEINE"
+    BOISSON = "BOISSON"
+    EPICERIE = "EPICERIE"  # légumes, condiments, féculents
+    EMBALLAGE = "EMBALLAGE"
+    ENTRETIEN = "ENTRETIEN"
+    ENERGIE = "ENERGIE"
+
+
+class StockOutMode(StrEnum):
+    RECIPE = "RECIPE"  # sorties automatiques depuis les plats vendus (fiches techniques)
+    INVENTORY = "INVENTORY"  # consommation déduite des inventaires (légumes, gaz…)
 
 
 class FneDocumentType(StrEnum):

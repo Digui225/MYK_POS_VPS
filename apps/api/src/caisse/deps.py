@@ -107,3 +107,27 @@ def get_fne_provider() -> Any:
         return HttpFneProvider(settings.fne_api_base_url, settings.fne_api_key)
     return MockFneProvider()
 
+
+from typing import Annotated
+
+class RequestContext:
+    def __init__(self, device_id: str, client_ip: str | None = None, request_id: str | None = None):
+        self.device_id = device_id
+        self.ip = client_ip
+        self.request_id = request_id
+
+
+def get_request_context(
+    device_id: str = Depends(require_device_id),
+    client_ip: str | None = Depends(get_client_ip),
+    request_id: str = Depends(get_request_id),
+) -> RequestContext:
+    return RequestContext(device_id=device_id, client_ip=client_ip, request_id=request_id)
+
+
+DbSession = Annotated[Session, Depends(get_db)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
+Responsable = Annotated[User, Depends(require_role("RESPONSABLE", "ADMIN"))]
+Admin = Annotated[User, Depends(require_role("ADMIN"))]
+Ctx = Annotated[RequestContext, Depends(get_request_context)]
+

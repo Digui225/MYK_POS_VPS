@@ -40,7 +40,7 @@ class PrintingService:
 
         restaurant_info = {
             "name": (setting.restaurant_name if setting and setting.restaurant_name else "SYLLA PLUS").upper(),
-            "address": setting.address if setting and setting.address else "Cocody Riviera Palmeraie · Abidjan",
+            "address": setting.address if setting and setting.address else "Abidjan, Plateau",
             "phone": setting.phone if setting and setting.phone else "+225 07 58 00 00 00",
             "ncc": setting.ncc if setting and setting.ncc else "2104598B",
             "rccm": setting.rccm if setting and setting.rccm else "CI-ABJ-2024-B-12345",
@@ -199,7 +199,7 @@ class PrintingService:
         setting = self.db.query(EstablishmentSetting).first()
         restaurant_info = {
             "name": (setting.restaurant_name if setting and setting.restaurant_name else "SYLLA PLUS").upper(),
-            "address": setting.address if setting and setting.address else "Cocody Riviera Palmeraie · Abidjan",
+            "address": setting.address if setting and setting.address else "Abidjan, Plateau",
             "phone": setting.phone if setting and setting.phone else "+225 07 58 00 00 00",
             "ncc": setting.ncc if setting and setting.ncc else "2104598B",
             "rccm": setting.rccm if setting and setting.rccm else "CI-ABJ-2024-B-12345",
@@ -326,7 +326,7 @@ class PrintingService:
 
         setting = self.db.query(EstablishmentSetting).first()
         restaurant_name = (setting.restaurant_name if setting and setting.restaurant_name else "SYLLA PLUS").upper()
-        address = setting.address if setting and setting.address else "Cocody Riviera Palmeraie · Abidjan"
+        address = setting.address if setting and setting.address else "Abidjan, Plateau"
         phone = setting.phone if setting and setting.phone else "+225 07 58 00 00 00"
         ncc = setting.ncc if setting and setting.ncc else "2104598B"
         rccm = setting.rccm if setting and setting.rccm else "CI-ABJ-2024-B-12345"

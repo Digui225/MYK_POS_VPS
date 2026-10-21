@@ -17,6 +17,9 @@ class PaginatedResponse(BaseSchema, Generic[T]):
     next_cursor: str | None = None
 
 
+Page = PaginatedResponse
+
+
 class HealthResponse(BaseSchema):
     status: str = "ok"
     app: str = "Caisse MYK API"

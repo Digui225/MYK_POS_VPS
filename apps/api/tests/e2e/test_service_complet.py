@@ -67,16 +67,44 @@ def test_complete_e2e_restaurant_service_cycle(client: TestClient) -> None:
     assert p2_res.status_code == 201
     vin_id = p2_res.json()["id"]
 
+    # Création des articles de stock correspondants
+    art_merou = client.post(
+        "/api/v1/stock/articles",
+        headers=mgr_headers,
+        json={"name": "Mérou Frais", "category": "PROTEINE", "unit": "kg", "out_mode": "RECIPE", "avg_cost_xof": 8000},
+    ).json()
+    merou_art_id = art_merou["id"]
+
+    art_vin = client.post(
+        "/api/v1/stock/articles",
+        headers=mgr_headers,
+        json={"name": "Chardonnay Bouteille", "category": "BOISSON", "unit": "bouteille", "out_mode": "RECIPE", "avg_cost_xof": 12000},
+    ).json()
+    vin_art_id = art_vin["id"]
+
+    # Fiches techniques
+    client.put(
+        f"/api/v1/products/{merou_id}/components",
+        headers=mgr_headers,
+        json={"components": [{"article_id": merou_art_id, "quantity": 1.0}]},
+    )
+    client.put(
+        f"/api/v1/products/{vin_id}/components",
+        headers=mgr_headers,
+        json={"components": [{"article_id": vin_art_id, "quantity": 1.0}]},
+    )
+
     # Approvisionnement initial du stock
     client.post(
-        "/api/v1/stock/movements",
-        headers=mgr_headers,
-        json={"product_id": merou_id, "quantity": 10.0, "type": "PURCHASE_IN", "reason": "Livraison fraîcheur"},
-    )
-    client.post(
-        "/api/v1/stock/movements",
-        headers=mgr_headers,
-        json={"product_id": vin_id, "quantity": 15.0, "type": "PURCHASE_IN", "reason": "Réception cave"},
+        "/api/v1/stock/receipts",
+        headers={**mgr_headers, "Idempotency-Key": "rec-e2e-01"},
+        json={
+            "supplier": "Pêcherie Abidjan",
+            "lines": [
+                {"article_id": merou_art_id, "quantity": 10.0, "total_cost_xof": 80000},
+                {"article_id": vin_art_id, "quantity": 15.0, "total_cost_xof": 180000},
+            ],
+        },
     )
 
     # Création client B2B avec NCC
@@ -215,9 +243,7 @@ def test_complete_e2e_restaurant_service_cycle(client: TestClient) -> None:
     # -------------------------------------------------------------
     # 6. Vérification du décrément automatique de stock
     # -------------------------------------------------------------
-    stock_res = client.get("/api/v1/stock", headers=mgr_headers)
-    assert stock_res.status_code == 200
-    merou_stock = [s for s in stock_res.json() if s["product_id"] == merou_id][0]
+    merou_stock = client.get(f"/api/v1/stock/articles/{merou_art_id}", headers=mgr_headers).json()
     assert merou_stock["quantity"] == 8.0  # 10 initial - 2 vendus = 8
 
     # -------------------------------------------------------------

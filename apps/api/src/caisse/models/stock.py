@@ -1,43 +1,93 @@
-from datetime import datetime, timezone
-from sqlalchemy import Float, ForeignKey, Integer, Numeric, String
+from datetime import date, datetime, timezone
+from decimal import Decimal
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from caisse.database import Base
+from caisse.domain.enums import StockArticleCategory, StockMovementType, StockOutMode
 from caisse.models.base import TimestampMixin, generate_uuid
 
 
-class StockItem(Base, TimestampMixin):
-    __tablename__ = "stock_items"
+class StockArticle(Base, TimestampMixin):
+    """Article de stock (ingrédient, boisson, emballage…), distinct du produit vendu.
+    `quantity` et `avg_cost_xof` ne changent que par un mouvement (`stock_movements`)."""
+
+    __tablename__ = "stock_articles"
+    __table_args__ = (CheckConstraint("avg_cost_xof >= 0", name="ck_stock_articles_avg_cost_positive"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
-    product_id: Mapped[str] = mapped_column(String(36), ForeignKey("products.id"), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
+    category: Mapped[StockArticleCategory] = mapped_column(String(32), nullable=False)
+    unit: Mapped[str] = mapped_column(String(16), nullable=False)
+    out_mode: Mapped[StockOutMode] = mapped_column(String(32), nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=Decimal(0), nullable=False)
+    avg_cost_xof: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal(0), nullable=False)  # CMP
+    alert_threshold: Mapped[Decimal | None] = mapped_column(Numeric(12, 3), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    note: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    quantity: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    unit: Mapped[str] = mapped_column(String(20), default="bouteille", nullable=False)
-    alert_threshold: Mapped[float] = mapped_column(Float, default=5.0, nullable=False)
+    movements: Mapped[list["StockMovement"]] = relationship("StockMovement", back_populates="article")
 
-    # Relationships
+
+class ProductComponent(Base):
+    """Ligne de fiche technique : un plat vendu consomme `quantity` de l'article."""
+
+    __tablename__ = "product_components"
+    __table_args__ = (
+        UniqueConstraint("product_id", "article_id", name="uq_product_components_product_article"),
+        CheckConstraint("quantity > 0", name="ck_product_components_quantity_positive"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    product_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("products.id", ondelete="RESTRICT"), index=True, nullable=False
+    )
+    article_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("stock_articles.id", ondelete="RESTRICT"), index=True, nullable=False
+    )
+    quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
+
     product = relationship("Product")
-    movements: Mapped[list["StockMovement"]] = relationship("StockMovement", back_populates="stock_item", cascade="all, delete-orphan")
+    article = relationship("StockArticle")
 
 
-class StockMovement(Base, TimestampMixin):
+class StockMovement(Base):
+    """Journal du stock, jamais modifié : la quantité d'un article est la somme de ses
+    mouvements. `unit_cost_xof` valorise le mouvement (prix payé à l'achat, CMP sinon)."""
+
     __tablename__ = "stock_movements"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
-    stock_item_id: Mapped[str] = mapped_column(String(36), ForeignKey("stock_items.id"), nullable=False)
-    product_id: Mapped[str] = mapped_column(String(36), ForeignKey("products.id"), nullable=False)
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    article_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("stock_articles.id", ondelete="RESTRICT"), index=True, nullable=False
+    )
+    type: Mapped[StockMovementType] = mapped_column(String(32), nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)  # signée
+    quantity_after: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
+    unit_cost_xof: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    business_date: Mapped[date] = mapped_column(Date, index=True, nullable=False)
+    reference_order_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("orders.id", ondelete="RESTRICT"), index=True, nullable=True
+    )
+    reference_order_item_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("order_items.id", ondelete="RESTRICT"), nullable=True
+    )
+    supplier: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
-    type: Mapped[str] = mapped_column(String(20), nullable=False)
-    quantity: Mapped[float] = mapped_column(Float, nullable=False)
-    quantity_after: Mapped[float] = mapped_column(Float, nullable=False)
-    unit_cost_xof: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    reason: Mapped[str] = mapped_column(String(255), nullable=False)
-    order_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("orders.id"), nullable=True)
-
-    # Relationships
-    stock_item = relationship("StockItem", back_populates="movements")
-    product = relationship("Product")
+    article = relationship("StockArticle", back_populates="movements")
     user = relationship("User")
     order = relationship("Order")
+
+
+# Alias pour rétrocompatibilité
+StockItem = StockArticle
+

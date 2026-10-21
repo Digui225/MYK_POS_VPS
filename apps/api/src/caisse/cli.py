@@ -124,7 +124,7 @@ def main() -> None:
 
     # Commande import-catalog
     import_parser = subparsers.add_parser("import-catalog", help="Importer le catalogue depuis un fichier CSV")
-    import_parser.add_argument("file", help="Chemin du fichier CSV")
+    import_parser.add_argument("file", nargs="?", default=None, help="Chemin du fichier CSV (défaut : seeds/data/menu.csv)")
 
     # Commande create-tables
     tables_parser = subparsers.add_parser("create-tables", help="Générer des tables de salle")
@@ -148,10 +148,11 @@ def main() -> None:
     probe_parser.add_argument("--ht-decimals", type=int, default=4, help="Décimales HT")
     probe_parser.add_argument("--timeout", type=float, default=5.0, help="Timeout en secondes")
     probe_parser.add_argument("--out", default="fne-probe", help="Répertoire de sortie")
-    # Commande outbox-worker
-    outbox_parser = subparsers.add_parser("outbox-worker", help="Dépiler les événements outbox (FNE, impressions)")
-    outbox_parser.add_argument("--once", action="store_true", help="Exécuter un seul cycle et quitter")
-    outbox_parser.add_argument("--interval", type=float, default=30.0, help="Intervalle entre chaque cycle en secondes")
+    # Commande import-stock
+    stock_parser = subparsers.add_parser("import-stock", help="Importer les articles de stock et fiches techniques")
+    stock_parser.add_argument("--stock-initial", action="store_true", help="Charger le stock de départ du classeur Excel")
+    stock_parser.add_argument("--articles-csv", default=None, help="Chemin alternatif vers articles.csv")
+    stock_parser.add_argument("--fiches-csv", default=None, help="Chemin alternatif vers fiches_techniques.csv")
 
     args = parser.parse_args()
 
@@ -226,7 +227,8 @@ def main() -> None:
             print(f"✅ {created_count} tables créées dans la zone '{args.zone}'.")
 
         elif args.command == "import-catalog":
-            with open(args.file, encoding="utf-8") as f:
+            menu_file = args.file or (Path(__file__).parent / "seeds" / "data" / "menu.csv")
+            with open(menu_file, encoding="utf-8") as f:
                 reader = csv.DictReader(f)
                 count = 0
                 for row in reader:
@@ -241,20 +243,31 @@ def main() -> None:
                         db.add(category)
                         db.flush()
 
-                    short_name = row.get("nom_court", row["nom"][:20]).strip()
+                    short_name = (row.get("nom_court") or row.get("nom_ticket") or row["nom"][:20]).strip()
                     track_stock = row.get("suivi_stock", "false").lower() in ("true", "1", "oui")
 
-                    prod = Product(
-                        category_id=category.id,
-                        name=row["nom"].strip(),
-                        short_name=short_name,
-                        price_xof=int(row["prix_xof"]),
-                        track_stock=track_stock,
-                    )
-                    db.add(prod)
-                    count += 1
+                    prod = db.query(Product).filter(Product.name == row["nom"].strip()).first()
+                    if not prod:
+                        prod = Product(
+                            category_id=category.id,
+                            name=row["nom"].strip(),
+                            short_name=short_name,
+                            price_xof=int(row["prix_xof"]),
+                            track_stock=track_stock,
+                        )
+                        db.add(prod)
+                        count += 1
                 db.commit()
-                print(f"✅ {count} produits importés avec succès depuis '{args.file}'.")
+                print(f"✅ {count} produits importés avec succès depuis '{menu_file}'.")
+
+        elif args.command == "import-stock":
+            from caisse.seeds.stock_import import import_articles, import_components, ARTICLES_CSV, COMPONENTS_CSV
+            art_path = Path(args.articles_csv) if args.articles_csv else ARTICLES_CSV
+            comp_path = Path(args.fiches_csv) if args.fiches_csv else COMPONENTS_CSV
+            res = import_articles(db, art_path, initial_stock=args.stock_initial)
+            comps = import_components(db, comp_path)
+            db.commit()
+            print(f"✅ Stock importé : {res.created} créés, {res.skipped} existants, {res.initial_counts} comptages initiaux, {comps} fiches techniques.")
 
     finally:
         db.close()

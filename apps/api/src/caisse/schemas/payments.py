@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from caisse.domain.enums import PaymentMethod
@@ -36,4 +36,4 @@ class OrderPaymentResult(BaseSchema):
     drawer_opened: bool = False
     print_job_id: str | None = None
     fne_status: str | None = None
-    warnings: list[str] = []
+    warnings: list[Any] = []

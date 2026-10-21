@@ -8,7 +8,7 @@ from caisse.models.table import RestaurantTable
 from caisse.models.order import Order, OrderItem
 from caisse.models.payment import Payment
 from caisse.models.print_job import PrintJob
-from caisse.models.stock import StockItem, StockMovement
+from caisse.models.stock import StockArticle, ProductComponent, StockItem, StockMovement
 from caisse.models.customer import Customer
 from caisse.models.fne import FneDocument
 from caisse.models.outbox import OutboxEvent
@@ -31,6 +31,8 @@ __all__ = [
     "OrderItem",
     "Payment",
     "PrintJob",
+    "StockArticle",
+    "ProductComponent",
     "StockItem",
     "StockMovement",
     "Customer",

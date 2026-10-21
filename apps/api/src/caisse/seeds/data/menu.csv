@@ -1,0 +1,41 @@
+categorie,nom,nom_ticket,prix_xof,suivi_stock,groupe_fiscal,remarque
+Viandes,Plat mouton,Plat mouton,4000,non,VIANDES,
+Viandes,Plat bœuf,Plat boeuf,3000,non,VIANDES,
+Viandes,Plat poulet,Plat poulet,3000,non,VIANDES,
+Viandes,Kedjenou,Kedjenou,3000,non,VIANDES,aucune vente depuis août 2026
+Poissons,Plat faux brochet,Plat faux brochet,3500,non,POISSONS,
+Poissons,Sosso 3000,Sosso 3000,3000,non,POISSONS,variante par taille (Excel 13/10)
+Poissons,Sosso 3500,Sosso 3500,3500,non,POISSONS,variante par taille (Excel 13/10)
+Poissons,Sosso 4000,Sosso 4000,4000,non,POISSONS,variante par taille (Excel 13/10)
+Poissons,Sosso 4500,Sosso 4500,4500,non,POISSONS,variante par taille (Excel 13/10)
+Poissons,Sosso 5000,Sosso 5000,5000,non,POISSONS,variante par taille (Excel 13/10)
+Poissons,Sosso 5500,Sosso 5500,5500,non,POISSONS,variante par taille (Excel 13/10)
+Poissons,Faux saumon,Faux saumon,3000,non,POISSONS,
+Poissons,Carpe 4000,Carpe 4000,4000,non,POISSONS,aucune vente depuis juin 2026
+Poissons,Carpe 5000,Carpe 5000,5000,non,POISSONS,aucune vente depuis juin 2026
+Poissons,Loss 3000,Loss 3000,3000,non,POISSONS,aucune vente depuis août 2026
+Poissons,Loss 3500,Loss 3500,3500,non,POISSONS,aucune vente depuis août 2026
+Poissons,Loss 4000,Loss 4000,4000,non,POISSONS,aucune vente depuis août 2026
+Foufou / foutou,Foufou/foutou mouton,Foufou mouton,4000,non,PLATS,
+Foufou / foutou,Foufou/foutou bœuf,Foufou boeuf,3500,non,PLATS,
+Foufou / foutou,Foufou/foutou poulet,Foufou poulet,3500,non,PLATS,
+Foufou / foutou,Foufou/foutou faux brochet,Foufou faux brochet,3500,non,PLATS,
+Foufou / foutou,Complément foufou/foutou,Complement foufou,1000,non,PLATS,
+Accompagnements,Alloco,Alloco,1000,non,PLATS,Excel : ligne unique ALLOCO/ATTIEKE/igname
+Accompagnements,Attiéké,Attieke,1000,non,PLATS,Excel : ligne unique ALLOCO/ATTIEKE/igname
+Accompagnements,Igname,Igname,1000,non,PLATS,Excel : ligne unique ALLOCO/ATTIEKE/igname
+Jus,Jus de gingembre,Jus gingembre,500,oui,JUS,
+Jus,Jus de bissap,Jus bissap,500,oui,JUS,
+Jus,Jus Tomy,Jus Tomy,500,oui,JUS,
+Jus,Jus de citron,Jus citron,500,oui,JUS,
+Jus,Jus de passion,Jus passion,1000,oui,JUS,
+Sucreries,Sucrerie bouteille,Sucrerie bouteille,1000,oui,JUS,
+Sucreries,Canette sucrerie,Canette sucrerie,500,oui,JUS,
+Sucreries,Canette Ivorio,Canette Ivorio,1000,oui,JUS,
+Sucreries,Orangina 50 cl,Orangina 50cl,1000,oui,JUS,
+Sucreries,Canette Cody's,Canette Codys,1000,oui,JUS,
+Eau,"Eau Celeste 0,5 L","Eau 0,5L",500,oui,EAU,
+Eau,"Eau Celeste 1,5 L","Eau 1,5L",1000,oui,EAU,
+Boissons chaudes et desserts,Café expresso,Cafe expresso,500,oui,AUTRES,
+Boissons chaudes et desserts,Thé,The,500,non,AUTRES,
+Boissons chaudes et desserts,Lait / dêguê,Lait degue,1000,oui,AUTRES,
