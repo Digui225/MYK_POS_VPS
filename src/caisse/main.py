@@ -1,12 +1,15 @@
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import structlog
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from caisse import __version__
 from caisse.api import health
@@ -17,6 +20,10 @@ from caisse.errors import PROBLEM_JSON, install_error_handlers
 from caisse.logging import configure_logging
 
 log = structlog.get_logger()
+
+# Swagger UI 5.17.14 (swagger-ui-dist, Apache-2.0) servi par l'API : le CDN par défaut de FastAPI
+# (cdn.jsdelivr.net, Cloudflare) est injoignable depuis certains réseaux d'Abidjan → page blanche
+SWAGGER_UI_DIR = Path(__file__).parent / "static" / "swagger-ui"
 
 API_DESCRIPTION = """Contrat v1 : voir `03-CONTRAT-API.md`.
 
@@ -57,10 +64,22 @@ def create_app() -> FastAPI:
         description=API_DESCRIPTION,
         openapi_tags=OPENAPI_TAGS,
         lifespan=lifespan,
-        docs_url="/docs" if docs else None,
-        redoc_url="/redoc" if docs else None,
+        docs_url=None,  # servi ci-dessous, sans CDN
+        redoc_url=None,  # ReDoc dépendrait lui aussi d'un CDN : Swagger suffit
         openapi_url="/openapi.json" if docs else None,
     )
+    if docs:
+        app.mount("/docs/static", StaticFiles(directory=SWAGGER_UI_DIR), name="swagger-ui")
+
+        @app.get("/docs", include_in_schema=False)
+        def swagger_ui() -> HTMLResponse:
+            return get_swagger_ui_html(
+                openapi_url="/openapi.json",
+                title=f"{app.title} - Swagger UI",
+                swagger_js_url="/docs/static/swagger-ui-bundle.js",
+                swagger_css_url="/docs/static/swagger-ui.css",
+                swagger_favicon_url="data:,",
+            )
 
     @app.middleware("http")
     async def security_headers(

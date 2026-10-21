@@ -34,6 +34,7 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.package-data]
+"caisse" = ["static/swagger-ui/*"]  # Swagger UI servi par l'API (/docs), sans CDN
 "caisse.seeds" = ["data/*.csv"]  # menu, articles, fiches techniques (import-catalog, import-stock)
 
 [tool.ruff]

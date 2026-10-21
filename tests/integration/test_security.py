@@ -59,10 +59,27 @@ def test_docs_off_in_production(app_with_env: pytest.MonkeyPatch) -> None:
     app_with_env.setenv("APP_ENV", "production")
     with _fresh_client() as prod:
         assert prod.get("/docs").status_code == 404
+        assert prod.get("/docs/static/swagger-ui.css").status_code == 404
         assert prod.get("/openapi.json").status_code == 404
     app_with_env.setenv("ENABLE_DOCS", "true")
     with _fresh_client() as prod:
         assert prod.get("/openapi.json").status_code == 200
+        assert prod.get("/docs").status_code == 200
+
+
+def test_swagger_served_without_cdn(client: TestClient) -> None:
+    """Swagger UI vient de l'API : aucune page blanche sur un réseau qui bloque les CDN."""
+    page = client.get("/docs")
+    assert page.status_code == 200
+    assert "https://" not in page.text  # rien de chargé hors de l'API
+    assert '"/docs/static/swagger-ui-bundle.js"' in page.text
+    js = client.get("/docs/static/swagger-ui-bundle.js")
+    assert js.status_code == 200
+    assert "javascript" in js.headers["content-type"]
+    assert js.headers["x-content-type-options"] == "nosniff"
+    css = client.get("/docs/static/swagger-ui.css")
+    assert (css.status_code, css.headers["content-type"].split(";")[0]) == (200, "text/css")
+    assert client.get("/redoc").status_code == 404
 
 
 def test_allowed_hosts(app_with_env: pytest.MonkeyPatch) -> None:
