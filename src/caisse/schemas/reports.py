@@ -140,6 +140,65 @@ class StockReportOut(Schema):
     articles: list[StockReportArticle] = Field(description="Par famille puis par nom")
 
 
+# --- Rendement des fiches ----------------------------------------------------------------
+
+
+class YieldProduct(Schema):
+    product_id: uuid.UUID = Field(description="Plat")
+    name: str = Field(description="Nom à la vente")
+    portion_quantity: float = Field(description="Quantité d'article par plat")
+    quantity: int = Field(description="Plats vendus (nets des annulations)")
+    revenue_xof: int = Field(description="Chiffre d'affaires du plat")
+
+
+class YieldArticle(Schema):
+    article_id: uuid.UUID = Field(description="Article à fiche (protéine, boisson…)")
+    name: str = Field(description="Nom", examples=["Bœuf"])
+    category: StockArticleCategory = Field(description="Famille")
+    unit: str = Field(description="Unité", examples=["kg"])
+    counted_in_period: bool = Field(
+        description="Un inventaire a été saisi dans la période : sans lui, l'écart vaut 0"
+    )
+    last_count_date: date | None = Field(description="Dernier inventaire (au plus la fin)")
+    opening_quantity: float = Field(description="Stock au début de la période")
+    purchased_quantity: float = Field(description="Entrées (achats)")
+    closing_quantity: float = Field(description="Stock à la fin de la période")
+    consumed_quantity: float = Field(description="Consommé : début + entrées - fin")
+    portion_quantity: float = Field(
+        description="Quantité moyenne par plat (fiches appliquées aux ventes de la période)"
+    )
+    expected_portions: float = Field(description="Plats prévus : consommé / quantité par plat")
+    sold_portions: int = Field(description="Plats vendus à la caisse")
+    portion_variance: float = Field(
+        description="Écart en plats : prévus - vendus (positif : consommé sans vente)"
+    )
+    loss_portions: float = Field(description="Dont pertes déclarées, en plats")
+    unexplained_portions: float = Field(
+        description="Dont manquant à l'inventaire, en plats (écart - pertes)"
+    )
+    sold_xof: int = Field(description="Montant des plats vendus")
+    average_price_xof: int = Field(
+        description="Prix moyen d'un plat (pondéré par les ventes ; sans vente : prix actuels)"
+    )
+    variance_xof: int = Field(description="Montant de l'écart : écart en plats x prix moyen")
+    unexplained_xof: int = Field(description="Montant du manquant non expliqué par les pertes")
+    products: list[YieldProduct] = Field(description="Plats qui utilisent l'article")
+
+
+class YieldTotals(Schema):
+    sold_xof: int = Field(description="Montant des plats vendus (articles à fiche)")
+    variance_xof: int = Field(description="Montant total des écarts, au prix de vente")
+    unexplained_xof: int = Field(description="Dont manquants non expliqués par les pertes")
+    articles_counted: int = Field(description="Articles inventoriés dans la période")
+
+
+class YieldReportOut(Schema):
+    date_from: date = Field(description="Première journée incluse")
+    date_to: date = Field(description="Dernière journée incluse")
+    totals: YieldTotals
+    articles: list[YieldArticle] = Field(description="Par montant d'écart décroissant")
+
+
 # --- Tableau de bord du jour -------------------------------------------------------------
 
 

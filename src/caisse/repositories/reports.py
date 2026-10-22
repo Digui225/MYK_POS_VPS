@@ -4,7 +4,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import ColumnElement, func, select
+from sqlalchemy import ColumnElement, case, func, select
 from sqlalchemy.orm import Session
 
 from caisse.domain.enums import (
@@ -16,9 +16,10 @@ from caisse.domain.enums import (
     StockOutMode,
 )
 from caisse.models.cash_session import CashRegister, CashSession
+from caisse.models.catalog import Product
 from caisse.models.order import Order, OrderItem
 from caisse.models.payment import Payment
-from caisse.models.stock import StockArticle, StockMovement
+from caisse.models.stock import ProductComponent, StockArticle, StockMovement
 from caisse.models.table import RestaurantTable
 from caisse.models.user import User
 from caisse.repositories.stock import SALE_TYPES
@@ -183,6 +184,50 @@ def last_count_dates(db: Session, day: date) -> dict[uuid.UUID, date]:
         .group_by(StockMovement.article_id)
     )
     return {aid: d for aid, d in rows}
+
+
+def sales_by_article_product(
+    db: Session, date_from: date, date_to: date
+) -> list[tuple[uuid.UUID, uuid.UUID, str, Decimal, int, int]]:
+    """(article, plat, nom du plat, quantité d'article sortie, plats vendus, CA) d'après les
+    sorties de vente de la période, nettes des remises en stock : la fiche appliquée est celle
+    du moment de la vente. Un plat à plusieurs articles compte son CA pour chacun."""
+    sign = case((StockMovement.type == StockMovementType.SALE_OUT, 1), else_=-1)
+    rows = db.execute(
+        select(
+            StockMovement.article_id,
+            OrderItem.product_id,
+            func.max(OrderItem.product_name_snapshot),
+            -func.sum(StockMovement.quantity),
+            func.sum(sign * OrderItem.quantity),
+            func.sum(sign * OrderItem.line_total_xof),
+        )
+        .join(OrderItem, OrderItem.id == StockMovement.reference_order_item_id)
+        .where(
+            StockMovement.type.in_(SALE_TYPES),
+            StockMovement.business_date >= date_from,
+            StockMovement.business_date <= date_to,
+        )
+        .group_by(StockMovement.article_id, OrderItem.product_id)
+    )
+    return [
+        (aid, pid, name, Decimal(qty), int(dishes), int(total))
+        for aid, pid, name, qty, dishes, total in rows
+    ]
+
+
+def recipe_dishes(db: Session) -> list[tuple[uuid.UUID, uuid.UUID, str, Decimal, int]]:
+    """(article, plat, nom, quantité par portion, prix) des fiches techniques actuelles."""
+    rows = db.execute(
+        select(
+            ProductComponent.article_id,
+            Product.id,
+            Product.name,
+            ProductComponent.quantity,
+            Product.price_xof,
+        ).join(Product, Product.id == ProductComponent.product_id)
+    )
+    return [(aid, pid, name, Decimal(qty), int(price)) for aid, pid, name, qty, price in rows]
 
 
 # --- Tableau de bord du jour -------------------------------------------------------------

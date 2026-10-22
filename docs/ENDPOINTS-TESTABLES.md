@@ -1,8 +1,14 @@
-# Endpoints testables — état au 21/10/2026
+# Endpoints testables — état au 22/10/2026
 
 Ce document décrit les **routes réellement implémentées** dans ce backend (`MYK_POS_VPS`), telles que le code les expose aujourd'hui. Le contrat cible complet est dans [`03-CONTRAT-API.md`](../../projet_caisse_MYK/03-CONTRAT-API.md). Toute route du contrat absente d'ici renvoie `404 NOT_FOUND`.
 
 **Pour le front** : commencer par [`GUIDE-FRONT.md`](GUIDE-FRONT.md) (règles de travail, conventions, correspondance avec la branche `aziz`, routes par écran).
+
+## Nouveautés du 22/10/2026 — rendement des fiches
+
+| Sujet | Ce qui change pour le front | Où |
+|---|---|---|
+| **Rendement des fiches** (ADMIN) | `GET /reports/yield?date_from=&date_to=` : le « rapport bœuf » par article à fiche — consommé, plats prévus, plats vendus, écart en plats et au prix de vente. L'écart n'apparaît qu'avec un inventaire dans la période. | [§12](#get-reportsyield--rendement-des-fiches) |
 
 ## Nouveautés du 21/10/2026 — pagination et renvoi automatique FNE
 
@@ -106,7 +112,7 @@ Les fonctions développées sur la branche `aziz` sont reprises ici **sous les r
 | 9 | [Clients entreprise et FNE](#9-clients-entreprise-et-fne) | `GET/POST /customers`, `GET /customers/{id}`, `POST/GET /orders/{id}/fne`, `GET /fne/documents`, `GET /fne/documents/export`, `POST …/{id}/retry`, `POST …/{id}/resolve`, `POST …/{id}/refund`, `GET …/{id}/duplicate`, `GET /fne/pending-count`, `GET /fne/daily-summary` | Facture normalisée DGI à la demande, avoirs, suivi |
 | 10 | [Impression](#10-impression) | `GET /printing/status`, `POST /printing/open-drawer`, `GET /printing/jobs`, `POST …/{id}/retry`, `POST /printing/test` | État de l'agent et de la file, actions directes |
 | 11 | [Stock](#11-stock) | `GET/POST /stock/articles`, `GET/PATCH /stock/articles/{id}`, `POST /stock/receipts`, `POST /stock/losses`, `POST /stock/counts`, `GET /stock/movements`, `GET/PUT /products/{id}/components` | Articles, entrées, pertes, inventaires, fiches techniques (RESPONSABLE) |
-| 12 | [Tableaux de bord](#12-tableaux-de-bord) | `GET /reports/dashboard`, `GET /reports/sales`, `GET /reports/stock` | Journée en cours (RESPONSABLE) ; ventes et stock sur une période (ADMIN) |
+| 12 | [Tableaux de bord](#12-tableaux-de-bord) | `GET /reports/dashboard`, `GET /reports/sales`, `GET /reports/stock`, `GET /reports/yield` | Journée en cours (RESPONSABLE) ; ventes, stock et rendement des fiches sur une période (ADMIN) |
 | 13 | [Paramètres et caisses](#13-paramètres-et-caisses) | `GET/PUT /settings`, `GET/POST /cash-registers`, `PATCH /cash-registers/{id}` | Établissement, ticket, TVA, moyens de paiement, FNE ; caisses (ADMIN) |
 | 14 | [Scénario de test complet](#14-scénario-de-test-complet-curl--jq) | — | Tout le parcours en curl, de la connexion à la clôture |
 | 15 | [Approvisionnement](#15-approvisionnement) | `GET /purchases/articles`, `POST /purchases`, `GET /purchases/mine`, `GET /purchases/mine/{id}`, `POST …/mine/{id}/cancel`, `GET /purchases`, `GET /purchases/pending-count`, `GET /purchases/{id}`, `POST …/{id}/approve`, `…/reject`, `…/disburse`, `…/receive` | Demandes d'achat : acheteur sans prix, validation, décaissement, réception |
@@ -2028,6 +2034,53 @@ Commandes **soldées** (`PAID`) dont la journée est dans la période.
 | `last_count_date` | Dernier inventaire jusqu'à `date_to` (`null` : jamais compté) |
 
 Tous les articles actifs apparaissent, plus les articles désactivés qui ont bougé dans la période ; par famille puis par nom.
+
+Le début d'une journée est toujours la fin de la veille : les deux sont recalculés depuis le journal des mouvements. `closing_quantity` est le stock **réel** (pertes et écart compris) ; le stock **prévu** à la fin vaut `closing_quantity - count_adjustment_quantity + loss_quantity`.
+
+### `GET /reports/yield` — rendement des fiches
+
+**Accès : ADMIN.** Mêmes paramètres et erreurs que `/reports/sales`. Le « rapport bœuf » de l'Excel, pour chaque article à fiche (protéines, boissons) qui a une fiche ou des ventes dans la période :
+
+```
+Bœuf : début 0 + entrées 10 - fin comptée 7,6 = 2,4 kg consommés
+       portion moyenne 0,21 kg (fiches appliquées aux ventes) → 11,2 plats prévus
+       7 plats vendus → écart 4,2 plats, dont 1,4 en pertes déclarées et 2,8 manquants
+       prix moyen 2 571 F → écart 10 800 F, dont 7 200 F non expliqués
+```
+
+```json
+{
+  "date_from": "2026-10-14", "date_to": "2026-10-20",
+  "totals": { "sold_xof": 18000, "variance_xof": 10800, "unexplained_xof": 7200, "articles_counted": 1 },
+  "articles": [
+    { "article_id": "…", "name": "Bœuf", "category": "PROTEINE", "unit": "kg",
+      "counted_in_period": true, "last_count_date": "2026-10-20",
+      "opening_quantity": 0, "purchased_quantity": 10, "closing_quantity": 7.6, "consumed_quantity": 2.4,
+      "portion_quantity": 0.21, "expected_portions": 11.2, "sold_portions": 7,
+      "portion_variance": 4.2, "loss_portions": 1.4, "unexplained_portions": 2.8,
+      "sold_xof": 18000, "average_price_xof": 2571, "variance_xof": 10800, "unexplained_xof": 7200,
+      "products": [
+        { "product_id": "…", "name": "Brochettes de boeuf", "portion_quantity": 0.2, "quantity": 5, "revenue_xof": 10000 },
+        { "product_id": "…", "name": "Poulet braisé", "portion_quantity": 0.25, "quantity": 2, "revenue_xof": 8000 }
+      ] }
+  ]
+}
+```
+
+| Champ | Sens |
+|---|---|
+| `consumed_quantity` | Début + entrées - fin |
+| `portion_quantity` | Quantité d'article par plat, moyenne des plats vendus (un article peut servir à plusieurs plats : bœuf du plat et du foufou). Sans vente : moyenne des fiches actuelles |
+| `expected_portions` | Plats que le consommé aurait dû donner |
+| `sold_portions` | Plats vendus à la caisse (nets des paiements annulés) |
+| `portion_variance` | Prévus - vendus ; positif : consommé sans vente. `= loss_portions + unexplained_portions` |
+| `average_price_xof` | Prix moyen d'un plat, pondéré par les ventes (sans vente : prix actuels) |
+| `variance_xof`, `unexplained_xof` | Écart, et sa part non expliquée par les pertes déclarées, au prix de vente moyen |
+| `counted_in_period` | Un inventaire de l'article a été saisi dans la période |
+
+**Inventaire et période.** Sans inventaire dans la période (`counted_in_period: false`), la fin est le stock prévu : l'écart se limite aux pertes déclarées, le manquant reste invisible. Avec un inventaire **par semaine** (par exemple chaque lundi soir), interroger **du mardi au lundi suivant** : le début est alors le stock compté la semaine d'avant et la fin le stock compté ce lundi. Un inventaire quotidien des protéines donnerait le même tableau jour par jour.
+
+Un plat qui utilise plusieurs articles compte son chiffre d'affaires pour chacun (`sold_xof`). Triés par `variance_xof` décroissant.
 
 ---
 

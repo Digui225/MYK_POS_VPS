@@ -211,6 +211,7 @@ Correspondance des champs du tableau du jour (`aziz` → ici) : `total_sales_ttc
 |---|---|
 | Ventes sur une période | `GET /reports/sales?date_from=&date_to=` : CA, coût matière, marges par jour, plat, catégorie, moyen de paiement, écarts de caisse |
 | Stock sur une période | `GET /reports/stock?date_from=&date_to=` : début et fin de période, entrées, ventes, pertes, écart d'inventaire, alertes |
+| Rendement des fiches (« rapport bœuf ») | `GET /reports/yield?date_from=&date_to=` : par article à fiche, consommé, plats prévus, plats vendus, écart en plats et au prix de vente. Avec l'inventaire hebdomadaire, période du lendemain d'un inventaire au jour du suivant (`ENDPOINTS-TESTABLES` §12) |
 
 ### 5.7 Administration
 
@@ -235,6 +236,7 @@ Correspondance des champs du tableau du jour (`aziz` → ici) : `total_sales_ttc
 
 | Sujet | En bref | Détail |
 |---|---|---|
+| **Rendement des fiches (22/10)** | `GET /reports/yield` : plats prévus d'après la viande consommée, plats vendus, écart en plats et en francs | §5.6 |
 | **Approvisionnement (21/10)** | Rôle `ACHETEUR` et routes `/purchases` : demande sans prix, validation, décaissement, réception avec entrées de stock automatiques | §5.8 |
 | **Pagination (21/10)** | Commandes, sessions, mouvements de stock, FNE et tickets : 100 par page, suivre `next_cursor` | §3 |
 | **Renvoi automatique FNE (21/10)** | Une FNE `QUEUED` repart toute seule ; `retry` reste possible | `ENDPOINTS-TESTABLES` §9 |
@@ -328,6 +330,7 @@ Nouveaux codes d'erreur : `PURCHASE_STATE` (21/10), `STOCK_ARTICLE_NAME_EXISTS`,
 | Tableaux de bord | `GET` | `/reports/dashboard` | RESPONSABLE | Tableau de bord du jour |
 | Tableaux de bord | `GET` | `/reports/sales` | ADMIN | Tableau des ventes |
 | Tableaux de bord | `GET` | `/reports/stock` | ADMIN | Tableau du stock |
+| Tableaux de bord | `GET` | `/reports/yield` | ADMIN | Rendement des fiches techniques |
 | Paramètres et caisses | `GET` | `/settings` | connecté | Paramètres de l'établissement |
 | Paramètres et caisses | `PUT` | `/settings` | ADMIN | Modifier les paramètres |
 | Paramètres et caisses | `GET` | `/cash-registers` | connecté | Lister les caisses |
@@ -365,7 +368,7 @@ Avec un jeton par rôle (CAISSIER, RESPONSABLE, ADMIN) et `X-Device-Id: poste-1`
 5. **Stock** (RESPONSABLE) : `GET /stock/articles?search=bœuf` → 0,4 kg de moins. Annuler le paiement (`DELETE /orders/{id}/payments/{payment_id}?reason=test`) → le bœuf revient.
 6. **Saisies** (RESPONSABLE) : `POST /stock/receipts`, `POST /stock/counts`, `POST /stock/losses` (chacune avec sa clé).
 7. **Catalogue** (RESPONSABLE) : `PATCH /products/{id}/price` `{"price_xof": 3500, "reason": "test"}` → `GET /products/{id}/price-history`.
-8. **Tableaux** : `GET /reports/dashboard` (RESPONSABLE) ; `GET /reports/sales` et `GET /reports/stock` (ADMIN).
+8. **Tableaux** : `GET /reports/dashboard` (RESPONSABLE) ; `GET /reports/sales`, `GET /reports/stock` et `GET /reports/yield` (ADMIN).
 9. **Clôture** (CAISSIER) : solder ou annuler les commandes ouvertes → `POST /cash-sessions/{id}/close` `{"counted_breakdown": {"10000": 2}}` + `Idempotency-Key` → `POST /cash-sessions/{id}/z-report/reprint`.
 
 Le parcours détaillé, avec les réponses attendues, est dans [`CIRCUIT-TEST-SWAGGER.md`](CIRCUIT-TEST-SWAGGER.md) et dans `ENDPOINTS-TESTABLES` §14 (en curl).

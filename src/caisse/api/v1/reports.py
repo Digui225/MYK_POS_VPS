@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 
 from caisse.deps import Admin, DbSession, Responsable
-from caisse.schemas.reports import DashboardOut, SalesReportOut, StockReportOut
+from caisse.schemas.reports import DashboardOut, SalesReportOut, StockReportOut, YieldReportOut
 from caisse.services import reporting_service, stock_service
 
 router = APIRouter(prefix="/reports", tags=["Rapports"])
@@ -67,3 +67,21 @@ def stock(
     """
     start, end = _period(db, date_from, date_to)
     return reporting_service.stock_report(db, start, end)
+
+
+@router.get("/yield", response_model=YieldReportOut, summary="Rendement des fiches techniques")
+def yield_(
+    _: Admin, db: DbSession, date_from: DateFrom = None, date_to: DateTo = None
+) -> YieldReportOut:
+    """Le « rapport bœuf » pour chaque article à fiche (protéines, boissons) : quantité
+    consommée (début + entrées - fin), plats qu'elle aurait dû donner, plats vendus à la
+    caisse, écart en plats et au prix de vente moyen des plats (pondéré par les ventes).
+    `unexplained_*` : la part de l'écart que les pertes déclarées n'expliquent pas.
+
+    L'écart n'apparaît qu'avec un inventaire dans la période (`counted_in_period`) : avec un
+    inventaire par semaine, interroger du lendemain d'un inventaire au jour du suivant.
+
+    Erreurs : `403 INSUFFICIENT_PRIVILEGE` (ADMIN), `422 VALIDATION_ERROR`.
+    """
+    start, end = _period(db, date_from, date_to)
+    return reporting_service.yield_report(db, start, end)

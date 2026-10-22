@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from caisse.domain import stock_rules
 from caisse.domain.enums import StockMovementType, StockOutMode
 from caisse.errors import ValidationError
+from caisse.models.stock import StockArticle
 from caisse.repositories import fne as fne_repo
 from caisse.repositories import reports as reports_repo
 from caisse.repositories import stock as stock_repo
@@ -36,14 +37,49 @@ from caisse.schemas.reports import (
     StockReportArticle,
     StockReportOut,
     StockTotals,
+    YieldArticle,
+    YieldProduct,
+    YieldReportOut,
+    YieldTotals,
 )
 
 MAX_DAYS = 366
 _ZERO = Decimal(0)
+_CENT = Decimal("0.01")
+
+# mouvements par article et par type sur la période : (quantité, valeur) signées
+Flows = dict[tuple[uuid.UUID, StockMovementType], tuple[Decimal, Decimal]]
+COUNT_TYPES = (StockMovementType.INVENTORY_COUNT, StockMovementType.ADJUSTMENT)
 
 
 def _xof(value: Decimal) -> int:
     return int(value.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
+def _r2(value: Decimal) -> float:
+    return float(value.quantize(_CENT, rounding=ROUND_HALF_UP))
+
+
+def _flow_qty(period: Flows, article_id: uuid.UUID, *types: StockMovementType) -> Decimal:
+    return sum((period.get((article_id, t), (_ZERO, _ZERO))[0] for t in types), _ZERO)
+
+
+def _opening_closing(
+    article: StockArticle, period: Flows, after: dict[uuid.UUID, Decimal]
+) -> tuple[Decimal, Decimal]:
+    """Stock de début et de fin de période, recalculés depuis le journal : le début d'une
+    journée est la fin de la veille. Le stock de départ saisi pendant la période compte
+    dans le début."""
+    closing = article.quantity - after.get(article.id, _ZERO)
+    in_period = sum(
+        (
+            q
+            for (aid, t), (q, _) in period.items()
+            if aid == article.id and t != StockMovementType.OPENING
+        ),
+        _ZERO,
+    )
+    return closing - in_period, closing
 
 
 def check_period(date_from: date, date_to: date) -> None:
@@ -161,29 +197,19 @@ def stock_report(db: Session, date_from: date, date_to: date) -> StockReportOut:
     ]
 
     def qty(aid: uuid.UUID, *types: StockMovementType) -> Decimal:
-        return sum((period.get((aid, t), (_ZERO, _ZERO))[0] for t in types), _ZERO)
+        return _flow_qty(period, aid, *types)
 
     def value(aid: uuid.UUID, *types: StockMovementType) -> Decimal:
         return sum((period.get((aid, t), (_ZERO, _ZERO))[1] for t in types), _ZERO)
 
     sale_types = (StockMovementType.SALE_OUT, StockMovementType.RETURN_IN)
-    count_types = (StockMovementType.INVENTORY_COUNT, StockMovementType.ADJUSTMENT)
+    count_types = COUNT_TYPES
     out_types = (*sale_types, StockMovementType.LOSS_OUT, *count_types)
 
     rows: list[StockReportArticle] = []
     totals: defaultdict[str, Decimal] = defaultdict(lambda: _ZERO)
     for a in articles:
-        closing = a.quantity - after.get(a.id, _ZERO)
-        # le stock de départ saisi pendant la période compte dans le début de période
-        in_period = sum(
-            (
-                q
-                for (aid, t), (q, _) in period.items()
-                if aid == a.id and t != StockMovementType.OPENING
-            ),
-            _ZERO,
-        )
-        opening = closing - in_period
+        opening, closing = _opening_closing(a, period, after)
         purchased = qty(a.id, StockMovementType.PURCHASE_IN)
         purchases = value(a.id, StockMovementType.PURCHASE_IN)
         consumption_value = -value(a.id, *out_types)
@@ -230,6 +256,110 @@ def stock_report(db: Session, date_from: date, date_to: date) -> StockReportOut:
             inventory_consumption_xof=_xof(totals["consumption"]),
             stock_variance_xof=_xof(totals["variance"]),
             low_count=int(totals["low"]),
+        ),
+        articles=rows,
+    )
+
+
+def yield_report(db: Session, date_from: date, date_to: date) -> YieldReportOut:
+    """Rendement des fiches (le « rapport bœuf ») : pour chaque article à fiche, les plats que
+    la quantité consommée aurait dû donner, les plats vendus à la caisse, l'écart en plats et
+    au prix de vente moyen.
+
+    Consommé = début + entrées - fin, d'après le journal. Sans inventaire dans la période, la
+    fin est le stock prévu : l'écart se limite alors aux pertes déclarées. Avec un inventaire
+    par semaine, choisir la période du lendemain d'un inventaire au jour du suivant."""
+    check_period(date_from, date_to)
+    period: Flows = reports_repo.movements_by_article_type(db, date_from, date_to)
+    after = reports_repo.quantity_after(db, date_to)
+    counts = reports_repo.last_count_dates(db, date_to)
+    sales: defaultdict[uuid.UUID, list[tuple[uuid.UUID, str, Decimal, int, int]]] = defaultdict(
+        list
+    )
+    for aid, pid, name, qty, dishes, revenue in reports_repo.sales_by_article_product(
+        db, date_from, date_to
+    ):
+        sales[aid].append((pid, name, qty, dishes, revenue))
+    recipes: defaultdict[uuid.UUID, list[tuple[uuid.UUID, str, Decimal, int]]] = defaultdict(list)
+    for aid, pid, name, qty, price in reports_repo.recipe_dishes(db):
+        recipes[aid].append((pid, name, qty, price))
+
+    rows: list[YieldArticle] = []
+    for a in stock_repo.list_articles(db, is_active=None):
+        if a.out_mode != StockOutMode.RECIPE or (a.id not in sales and a.id not in recipes):
+            continue
+        opening, closing = _opening_closing(a, period, after)
+        purchased = _flow_qty(period, a.id, StockMovementType.PURCHASE_IN)
+        loss = -_flow_qty(period, a.id, StockMovementType.LOSS_OUT)
+        adjustment = _flow_qty(period, a.id, *COUNT_TYPES)
+        consumed = opening + purchased - closing
+
+        sold = sales.get(a.id, [])
+        sold_qty = sum((qty for _, _, qty, _, _ in sold), _ZERO)
+        sold_portions = sum(dishes for _, _, _, dishes, _ in sold)
+        sold_xof = sum(revenue for *_, revenue in sold)
+        recipe = recipes.get(a.id, [])
+        if sold_portions > 0:
+            portion = sold_qty / sold_portions
+            average_price = Decimal(sold_xof) / sold_portions
+        else:  # aucune vente : fiches et prix actuels
+            portion = sum((qty for _, _, qty, _ in recipe), _ZERO) / len(recipe)
+            average_price = Decimal(sum(price for *_, price in recipe)) / len(recipe)
+        if portion <= 0:
+            continue
+        expected = consumed / portion
+        variance = expected - sold_portions
+        unexplained = -adjustment / portion
+
+        products = {
+            pid: YieldProduct(
+                product_id=pid,
+                name=name,
+                portion_quantity=_r2(qty / dishes) if dishes else 0.0,
+                quantity=dishes,
+                revenue_xof=revenue,
+            )
+            for pid, name, qty, dishes, revenue in sold
+        }
+        for pid, name, qty, _ in recipe:
+            if pid not in products:
+                products[pid] = YieldProduct(
+                    product_id=pid, name=name, portion_quantity=_r2(qty), quantity=0, revenue_xof=0
+                )
+        rows.append(
+            YieldArticle(
+                article_id=a.id,
+                name=a.name,
+                category=a.category,
+                unit=a.unit,
+                counted_in_period=any((a.id, t) in period for t in COUNT_TYPES),
+                last_count_date=counts.get(a.id),
+                opening_quantity=_r2(opening),
+                purchased_quantity=_r2(purchased),
+                closing_quantity=_r2(closing),
+                consumed_quantity=_r2(consumed),
+                portion_quantity=_r2(portion),
+                expected_portions=_r2(expected),
+                sold_portions=sold_portions,
+                portion_variance=_r2(variance),
+                loss_portions=_r2(loss / portion),
+                unexplained_portions=_r2(unexplained),
+                sold_xof=sold_xof,
+                average_price_xof=_xof(average_price),
+                variance_xof=_xof(variance * average_price),
+                unexplained_xof=_xof(unexplained * average_price),
+                products=sorted(products.values(), key=lambda p: (-p.quantity, p.name)),
+            )
+        )
+    rows.sort(key=lambda r: (-r.variance_xof, r.name))
+    return YieldReportOut(
+        date_from=date_from,
+        date_to=date_to,
+        totals=YieldTotals(
+            sold_xof=sum(r.sold_xof for r in rows),
+            variance_xof=sum(r.variance_xof for r in rows),
+            unexplained_xof=sum(r.unexplained_xof for r in rows),
+            articles_counted=sum(1 for r in rows if r.counted_in_period),
         ),
         articles=rows,
     )

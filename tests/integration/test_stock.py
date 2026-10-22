@@ -494,3 +494,64 @@ def test_payment_warns_on_negative_stock(client: TestClient, setup: dict[str, An
     ] == [("STOCK_NEGATIVE_WARNING", beef_id, -0.2)]
     _, fine = _sell(client, setup, {"Sucrerie 33cl": 1})
     assert fine["warnings"] == []
+
+
+def test_yield_report_counts_missing_dishes(client: TestClient, setup: dict[str, Any]) -> None:
+    """Le « rapport bœuf » : 2,4 kg consommés auraient dû donner 11,2 plats ; 7 vendus."""
+    manager, admin = setup["manager"], setup["admin"]
+    beef_id, _ = _beef_dish(client, setup)
+    chicken = setup["products"]["Poulet braisé"]  # 2e plat au bœuf, autre prix et portion
+    resp = client.put(
+        f"/api/v1/products/{chicken}/components",
+        headers=manager,
+        json={"components": [{"article_id": beef_id, "quantity": 0.25}]},
+    )
+    assert resp.status_code == 200, resp.text
+    _sell(client, setup, {"Brochettes de boeuf": 5, "Poulet braisé": 2, "Jus de bissap": 1})
+    lost = _post(
+        client,
+        manager,
+        "losses",
+        "l1",
+        {"reason": "avarié", "lines": [{"article_id": beef_id, "quantity": 0.3}]},
+    )
+    assert lost.status_code == 201, lost.text
+    counted = _post(
+        client,
+        manager,
+        "counts",
+        "c1",
+        {"lines": [{"article_id": beef_id, "counted_quantity": 7.6}]},
+    )
+    assert counted.status_code == 201, counted.text
+
+    assert client.get("/api/v1/reports/yield", headers=manager).status_code == 403
+    report = client.get("/api/v1/reports/yield", headers=admin).json()
+    beef = report["articles"][0]
+    assert beef["name"] == "Bœuf"
+    assert beef["counted_in_period"] is True
+    assert (beef["opening_quantity"], beef["purchased_quantity"], beef["closing_quantity"]) == (
+        0,
+        10,
+        7.6,
+    )
+    assert (beef["consumed_quantity"], beef["portion_quantity"]) == (2.4, 0.21)
+    assert (beef["expected_portions"], beef["sold_portions"], beef["portion_variance"]) == (
+        11.2,
+        7,
+        4.2,
+    )
+    assert (beef["loss_portions"], beef["unexplained_portions"]) == (1.4, 2.8)
+    # prix moyen pondéré : (5 x 2 000 + 2 x 4 000) / 7
+    assert (beef["sold_xof"], beef["average_price_xof"]) == (18000, 2571)
+    assert (beef["variance_xof"], beef["unexplained_xof"]) == (10800, 7200)
+    assert [(p["name"], p["quantity"], p["portion_quantity"]) for p in beef["products"]] == [
+        ("Brochettes de boeuf", 5, 0.2),
+        ("Poulet braisé", 2, 0.25),
+    ]
+
+    bissap = next(a for a in report["articles"] if a["name"] == "Jus de bissap")
+    assert (bissap["counted_in_period"], bissap["sold_portions"]) == (False, 1)
+    assert bissap["portion_variance"] == 0  # pas d'inventaire : aucun écart mesurable
+    assert report["totals"]["articles_counted"] == 1
+    assert report["totals"]["variance_xof"] == 10800
