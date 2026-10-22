@@ -129,5 +129,7 @@ DbSession = Annotated[Session, Depends(get_db)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
 Responsable = Annotated[User, Depends(require_role("RESPONSABLE", "ADMIN"))]
 Admin = Annotated[User, Depends(require_role("ADMIN"))]
+MarketPurchaser = Annotated[User, Depends(require_role("ECONOME", "CAISSIER", "RESPONSABLE", "ADMIN"))]
+EconomeOnly = Annotated[User, Depends(require_role("ECONOME", "RESPONSABLE", "ADMIN"))]
 Ctx = Annotated[RequestContext, Depends(get_request_context)]
 

@@ -109,7 +109,7 @@ def main() -> None:
     # Commande create-user
     user_parser = subparsers.add_parser("create-user", help="Créer un nouvel utilisateur")
     user_parser.add_argument("--name", help="Nom complet de l'utilisateur")
-    user_parser.add_argument("--role", choices=["CAISSIER", "RESPONSABLE", "ADMIN"], help="Rôle")
+    user_parser.add_argument("--role", choices=["CAISSIER", "RESPONSABLE", "ADMIN", "ECONOME"], help="Rôle")
     user_parser.add_argument("--pin", help="Code PIN (6 chiffres)")
     user_parser.add_argument("--noinput", action="store_true", help="Mode non interactif")
 
@@ -180,7 +180,7 @@ def main() -> None:
                 pin = args.pin or "123456"
             else:
                 name = input("Nom complet : ").strip()
-                role = input("Rôle [CAISSIER/RESPONSABLE/ADMIN] : ").strip().upper()
+                role = input("Rôle [CAISSIER/RESPONSABLE/ADMIN/ECONOME] : ").strip().upper()
                 pin = input("PIN (6 chiffres) : ").strip()
 
             user = auth_service.create_user(full_name=name, pin=pin, role=role)
@@ -205,7 +205,8 @@ def main() -> None:
                 auth_service.create_user("Caissière Principale", "111111", "CAISSIER")
                 auth_service.create_user("Responsable Restaurant", "222222", "RESPONSABLE")
                 auth_service.create_user("Administrateur", "999999", "ADMIN")
-                print("✅ Utilisateurs de démo créés (Caissière: 111111, Responsable: 222222, Admin: 999999).")
+                auth_service.create_user("Économe Marché", "112233", "ECONOME")
+                print("✅ Utilisateurs de démo créés (Caissière: 111111, Responsable: 222222, Admin: 999999, Économe: 112233).")
             seed_catalog_and_tables(db)
             print("✅ Caisse, menu et tables de base initialisés avec succès.")
 

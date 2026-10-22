@@ -13,6 +13,7 @@ from caisse.models.customer import Customer
 from caisse.models.fne import FneDocument
 from caisse.models.outbox import OutboxEvent
 from caisse.models.finance import CashExpense, BankDeposit
+from caisse.models.production import MarketPurchaseList, MarketPurchaseItem, DailyPreparation
 
 __all__ = [
     "Base",
@@ -41,4 +42,7 @@ __all__ = [
     "OutboxEvent",
     "CashExpense",
     "BankDeposit",
+    "MarketPurchaseList",
+    "MarketPurchaseItem",
+    "DailyPreparation",
 ]

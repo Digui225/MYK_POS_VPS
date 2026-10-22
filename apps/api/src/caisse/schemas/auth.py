@@ -12,20 +12,20 @@ class LoginRequest(BaseRequestSchema):
 class UserResponse(BaseSchema):
     id: str
     full_name: str
-    role: Literal["CAISSIER", "RESPONSABLE", "ADMIN"]
+    role: Literal["CAISSIER", "RESPONSABLE", "ADMIN", "ECONOME"]
     is_active: bool = True
     last_login_at: datetime | None = None
 
 
 class CreateUserRequest(BaseRequestSchema):
     full_name: str = Field(..., min_length=2, max_length=100, description="Nom complet de l'utilisateur")
-    role: Literal["CAISSIER", "RESPONSABLE", "ADMIN"] = Field("CAISSIER", description="Rôle système de l'utilisateur")
+    role: Literal["CAISSIER", "RESPONSABLE", "ADMIN", "ECONOME"] = Field("CAISSIER", description="Rôle système de l'utilisateur")
     pin: str = Field(..., min_length=4, max_length=6, description="Code PIN numérique (4 à 6 chiffres)")
 
 
 class UpdateUserRequest(BaseRequestSchema):
     full_name: str | None = Field(None, min_length=2, max_length=100, description="Nom complet mis à jour")
-    role: Literal["CAISSIER", "RESPONSABLE", "ADMIN"] | None = Field(None, description="Rôle système mis à jour")
+    role: Literal["CAISSIER", "RESPONSABLE", "ADMIN", "ECONOME"] | None = Field(None, description="Rôle système mis à jour")
     is_active: bool | None = Field(None, description="Statut actif / désactivé")
 
 

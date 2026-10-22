@@ -5,6 +5,7 @@ class UserRole(StrEnum):
     CAISSIER = "CAISSIER"
     RESPONSABLE = "RESPONSABLE"
     ADMIN = "ADMIN"
+    ECONOME = "ECONOME"
 
 
 class SessionStatus(StrEnum):
