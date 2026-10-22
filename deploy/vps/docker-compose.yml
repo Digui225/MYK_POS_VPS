@@ -55,6 +55,7 @@ services:
   # Même image que l'API (reconstruite par redeploy.sh) ; inactif si FNE_PROVIDER=manual.
   caisse-fne-worker:
     image: caisse-api:latest
+    pull_policy: never                  # image construite par le service caisse-api, jamais téléchargée
     container_name: caisse-fne-worker
     restart: always
     env_file: ${CAISSE_ROOT:-/opt/caisse}/api.env
