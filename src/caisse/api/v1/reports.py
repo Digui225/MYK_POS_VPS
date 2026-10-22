@@ -79,7 +79,8 @@ def yield_(
     `unexplained_*` : la part de l'écart que les pertes déclarées n'expliquent pas.
 
     L'écart n'apparaît qu'avec un inventaire dans la période (`counted_in_period`) : avec un
-    inventaire par semaine, interroger du lendemain d'un inventaire au jour du suivant.
+    inventaire par semaine daté du vendredi (restaurant ouvert du lundi au vendredi),
+    interroger du lundi au vendredi.
 
     Erreurs : `403 INSUFFICIENT_PRIVILEGE` (ADMIN), `422 VALIDATION_ERROR`.
     """

@@ -268,7 +268,8 @@ def yield_report(db: Session, date_from: date, date_to: date) -> YieldReportOut:
 
     Consommé = début + entrées - fin, d'après le journal. Sans inventaire dans la période, la
     fin est le stock prévu : l'écart se limite alors aux pertes déclarées. Avec un inventaire
-    par semaine, choisir la période du lendemain d'un inventaire au jour du suivant."""
+    par semaine, choisir la période du lendemain d'un inventaire au jour du suivant : du lundi
+    au vendredi pour un inventaire daté du vendredi."""
     check_period(date_from, date_to)
     period: Flows = reports_repo.movements_by_article_type(db, date_from, date_to)
     after = reports_repo.quantity_after(db, date_to)

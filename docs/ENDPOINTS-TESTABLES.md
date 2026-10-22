@@ -1890,8 +1890,10 @@ Chaque ligne donne **soit** le montant payé (`total_cost_xof`), **soit** le pri
 #### `POST /stock/counts` — inventaire
 
 ```json
-{ "reason": "pesée du lundi", "lines": [ { "article_id": "…", "counted_quantity": 8.5 } ] }
+{ "reason": "inventaire de la semaine", "business_date": "2026-10-16", "lines": [ { "article_id": "…", "counted_quantity": 8.5 } ] }
 ```
+
+`business_date` facultatif (défaut : journée de la session ouverte, sinon le jour) ; il vaut aussi pour les entrées et les pertes. Inventaire hebdomadaire compté le lundi matin : le dater du **vendredi** (voir `GET /reports/yield`, §12).
 
 Le stock de chaque article **devient** la quantité comptée, et le mouvement porte l'écart. Exemple : stock théorique de 9 kg après les ventes, 8,5 kg comptés → `INVENTORY_COUNT` de −0,5 kg (2 000 F manquants). Pour un article `INVENTORY` (oignon, gaz), cet écart est sa consommation depuis le dernier comptage. Un écart nul est enregistré aussi : il date le dernier inventaire. Le **premier** comptage d'un article sans aucun mouvement est un `OPENING` (stock de départ).
 
@@ -2078,7 +2080,9 @@ Bœuf : début 0 + entrées 10 - fin comptée 7,6 = 2,4 kg consommés
 | `variance_xof`, `unexplained_xof` | Écart, et sa part non expliquée par les pertes déclarées, au prix de vente moyen |
 | `counted_in_period` | Un inventaire de l'article a été saisi dans la période |
 
-**Inventaire et période.** Sans inventaire dans la période (`counted_in_period: false`), la fin est le stock prévu : l'écart se limite aux pertes déclarées, le manquant reste invisible. Avec un inventaire **par semaine** (par exemple chaque lundi soir), interroger **du mardi au lundi suivant** : le début est alors le stock compté la semaine d'avant et la fin le stock compté ce lundi. Un inventaire quotidien des protéines donnerait le même tableau jour par jour.
+**Inventaire et période.** Sans inventaire dans la période (`counted_in_period: false`), la fin est le stock prévu : l'écart se limite aux pertes déclarées, le manquant reste invisible. Le restaurant est ouvert **du lundi au vendredi** : avec un inventaire **par semaine daté du vendredi**, interroger **du lundi au vendredi** — le début est le stock compté le vendredi d'avant (rien ne bouge le week-end), la fin le stock compté ce vendredi. Un inventaire quotidien des protéines donnerait le même tableau jour par jour.
+
+Ce qui compte est la **date** de l'inventaire, pas l'heure du comptage : compté le vendredi soir, il est daté du vendredi ; compté le lundi matin avant l'ouverture, il faut envoyer `business_date` = le vendredi (`POST /stock/counts`), sinon l'écart de la semaine passée tombe dans la suivante. Les produits frais abîmés pendant le week-end se déclarent en perte (`POST /stock/losses`) le lundi, sinon ils comptent comme manquant.
 
 Un plat qui utilise plusieurs articles compte son chiffre d'affaires pour chacun (`sold_xof`). Triés par `variance_xof` décroissant.
 

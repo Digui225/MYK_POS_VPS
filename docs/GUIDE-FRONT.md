@@ -201,7 +201,7 @@ Correspondance des champs du tableau du jour (`aziz` → ici) : `total_sales_ttc
 | Articles | `GET /stock/articles?category=&search=&low_only=`, `POST /stock/articles`, `PATCH /stock/articles/{id}` |
 | Entrée (achat) | `POST /stock/receipts` `{supplier, lines: [{article_id, quantity, total_cost_xof}]}` (ou `unit_cost_xof`) |
 | Perte | `POST /stock/losses` `{reason, lines: [{article_id, quantity}]}` |
-| Inventaire | `POST /stock/counts` `{lines: [{article_id, counted_quantity}]}` |
+| Inventaire | `POST /stock/counts` `{business_date?, lines: [{article_id, counted_quantity}]}`. **Proposer le choix de la date** : l'inventaire hebdomadaire se date du vendredi, même s'il est saisi le lundi matin (restaurant fermé le week-end) |
 | Journal | `GET /stock/movements?article_id=&type=&date_from=&date_to=` |
 | Fiche technique d'un plat | `GET`/`PUT /products/{id}/components` `{components: [{article_id, quantity}]}` |
 
@@ -211,7 +211,7 @@ Correspondance des champs du tableau du jour (`aziz` → ici) : `total_sales_ttc
 |---|---|
 | Ventes sur une période | `GET /reports/sales?date_from=&date_to=` : CA, coût matière, marges par jour, plat, catégorie, moyen de paiement, écarts de caisse |
 | Stock sur une période | `GET /reports/stock?date_from=&date_to=` : début et fin de période, entrées, ventes, pertes, écart d'inventaire, alertes |
-| Rendement des fiches (« rapport bœuf ») | `GET /reports/yield?date_from=&date_to=` : par article à fiche, consommé, plats prévus, plats vendus, écart en plats et au prix de vente. Avec l'inventaire hebdomadaire, période du lendemain d'un inventaire au jour du suivant (`ENDPOINTS-TESTABLES` §12) |
+| Rendement des fiches (« rapport bœuf ») | `GET /reports/yield?date_from=&date_to=` : par article à fiche, consommé, plats prévus, plats vendus, écart en plats et au prix de vente. Restaurant ouvert du lundi au vendredi : avec l'inventaire hebdomadaire daté du vendredi, période du lundi au vendredi (`ENDPOINTS-TESTABLES` §12) |
 
 ### 5.7 Administration
 
