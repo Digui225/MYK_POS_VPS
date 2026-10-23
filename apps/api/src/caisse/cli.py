@@ -4,10 +4,12 @@ from datetime import datetime, timezone
 from decimal import Decimal
 import json
 from pathlib import Path
+import signal
 import sys
 from sqlalchemy import select
 
 from caisse.database import SessionLocal
+from caisse.deps import get_fne_provider
 from caisse.models.catalog import Category, Product
 from caisse.models.settings import AppSetting
 from caisse.models.table import RestaurantTable
@@ -102,7 +104,42 @@ def cmd_fne_probe(args: argparse.Namespace) -> None:
     print(f"Stickers restants : {sale.balance_sticker} (alerte : {sale.sticker_warning})")
 
 
-def main() -> None:
+def cmd_fne_worker(args: argparse.Namespace) -> None:
+    """Renvoi automatique FNE : vide la file des documents échus toutes les
+    `--interval` secondes, jusqu'à l'arrêt (SIGTERM/SIGINT). L'envoi en cours est terminé
+    avant de s'arrêter : un document coupé en plein appel deviendrait incertain."""
+    import logging
+    import signal
+    import threading
+    from caisse.deps import get_fne_provider
+    from caisse.services import fne_service
+
+    logger = logging.getLogger("caisse.fne_worker")
+    stop = threading.Event()
+    signal.signal(signal.SIGTERM, lambda *_: stop.set())
+    signal.signal(signal.SIGINT, lambda *_: stop.set())
+    provider = get_fne_provider()
+    if provider is None:
+        print("FNE_PROVIDER=manual : aucun envoi automatique.")
+        if not args.once:
+            stop.wait()
+        return
+
+    print(f"🚀 fne_worker démarré (intervalle: {args.interval}s)")
+    while not stop.is_set():
+        try:
+            with SessionLocal() as db:
+                while not stop.is_set() and fne_service.retry_next_due(db, provider):
+                    pass
+        except Exception as exc:
+            logger.exception("fne_worker_error: %s", exc)
+        if args.once:
+            break
+        stop.wait(args.interval)
+    print("🛑 fne_worker arrêté.")
+
+
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="CLI d'administration de la Caisse MYK")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -154,10 +191,23 @@ def main() -> None:
     stock_parser.add_argument("--articles-csv", default=None, help="Chemin alternatif vers articles.csv")
     stock_parser.add_argument("--fiches-csv", default=None, help="Chemin alternatif vers fiches_techniques.csv")
 
-    args = parser.parse_args()
+    # Commande create-print-terminal
+    terminal_parser = subparsers.add_parser("create-print-terminal", help="Jeton de l'agent d'impression d'un poste")
+    terminal_parser.add_argument("--name", required=True, help="Nom du poste (ex: Comptoir)")
+
+    # Commande fne-worker
+    fne_worker_parser = subparsers.add_parser("fne-worker", help="Renvoi automatique des FNE en file (service)")
+    fne_worker_parser.add_argument("--interval", type=float, default=30.0, help="Secondes entre deux passages")
+    fne_worker_parser.add_argument("--once", action="store_true", help="Un seul passage, puis arrêt")
+
+    args = parser.parse_args(argv)
 
     if args.command == "fne-probe":
         cmd_fne_probe(args)
+        return
+
+    if args.command == "fne-worker":
+        cmd_fne_worker(args)
         return
 
     if args.command == "outbox-worker":
@@ -269,6 +319,13 @@ def main() -> None:
             comps = import_components(db, comp_path)
             db.commit()
             print(f"✅ Stock importé : {res.created} créés, {res.skipped} existants, {res.initial_counts} comptages initiaux, {comps} fiches techniques.")
+
+        elif args.command == "create-print-terminal":
+            from caisse.services.print_terminal_service import PrintTerminalService
+            term_service = PrintTerminalService(db)
+            terminal, token = term_service.create_terminal(name=args.name)
+            print(f"✅ Terminal « {terminal.name} » créé. Jeton de l'agent (affiché une seule fois) :")
+            print(token)
 
     finally:
         db.close()

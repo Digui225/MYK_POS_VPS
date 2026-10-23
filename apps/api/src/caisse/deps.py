@@ -1,13 +1,14 @@
 import uuid
 from collections.abc import Callable
 from typing import Any
-from fastapi import Depends, Header, Request, status
+from fastapi import Depends, Header, Query, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from caisse.database import get_db
 from caisse.errors import CaisseException
 from caisse.models.user import User
+from caisse.pagination import DEFAULT_LIMIT, MAX_LIMIT, PageRequest, decode_cursor
 from caisse.repositories.users import UserRepository
 from caisse.security import decode_token
 
@@ -125,11 +126,48 @@ def get_request_context(
     return RequestContext(device_id=device_id, client_ip=client_ip, request_id=request_id)
 
 
+def page_request(
+    cursor: Annotated[
+        str | None, Query(description="`next_cursor` de la page précédente ; absent : 1re page")
+    ] = None,
+    limit: Annotated[
+        int, Query(ge=1, le=MAX_LIMIT, description="Nombre maximum d'éléments par page")
+    ] = DEFAULT_LIMIT,
+) -> PageRequest:
+    return PageRequest(after=decode_cursor(cursor), limit=limit)
+
+
 DbSession = Annotated[Session, Depends(get_db)]
-CurrentUser = Annotated[User, Depends(get_current_user)]
+AuthenticatedUser = Annotated[User, Depends(get_current_user)]
+CurrentUser = Annotated[User, Depends(require_role("CAISSIER", "RESPONSABLE", "ADMIN", "ECONOME"))]
 Responsable = Annotated[User, Depends(require_role("RESPONSABLE", "ADMIN"))]
 Admin = Annotated[User, Depends(require_role("ADMIN"))]
 MarketPurchaser = Annotated[User, Depends(require_role("ECONOME", "CAISSIER", "RESPONSABLE", "ADMIN"))]
 EconomeOnly = Annotated[User, Depends(require_role("ECONOME", "RESPONSABLE", "ADMIN"))]
+Acheteur = Annotated[User, Depends(require_role("ECONOME", "RESPONSABLE", "ADMIN"))]
 Ctx = Annotated[RequestContext, Depends(get_request_context)]
+Paging = Annotated[PageRequest, Depends(page_request)]
+FneProviderDep = Annotated[Any, Depends(get_fne_provider)]
+
+
+def get_current_terminal(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    db: Session = Depends(get_db),
+):
+    from caisse.models.print_terminal import PrintTerminal
+    from caisse.services.print_terminal_service import PrintTerminalService
+
+    if not credentials:
+        raise CaisseException(
+            code="TERMINAL_TOKEN_INVALID",
+            title="Jeton requis",
+            detail="Veuillez fournir un jeton Bearer valide.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+    token = credentials.credentials
+    service = PrintTerminalService(db)
+    return service.authenticate(token)
+
+
+CurrentTerminal = Annotated[Any, Depends(get_current_terminal)]
 

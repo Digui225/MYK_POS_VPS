@@ -414,3 +414,6 @@ class CashSessionService:
             variance_xof=session.variance_xof,
             totals_snapshot=session.totals_snapshot,
         )
+
+    def list_history(self, register_id: str | None = None, page: Any = None) -> list[CashSession]:
+        return self.repo.list_history(register_id=register_id, page=page)

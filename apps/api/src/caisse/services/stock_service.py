@@ -229,12 +229,45 @@ def move(
     return movement
 
 
+def record_purchase(
+    db: Session,
+    article: StockArticle,
+    quantity: Decimal,
+    unit_cost: Decimal,
+    *,
+    business_date: date,
+    user_id: str | None,
+    supplier: str | None,
+    reason: str | None,
+) -> StockMovement:
+    """Entrée d'achat sur un article verrouillé : coût moyen pondéré recalculé avec le prix
+    payé. Sert à `receive` et à la réception d'une demande d'achat."""
+    unit_cost = stock_rules.quantize_cost(unit_cost)
+    article.avg_cost_xof = stock_rules.weighted_average_cost(
+        article.quantity, article.avg_cost_xof, quantity, unit_cost
+    )
+    return move(
+        db,
+        article,
+        StockMovementType.PURCHASE_IN,
+        quantity,
+        unit_cost=unit_cost,
+        business_date=business_date,
+        user_id=user_id,
+        supplier=supplier,
+        reason=reason,
+    )
+
+
 def _lock_existing(db: Session, article_ids: list[str]) -> dict[str, StockArticle]:
     articles = stock_repo.lock_articles(db, [str(i) for i in article_ids])
     missing = [str(i) for i in article_ids if str(i) not in articles]
     if missing:
         raise NotFoundError(meta={"article_ids": missing})
     return articles
+
+
+lock_existing = _lock_existing
 
 
 def negative_warnings(articles: list[StockArticle]) -> list[ApiWarning]:

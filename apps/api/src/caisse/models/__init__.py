@@ -8,12 +8,15 @@ from caisse.models.table import RestaurantTable
 from caisse.models.order import Order, OrderItem
 from caisse.models.payment import Payment
 from caisse.models.print_job import PrintJob
+from caisse.models.print_terminal import PrintTerminal
 from caisse.models.stock import StockArticle, ProductComponent, StockItem, StockMovement
 from caisse.models.customer import Customer
 from caisse.models.fne import FneDocument
 from caisse.models.outbox import OutboxEvent
 from caisse.models.finance import CashExpense, BankDeposit
 from caisse.models.production import MarketPurchaseList, MarketPurchaseItem, DailyPreparation
+from caisse.models.settings import SequenceCounter
+from caisse.models.purchase import PurchaseRequest, PurchaseRequestLine
 
 __all__ = [
     "Base",
@@ -33,6 +36,7 @@ __all__ = [
     "OrderItem",
     "Payment",
     "PrintJob",
+    "PrintTerminal",
     "StockArticle",
     "ProductComponent",
     "StockItem",
@@ -45,4 +49,7 @@ __all__ = [
     "MarketPurchaseList",
     "MarketPurchaseItem",
     "DailyPreparation",
+    "SequenceCounter",
+    "PurchaseRequest",
+    "PurchaseRequestLine",
 ]

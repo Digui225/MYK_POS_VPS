@@ -23,5 +23,13 @@ class PrintJob(Base, TimestampMixin):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     printed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # Pris par l'agent d'un terminal (passage en PRINTING)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    terminal_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("print_terminals.id", ondelete="SET NULL"), nullable=True
+    )
+    attempts: Mapped[int] = mapped_column(default=0, nullable=False)
+
     # Relationships
     order = relationship("Order")
+    terminal = relationship("PrintTerminal", foreign_keys=[terminal_id])

@@ -12,6 +12,9 @@ class BaseRepository(Generic[ModelType]):
     def get_by_id(self, id: str) -> ModelType | None:
         return self.db.query(self.model).filter(getattr(self.model, "id") == id).first()
 
+    def get(self, id: str) -> ModelType | None:
+        return self.get_by_id(id)
+
     def add(self, entity: ModelType) -> ModelType:
         self.db.add(entity)
         self.db.flush()

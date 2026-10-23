@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from caisse.domain.enums import StockArticleCategory, StockMovementType
 from caisse.models.stock import ProductComponent, StockArticle, StockMovement
+from caisse.pagination import PageRequest, newest_first
 
 SALE_TYPES = (StockMovementType.SALE_OUT, StockMovementType.RETURN_IN)
 
@@ -105,14 +106,26 @@ def list_movements(
     movement_type: StockMovementType | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
-    limit: int = 100,
+    page: PageRequest | None = None,
+    limit: int | None = None,
 ) -> list[tuple[StockMovement, str]]:
-    stmt = (
-        select(StockMovement, StockArticle.name)
-        .join(StockArticle, StockArticle.id == StockMovement.article_id)
-        .order_by(StockMovement.created_at.desc(), StockMovement.id.desc())
-        .limit(limit)
-    )
+    """Une ligne de plus que la page (voir `pagination.split`)."""
+    if page is not None:
+        stmt = newest_first(
+            select(StockMovement, StockArticle.name).join(
+                StockArticle, StockArticle.id == StockMovement.article_id
+            ),
+            StockMovement.created_at,
+            StockMovement.id,
+            page,
+        )
+    else:
+        stmt = (
+            select(StockMovement, StockArticle.name)
+            .join(StockArticle, StockArticle.id == StockMovement.article_id)
+            .order_by(StockMovement.created_at.desc(), StockMovement.id.desc())
+            .limit(limit or 100)
+        )
     if article_id is not None:
         stmt = stmt.where(StockMovement.article_id == article_id)
     if movement_type is not None:

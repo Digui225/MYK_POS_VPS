@@ -4,12 +4,13 @@ from fastapi import APIRouter, Depends, Path, Query, Response, status
 from sqlalchemy.orm import Session
 
 from caisse.database import get_db
-from caisse.deps import get_current_user, get_fne_provider, require_role
+from caisse.deps import get_current_user, get_fne_provider, require_role, DbSession, Paging, Responsable
 from caisse.domain.enums import FneStatus
 from caisse.models.fne import FneDocument
 from caisse.models.user import User
+from caisse.pagination import split
 from caisse.repositories import fne as fne_repo
-from caisse.schemas.common import PaginatedResponse
+from caisse.schemas.common import Page, PaginatedResponse
 from caisse.schemas.fne import (
     FneDailySummaryOut,
     FneDocumentOut,
@@ -67,17 +68,22 @@ def get_for_order(
     return fne_service.to_out(db, fne_service.get_for_order(db, order_id))
 
 
-@router.get("/fne/documents", response_model=list[FneDocumentOut], summary="Documents FNE (suivi)")
+@router.get("/fne/documents", response_model=Page[FneDocumentOut], summary="Documents FNE (suivi)")
 def list_documents(
-    db: Session = Depends(get_db),
-    _: User = Depends(require_role("RESPONSABLE", "ADMIN")),
-    status: Optional[str] = Query(None, description="Filtrer sur un statut"),
-    start_date: Optional[datetime] = Query(None, description="Date début"),
-    limit: int = Query(200, ge=1, le=500),
-) -> list[FneDocumentOut]:
-    """Liste des documents FNE."""
-    docs = fne_repo.list_documents(db, status=status, start_date=start_date, limit=limit)
-    return fne_service.to_out_many(db, docs)
+    _: Responsable,
+    db: DbSession,
+    page: Paging,
+    status_filter: Annotated[
+        str | None, Query(alias="status", description="Filtrer sur un statut")
+    ] = None,
+    business_date: Annotated[
+        date | None, Query(description="Journée comptable de la commande")
+    ] = None,
+) -> Page[FneDocumentOut]:
+    """Les plus récents en premier, par pages de `limit` : `next_cursor` donne la suivante."""
+    rows = fne_repo.list_documents(db, status=status_filter, business_date=business_date, page=page)
+    docs, next_cursor = split(rows, page, lambda d: (d.created_at, d.id))
+    return Page(items=fne_service.to_out_many(db, docs), next_cursor=next_cursor)
 
 
 

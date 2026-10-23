@@ -1,32 +1,18 @@
-FROM python:3.12-slim
-
+FROM python:3.12-slim AS base
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
 
-# Installation des dépendances système nécessaires
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    build-essential \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+FROM base AS build
+COPY pyproject.toml README.md ./
+COPY src ./src
+RUN pip install --prefix=/install .
 
-# Copie des fichiers de configuration de dépendances
-COPY pyproject.toml ./
-
-# Installation des dépendances Python
-RUN pip install --no-cache-dir --upgrade pip setuptools && \
-    pip install --no-cache-dir .
-
-# Copie du code source et d'Alembic
-COPY src/ ./src/
-COPY alembic/ ./alembic/
+FROM base AS runtime
+RUN useradd --create-home --uid 1000 caisse
+COPY --from=build /install /usr/local
 COPY alembic.ini ./
-
-COPY docker-entrypoint.sh ./
-RUN chmod +x docker-entrypoint.sh
-
-ENV PYTHONPATH=/app/src
-
-EXPOSE 8001
-
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
-CMD ["uvicorn", "caisse.main:app", "--host", "0.0.0.0", "--port", "8001"]
+COPY alembic ./alembic
+COPY src ./src
+USER caisse
+EXPOSE 8000
+CMD ["uvicorn", "caisse.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -68,9 +68,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             pass
 
 
+from pathlib import Path
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import HTMLResponse
-from caisse.docs_html import get_offline_docs_html
+from fastapi.staticfiles import StaticFiles
+from fastapi.openapi.docs import get_swagger_ui_html
+
+SWAGGER_UI_DIR = Path(__file__).parent / "static" / "swagger-ui"
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -81,6 +85,9 @@ app = FastAPI(
     redoc_url=None,
     lifespan=lifespan,
 )
+
+if settings.docs_enabled and SWAGGER_UI_DIR.exists():
+    app.mount("/docs/static", StaticFiles(directory=str(SWAGGER_UI_DIR)), name="swagger-ui")
 
 
 @app.get("/docs", include_in_schema=False)
@@ -93,7 +100,13 @@ async def custom_swagger_ui_html() -> HTMLResponse:
             detail="La documentation interactive est désactivée en environnement de production.",
             status_code=404,
         )
-    return HTMLResponse(content=get_offline_docs_html(title=f"{settings.APP_NAME} - Documentation Interactive"))
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json",
+        title=f"{settings.APP_NAME} - Swagger UI",
+        swagger_js_url="/docs/static/swagger-ui-bundle.js",
+        swagger_css_url="/docs/static/swagger-ui.css",
+        swagger_favicon_url="data:,",
+    )
 
 
 # Middlewares

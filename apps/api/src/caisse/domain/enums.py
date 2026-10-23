@@ -2,10 +2,33 @@ from enum import StrEnum
 
 
 class UserRole(StrEnum):
+    ECONOME = "ECONOME"  # bons d'achat marché, prévisions, préparations cuisine
     CAISSIER = "CAISSIER"
     RESPONSABLE = "RESPONSABLE"
     ADMIN = "ADMIN"
-    ECONOME = "ECONOME"
+
+
+# Hiérarchie : un rôle hérite des droits des rôles inférieurs.
+ROLE_RANK: dict[UserRole, int] = {
+    UserRole.ECONOME: 0,
+    UserRole.CAISSIER: 1,
+    UserRole.RESPONSABLE: 2,
+    UserRole.ADMIN: 3,
+}
+
+
+def role_at_least(role: UserRole | str, required: UserRole) -> bool:
+    r = UserRole(role) if isinstance(role, str) else role
+    return ROLE_RANK.get(r, 0) >= ROLE_RANK[required]
+
+
+class PurchaseStatus(StrEnum):
+    SUBMITTED = "SUBMITTED"  # envoyée par l'acheteur, à valider
+    APPROVED = "APPROVED"  # validée (quantités et prix éventuellement corrigés), à décaisser
+    DISBURSED = "DISBURSED"  # argent remis à l'acheteur, achats en cours
+    RECEIVED = "RECEIVED"  # achats réceptionnés : entrées de stock faites
+    REJECTED = "REJECTED"  # refusée par un responsable
+    CANCELLED = "CANCELLED"  # retirée par l'acheteur avant validation
 
 
 class SessionStatus(StrEnum):

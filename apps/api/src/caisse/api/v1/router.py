@@ -12,10 +12,12 @@ from caisse.api.v1.reports import router as reports_router
 from caisse.api.v1.customers import router as customers_router
 from caisse.api.v1.fne import router as fne_router
 from caisse.api.v1.printing import router as printing_router
+from caisse.api.v1.print_agent import router as print_agent_router
 from caisse.api.v1.settings import router as settings_router
 from caisse.api.v1.ws import router as ws_router
 from caisse.api.v1.finance import router as finance_router
 from caisse.api.v1.production import router as production_router
+from caisse.api.v1.purchases import router as purchases_router
 
 api_v1_router = APIRouter(prefix="/api/v1")
 
@@ -30,9 +32,11 @@ api_v1_router.include_router(stock_router)
 api_v1_router.include_router(reports_router)
 api_v1_router.include_router(finance_router)
 api_v1_router.include_router(production_router)
+api_v1_router.include_router(purchases_router)
 api_v1_router.include_router(customers_router)
 api_v1_router.include_router(fne_router)
 api_v1_router.include_router(printing_router)
+api_v1_router.include_router(print_agent_router)
 api_v1_router.include_router(settings_router)
 api_v1_router.include_router(ws_router)
 

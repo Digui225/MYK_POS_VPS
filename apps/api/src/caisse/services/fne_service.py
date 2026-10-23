@@ -544,6 +544,26 @@ def retry(
 retry_document = retry
 
 
+class WorkerContext:
+    device_id: str = "fne-worker"
+    ip: str | None = None
+
+
+WORKER_CTX = WorkerContext()
+
+
+def retry_next_due(db: Session, provider: FneProvider) -> FneDocument | None:
+    """Renvoi automatique du plus ancien document en file dont l'échéance est passée ; `None`
+    s'il n'y en a pas. Un nouvel échec certain le remet en file au palier suivant de
+    `RETRY_DELAYS`. Les documents refusés ou incertains restent manuels."""
+    doc = fne_repo.next_due(db, utcnow())
+    if doc is None:
+        db.rollback()
+        return None
+    _submit(db, doc, provider, user_id=None, ctx=WORKER_CTX)
+    return doc
+
+
 def resolve(
     db: Session,
     document_id: str,
@@ -621,7 +641,7 @@ def _submit(
     doc: FneDocument,
     provider: FneProvider | None,
     *,
-    user_id: str,
+    user_id: str | None = None,
     ctx: Any = None,
 ) -> None:
     if provider is None:
@@ -659,7 +679,7 @@ def _submit(
         db,
         "fne.submit",
         ctx=ctx,
-        user_id=str(user_id),
+        user_id=str(user_id) if user_id else None,
         entity="fne_document",
         entity_id=str(doc.id),
         after={

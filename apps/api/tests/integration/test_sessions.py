@@ -136,3 +136,14 @@ def test_session_lifecycle_with_orders_and_z_report(client: TestClient) -> None:
     assert z_data["expected_cash_in_drawer_xof"] == 27000
     assert z_data["counted_cash_xof"] == 27000
     assert z_data["variance_xof"] == 0
+
+    # 11. Imprimer le Rapport Z
+    print_res = client.post(
+        f"/api/v1/cash-sessions/{session_id}/print-z",
+        headers={**headers, "X-Device-Id": "test-device"},
+    )
+    assert print_res.status_code == 202
+    print_data = print_res.json()
+    assert print_data["session_id"] == session_id
+    assert "print_job_id" in print_data
+

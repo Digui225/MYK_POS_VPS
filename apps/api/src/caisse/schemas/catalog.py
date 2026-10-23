@@ -40,7 +40,7 @@ class ProductResponse(BaseSchema):
 class ProductCreateRequest(BaseModel):
     category_id: str
     name: str
-    short_name: str = Field(..., max_length=20)
+    short_name: str | None = Field(default=None, max_length=20)
     price_xof: int = Field(..., ge=0)
     vat_rate: float = 0.00
     track_stock: bool = False

@@ -2,8 +2,11 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from caisse.database import get_db
-from caisse.deps import get_current_user, require_role, require_device_id, require_idempotency_key
+from caisse.deps import DbSession, Paging, Responsable, get_current_user, require_role, require_device_id, require_idempotency_key
+from caisse.models.cash_session import CashSession
 from caisse.models.user import User
+from caisse.pagination import split
+from caisse.schemas.common import Page
 from caisse.schemas.sessions import (
     SessionOpenRequest,
     CashSessionResponse,
@@ -16,6 +19,22 @@ from caisse.schemas.sessions import (
 from caisse.services.cash_session_service import CashSessionService
 
 router = APIRouter(prefix="/cash-sessions", tags=["Sessions de caisse"])
+
+
+@router.get("", response_model=Page[CashSessionResponse], summary="Historique des sessions de caisse")
+def list_sessions_history(
+    user: Responsable,
+    db: DbSession,
+    page: Paging,
+) -> Page[CashSessionResponse]:
+    """Sessions clôturées, les plus récentes en premier, par pages de `limit` : `next_cursor` donne la suivante."""
+    session_service = CashSessionService(db)
+    rows = session_service.list_history(page=page)
+    sessions, next_cursor = split(rows, page, lambda s: (s.closed_at or s.opened_at, s.id))
+    return Page(
+        items=[session_service._to_session_response(s) for s in sessions],
+        next_cursor=next_cursor,
+    )
 
 
 @router.get("/current", response_model=CashSessionResponse, summary="Session de caisse active sur ce poste")

@@ -1,126 +1,45 @@
-import os
-import uvicorn
-from fastapi import FastAPI, HTTPException, Request, status
-from pydantic import BaseModel
+import argparse
+import logging
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
-from agent.spooler_driver import (
-    print_job_raw,
-    open_drawer_only,
-    get_spooler_status,
-    build_esc_pos_qr,
-    ESC_INIT,
-    ESC_DRAWER_KICK,
-    ESC_CUT_PAPER,
-)
-
-PRINTER_NAME = os.getenv("PRINTER_NAME", "POS-80")
-PORT = int(os.getenv("PORT", "8090"))
-HOST = os.getenv("HOST", "127.0.0.1")
-
-app = FastAPI(title="Caisse MYK - Print Agent (Windows Spooler)", version="1.0.0")
+from agent.config import AgentSettings, get_settings
+from agent.escpos_driver import EscposDriver
+from agent.poller import Poller
 
 
-class PrintPayload(BaseModel):
-    content: str
-    qr: str | None = None
-    open_drawer: bool = False
-    cut: bool = True
+def _setup_logging(settings: AgentSettings) -> None:
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    if settings.log_file:
+        path = Path(settings.log_file)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handlers.append(RotatingFileHandler(path, maxBytes=1_000_000, backupCount=5,
+                                            encoding="utf-8"))
+    # force : une dépendance (python-escpos) pose déjà un handler, qui rendrait l'appel inopérant
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
+                        handlers=handlers, force=True)
+    logging.getLogger("httpx").setLevel(logging.WARNING)  # une ligne par interrogation sinon
 
 
-@app.get("/status", summary="État de l'imprimante dans le Spooler Windows")
-def get_status():
-    return get_spooler_status(PRINTER_NAME)
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="agent")
+    parser.add_argument("--list", action="store_true",
+                        help="imprimantes Windows installées (valeur de PRINTER_NAME)")
+    if parser.parse_args().list:
+        from agent import win32_spool
 
+        print("\n".join(win32_spool.list_printers()))
+        return
 
-@app.post("/print-raw", status_code=status.HTTP_200_OK, summary="Imprimer des octets bruts ESC/POS")
-async def print_raw_endpoint(request: Request):
-    raw_data = await request.body()
-    try:
-        print_job_raw(PRINTER_NAME, raw_data, doc_name="Ticket ESC/POS Direct")
-        return {"status": "PRINTED", "bytes": len(raw_data)}
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur d'impression brute : {str(exc)}",
-        )
-
-
-@app.post("/print", status_code=status.HTTP_200_OK, summary="Imprimer un ticket")
-def print_receipt(payload: PrintPayload):
-    raw = bytearray(ESC_INIT)
-
-    # 1. Impulsion tiroir si demandée
-    if payload.open_drawer:
-        raw.extend(ESC_DRAWER_KICK)
-
-    # 2. Contenu texte
-    raw.extend(payload.content.encode("cp850", errors="replace"))
-    raw.extend(b"\n")
-
-    # 2b. Impression du QR Code FNE si demandé
-    if payload.qr:
-        raw.extend(b"\x1b\x61\x01")  # Centrer
-        raw.extend(build_esc_pos_qr(payload.qr, size=4))
-        raw.extend(b"\x1b\x61\x00")  # Rétablir alignement à gauche
-        raw.extend(b"\n")
-
-    raw.extend(b"\n\n")
-
-    # 3. Coupe papier
-    if payload.cut:
-        raw.extend(ESC_CUT_PAPER)
-
-    try:
-        print_job_raw(PRINTER_NAME, bytes(raw), doc_name="Ticket de Caisse")
-        return {"status": "PRINTED", "open_drawer": payload.open_drawer}
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur d'impression : {str(exc)}",
-        )
-
-
-@app.post("/open-drawer", status_code=status.HTTP_200_OK, summary="Ouvrir le tiroir manuellement")
-def open_drawer():
-    try:
-        open_drawer_only(PRINTER_NAME)
-        return {"status": "DRAWER_OPENED"}
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur impulsion tiroir : {str(exc)}",
-        )
-
-
-@app.post("/test-print", status_code=status.HTTP_200_OK, summary="Ticket de test")
-def test_print():
-    test_content = (
-        "==========================================\n"
-        "           TEST IMPRIMANTE MYK            \n"
-        "        Agent Spooler Windows OK          \n"
-        "==========================================\n"
-        "Modèle : " + PRINTER_NAME + "\n"
-        "Encodage : CP850 / ESC-POS\n"
-        "==========================================\n"
-    )
-    raw = bytearray(ESC_INIT)
-    raw.extend(test_content.encode("cp850", errors="replace"))
-    raw.extend(b"\n\n\n")
-    raw.extend(ESC_CUT_PAPER)
-
-    try:
-        print_job_raw(PRINTER_NAME, bytes(raw), doc_name="Test Impression")
-        return {"status": "TEST_PRINT_SENT"}
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur test d'impression : {str(exc)}",
-        )
-
-
-def start():
-    uvicorn.run("agent.__main__:app", host=HOST, port=PORT, reload=False)
+    settings = get_settings()
+    _setup_logging(settings)
+    if not settings.terminal_token:
+        raise SystemExit("TERMINAL_TOKEN est obligatoire (POST /api/v1/printing/terminals)")
+    if settings.printer_backend == "win32" and not settings.printer_name:
+        raise SystemExit("PRINTER_NAME est obligatoire avec win32 (python -m agent --list)")
+    # un seul processus, un travail à la fois : l'imprimante n'est jamais sollicitée en parallèle
+    Poller(settings, EscposDriver(settings)).run_forever()
 
 
 if __name__ == "__main__":
-    start()
+    main()

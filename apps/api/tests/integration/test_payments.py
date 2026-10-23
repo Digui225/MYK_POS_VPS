@@ -200,9 +200,9 @@ def test_printing_reprint_and_manual_drawer(client: TestClient) -> None:
     c_drawer_res = client.post("/api/v1/printing/open-drawer", headers=caissier_headers)
     assert c_drawer_res.status_code == 403
 
-    # 6. Ouverture manuelle tiroir : Responsable autorisé (200)
+    # 6. Ouverture manuelle tiroir : Responsable autorisé (202 ou 200)
     r_drawer_res = client.post("/api/v1/printing/open-drawer", headers=resp_headers)
-    assert r_drawer_res.status_code == 200
+    assert r_drawer_res.status_code in (200, 202)
 
 
 def test_payment_with_fne_direct_certification(client: TestClient) -> None:

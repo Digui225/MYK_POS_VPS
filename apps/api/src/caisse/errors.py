@@ -133,6 +133,21 @@ class FneInvalidDataError(CaisseException):
         )
 
 
+class PurchaseStateError(CaisseException):
+    def __init__(
+        self,
+        detail: str = "Action impossible dans l'état actuel de la demande d'achat",
+        meta: dict[str, Any] | None = None,
+    ):
+        super().__init__(
+            code="PURCHASE_STATE",
+            title="État de la demande incompatible",
+            detail=detail,
+            status_code=status.HTTP_409_CONFLICT,
+            meta=meta or {},
+        )
+
+
 
 def problem_json_response(
     status_code: int,

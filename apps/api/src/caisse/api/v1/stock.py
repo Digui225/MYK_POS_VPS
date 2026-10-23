@@ -3,10 +3,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
 
-from caisse.deps import Ctx, CurrentUser, DbSession, Responsable
+from caisse.deps import Ctx, CurrentUser, DbSession, Paging, Responsable
 from caisse.domain.enums import StockArticleCategory, StockMovementType
 from caisse.domain.stock_rules import is_below_threshold
 from caisse.idempotency import IdempotencyKey
+from caisse.pagination import split
 from caisse.repositories import stock as stock_repo
 from caisse.schemas.common import Page
 from caisse.schemas.stock import (
@@ -184,22 +185,26 @@ def count(
 def list_movements(
     _: Responsable,
     db: DbSession,
+    page: Paging,
     article_id: Annotated[str | None, Query(description="Un seul article")] = None,
     type: Annotated[StockMovementType | None, Query(description="Nature du mouvement")] = None,
     date_from: Annotated[date | None, Query(description="Journée de début (incluse)")] = None,
     date_to: Annotated[date | None, Query(description="Journée de fin (incluse)")] = None,
-    limit: Annotated[int, Query(ge=1, le=500, description="Nombre maximum")] = 100,
 ) -> Page[StockMovementOut]:
-    """Du plus récent au plus ancien."""
+    """Du plus récent au plus ancien, par pages de `limit` : `next_cursor` donne la suivante."""
     rows = stock_repo.list_movements(
         db,
         article_id=article_id,
         movement_type=type,
         date_from=date_from,
         date_to=date_to,
-        limit=limit,
+        page=page,
     )
-    return Page(items=[stock_service.movement_out(m, name) for m, name in rows])
+    movements, next_cursor = split(rows, page, lambda row: (row[0].created_at, row[0].id))
+    return Page(
+        items=[stock_service.movement_out(m, name) for m, name in movements],
+        next_cursor=next_cursor,
+    )
 
 
 # --- Fiches techniques -------------------------------------------------------------------

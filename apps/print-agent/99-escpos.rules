@@ -1,0 +1,3 @@
+# Adapter idVendor / idProduct à la sortie de `lsusb`, puis :
+#   sudo cp 99-escpos.rules /etc/udev/rules.d/ && sudo udevadm control --reload-rules && sudo udevadm trigger
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0416", ATTRS{idProduct}=="5011", MODE="0666", GROUP="lp"

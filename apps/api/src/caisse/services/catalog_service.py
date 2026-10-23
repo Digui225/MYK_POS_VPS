@@ -137,7 +137,7 @@ class CatalogService:
         product = Product(
             category_id=payload.category_id,
             name=payload.name,
-            short_name=payload.short_name,
+            short_name=payload.short_name or payload.name[:20],
             price_xof=payload.price_xof,
             vat_rate=payload.vat_rate,
             track_stock=payload.track_stock,
@@ -227,4 +227,41 @@ class CatalogService:
             sort_order=product.sort_order,
             color=product.color,
             sku=product.sku,
+        )
+
+    def get_product(self, product_id: str) -> ProductResponse:
+        p = self.repo.get_product_by_id(product_id)
+        if not p:
+            raise CaisseException(
+                code="PRODUCT_NOT_FOUND",
+                title="Produit introuvable",
+                detail=f"Aucun produit trouvé avec l'ID {product_id}.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        from caisse.domain import stock_rules
+        from caisse.repositories import stock as stock_repo
+
+        recipe = stock_repo.components_by_product(self.db, [p.id]).get(p.id, [])
+        has_recipe = len(recipe) > 0
+        portions = (
+            stock_rules.portions_available(
+                [(per_portion, article.quantity) for per_portion, article in recipe]
+            )
+            if has_recipe
+            else None
+        )
+        return ProductResponse(
+            id=p.id,
+            category_id=p.category_id,
+            name=p.name,
+            short_name=p.short_name,
+            price_xof=p.price_xof,
+            vat_rate=float(p.vat_rate),
+            track_stock=has_recipe or p.track_stock,
+            stock_quantity=float(portions) if portions is not None else None,
+            is_custom=p.is_custom,
+            is_active=p.is_active,
+            sort_order=p.sort_order,
+            color=p.color,
+            sku=p.sku,
         )

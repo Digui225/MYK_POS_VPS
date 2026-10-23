@@ -1,6 +1,9 @@
 from datetime import date
+from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
+from caisse.models.cash_session import CashSession
 from caisse.models.order import Order, OrderItem
+from caisse.pagination import PageRequest, newest_first
 from caisse.repositories.base import BaseRepository
 
 
@@ -66,14 +69,37 @@ class OrderRepository(BaseRepository[Order]):
         self,
         session_id: str | None = None,
         status: str | None = None,
-        limit: int = 50,
+        business_date: date | None = None,
+        page: PageRequest | None = None,
+        limit: int | None = None,
     ) -> list[Order]:
+        if page is not None:
+            stmt = newest_first(
+                select(Order).options(joinedload(Order.items)),
+                Order.opened_at,
+                Order.id,
+                page,
+            )
+            if session_id:
+                stmt = stmt.where(Order.cash_session_id == str(session_id))
+            if status:
+                stmt = stmt.where(Order.status == status)
+            if business_date:
+                stmt = stmt.join(CashSession, CashSession.id == Order.cash_session_id).where(
+                    CashSession.business_date == business_date
+                )
+            return list(self.db.scalars(stmt).unique().all())
+
         query = self.db.query(Order).options(joinedload(Order.items))
         if session_id:
             query = query.filter(Order.cash_session_id == str(session_id))
         if status:
             query = query.filter(Order.status == status)
-        return query.order_by(Order.opened_at.desc()).limit(limit).all()
+        if business_date:
+            query = query.join(CashSession, CashSession.id == Order.cash_session_id).filter(
+                CashSession.business_date == business_date
+            )
+        return query.order_by(Order.opened_at.desc(), Order.id.desc()).limit(limit or 50).all()
 
 
 def get(db: Session, order_id: str) -> Order | None:

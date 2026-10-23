@@ -1,5 +1,7 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from caisse.models.cash_session import CashRegister, CashSession, CashMovement
+from caisse.pagination import PageRequest, newest_first
 from caisse.repositories.base import BaseRepository
 
 
@@ -63,3 +65,27 @@ class CashSessionRepository(BaseRepository[CashSession]):
             )
             .count()
         )
+
+    def list_history(
+        self,
+        register_id: str | None = None,
+        page: PageRequest | None = None,
+        limit: int | None = None,
+    ) -> list[CashSession]:
+        if page is not None:
+            stmt = newest_first(
+                select(CashSession).where(CashSession.status == "CLOSED"),
+                CashSession.closed_at,
+                CashSession.id,
+                page,
+            )
+        else:
+            stmt = (
+                select(CashSession)
+                .where(CashSession.status == "CLOSED")
+                .order_by(CashSession.closed_at.desc(), CashSession.id.desc())
+                .limit(limit or 50)
+            )
+        if register_id is not None:
+            stmt = stmt.where(CashSession.cash_register_id == register_id)
+        return list(self.db.scalars(stmt).all())

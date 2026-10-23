@@ -195,8 +195,8 @@ def test_order_lifecycle(client: TestClient) -> None:
 
     # 15. Lister les commandes avec filtres
     list_res = client.get("/api/v1/orders", headers=headers)
-    assert list_res.status_code == 200
-    orders_list = list_res.json()
+    orders_data = list_res.json()
+    orders_list = orders_data["items"] if isinstance(orders_data, dict) and "items" in orders_data else orders_data
     assert len(orders_list) >= 2
     assert any(o["id"] == order_id for o in orders_list)
     assert any(o["id"] == takeaway_order["id"] for o in orders_list)

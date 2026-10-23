@@ -89,3 +89,58 @@ def test_caissier_cannot_create_category(client: TestClient) -> None:
     )
     assert cat_res.status_code == 403
     assert cat_res.json()["code"] == "INSUFFICIENT_PRIVILEGE"
+
+
+def test_normalized_categories_and_products_aliases(client: TestClient) -> None:
+    login_res = client.post(
+        "/api/v1/auth/login",
+        json={"pin": "654321", "device_id": "pos-terminal-01"},
+    )
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}", "X-Device-Id": "pos-terminal-01"}
+
+    # 1. Créer une catégorie via /api/v1/categories
+    cat_res = client.post(
+        "/api/v1/categories",
+        headers=headers,
+        json={"name": "Grillades Spéciales", "kind": "FOOD"},
+    )
+    assert cat_res.status_code == 201
+    cat_id = cat_res.json()["id"]
+
+    # 2. Lire via /api/v1/categories et via /api/v1/catalog/categories
+    res_direct = client.get("/api/v1/categories", headers=headers)
+    assert res_direct.status_code == 200
+    res_catalog = client.get("/api/v1/catalog/categories", headers=headers)
+    assert res_catalog.status_code == 200
+    assert any(c["id"] == cat_id for c in res_direct.json())
+    assert any(c["id"] == cat_id for c in res_catalog.json())
+
+    # 3. Créer un produit via /api/v1/products
+    prod_res = client.post(
+        "/api/v1/products",
+        headers=headers,
+        json={
+            "category_id": cat_id,
+            "name": "Poulet Braisé Spécial",
+            "price_xof": 4500,
+        },
+    )
+    assert prod_res.status_code == 201
+    prod_id = prod_res.json()["id"]
+
+    # 4. Lire via /api/v1/products et via /api/v1/catalog/products
+    p_direct = client.get(f"/api/v1/products/{prod_id}", headers=headers)
+    assert p_direct.status_code == 200
+    assert p_direct.json()["name"] == "Poulet Braisé Spécial"
+
+    p_catalog = client.get(f"/api/v1/catalog/products/{prod_id}", headers=headers)
+    assert p_catalog.status_code == 200
+    assert p_catalog.json()["name"] == "Poulet Braisé Spécial"
+
+
+def test_static_swagger_docs_available(client: TestClient) -> None:
+    res = client.get("/docs")
+    assert res.status_code == 200
+    assert "/docs/static/swagger-ui-bundle.js" in res.text
+    assert "/docs/static/swagger-ui.css" in res.text

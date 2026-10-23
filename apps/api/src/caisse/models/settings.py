@@ -33,3 +33,12 @@ class AppSetting(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
+
+class SequenceCounter(Base):
+    """Compteurs verrouillés par SELECT ... FOR UPDATE (n° de demande d'achat, etc.)."""
+
+    __tablename__ = "sequence_counters"
+
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    value: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+

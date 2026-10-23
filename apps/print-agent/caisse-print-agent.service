@@ -1,0 +1,17 @@
+# Installation : voir README.md de ce dossier (remplacer __USER__ et __DIR__).
+[Unit]
+Description=Agent d'impression Caisse (ESC/POS USB)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__DIR__
+EnvironmentFile=__DIR__/.env
+ExecStart=__DIR__/.venv/bin/python -m agent
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

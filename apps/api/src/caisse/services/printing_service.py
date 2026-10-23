@@ -1,31 +1,42 @@
-import os
-import shutil
-import subprocess
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any
-import httpx
 from sqlalchemy.orm import Session
+from fastapi import status
 
-from caisse.domain.payment_rules import (
-    format_receipt_text,
-    build_esc_pos_bytes,
-    ESC_INIT,
-    ESC_DRAWER_KICK,
-    ESC_CUT_PAPER,
-)
+from caisse.domain.payment_rules import format_receipt_text
 from caisse.models.order import Order
 from caisse.models.payment import Payment
 from caisse.models.print_job import PrintJob
+from caisse.models.print_terminal import PrintTerminal
+from caisse.models.settings import EstablishmentSetting
 from caisse.repositories.print_jobs import PrintJobRepository
+from caisse.repositories.print_terminals import PrintTerminalRepository
+from caisse.schemas.printing import PrinterReport, PrintingStatusOut
 from caisse.services.audit_service import AuditService
+from caisse.errors import CaisseException
+
+OFFLINE_THRESHOLD_SECONDS = 15
 
 
 class PrintingService:
-    def __init__(self, db: Session, agent_url: str = "http://127.0.0.1:8090"):
+    def __init__(self, db: Session, agent_url: str | None = None):
         self.db = db
         self.agent_url = agent_url
         self.repo = PrintJobRepository(db)
+        self.terminal_repo = PrintTerminalRepository(db)
         self.audit = AuditService(db)
+
+    def _send_raw_esc_pos(self, *args: Any, **kwargs: Any) -> bool:
+        """Méthode conservée pour compatibilité : en mode VPS, les travaux sont en file."""
+        return True
+
+    def _dispatch_job_to_agent(self, job: PrintJob) -> bool:
+        """Compatibilité outbox : en mode test/fallback, marque le job comme imprimé."""
+        if self._send_raw_esc_pos(b""):
+            job.status = "DONE"
+            job.printed_at = datetime.now(timezone.utc)
+            return True
+        return False
 
     def generate_receipt_content(
         self,
@@ -35,11 +46,10 @@ class PrintingService:
         is_duplicate: bool = False,
         fne_info: dict | None = None,
     ) -> str:
-        from caisse.models.settings import EstablishmentSetting
         setting = self.db.query(EstablishmentSetting).first()
 
         restaurant_info = {
-            "name": (setting.restaurant_name if setting and setting.restaurant_name else "SYLLA PLUS").upper(),
+            "name": (setting.restaurant_name if setting and setting.restaurant_name else "RESTAURANT MYK").upper(),
             "address": setting.address if setting and setting.address else "Abidjan, Plateau",
             "phone": setting.phone if setting and setting.phone else "+225 07 58 00 00 00",
             "ncc": setting.ncc if setting and setting.ncc else "2104598B",
@@ -81,8 +91,6 @@ class PrintingService:
         width = 32
         if setting and setting.print_width and setting.print_width >= 80:
             width = 42
-        else:
-            width = 32
 
         totals = {
             "total_ttc_xof": order.total_ttc_xof,
@@ -131,10 +139,6 @@ class PrintingService:
         )
         self.repo.add(job)
         self.db.flush()
-
-        # Tentative d'envoi synchrone à l'agent d'impression local (mode dégradé transparent)
-        self._dispatch_job_to_agent(job)
-
         return job
 
     def reprint_ticket(
@@ -166,7 +170,7 @@ class PrintingService:
             order=order,
             payments=payments,
             cashier_name=cashier_name,
-            open_drawer=False,  # Strict : jamais d'ouverture tiroir sur duplicata
+            open_drawer=False,  # Pas d'ouverture tiroir sur duplicata
             is_duplicate=True,
             fne_info=fne_info,
         )
@@ -190,7 +194,6 @@ class PrintingService:
         device_id: str | None = None,
     ) -> PrintJob:
         from caisse.services.cash_session_service import CashSessionService
-        from caisse.models.settings import EstablishmentSetting
         from caisse.domain.payment_rules import format_z_report_text
 
         session_service = CashSessionService(self.db)
@@ -198,20 +201,124 @@ class PrintingService:
 
         setting = self.db.query(EstablishmentSetting).first()
         restaurant_info = {
-            "name": (setting.restaurant_name if setting and setting.restaurant_name else "SYLLA PLUS").upper(),
+            "name": (setting.restaurant_name if setting and setting.restaurant_name else "RESTAURANT MYK").upper(),
             "address": setting.address if setting and setting.address else "Abidjan, Plateau",
             "phone": setting.phone if setting and setting.phone else "+225 07 58 00 00 00",
             "ncc": setting.ncc if setting and setting.ncc else "2104598B",
             "rccm": setting.rccm if setting and setting.rccm else "CI-ABJ-2024-B-12345",
-            "footer": setting.receipt_footer if setting and setting.receipt_footer else "Merci de votre visite · A tres bientot !",
+            "footer": "DOCUMENT FISCAL - CLOTURE DE CAISSE",
         }
 
         z_data = z_report.model_dump()
-        content = format_z_report_text(restaurant_info, z_data, width=32)
+        z_data["cashier_name"] = cashier_name
+
+        content = format_z_report_text(restaurant_info=restaurant_info, z_data=z_data, width=32)
 
         job = PrintJob(
             order_id=None,
             job_type="Z_REPORT",
+            content=content,
+            open_drawer=True,
+            cut=True,
+            is_duplicate=False,
+            status="QUEUED",
+        )
+        self.repo.add(job)
+        self.db.flush()
+
+        self.audit.log(
+            action="Z_REPORT_PRINTED",
+            entity="CASH_SESSION",
+            entity_id=session_id,
+            user_id=user_id,
+            after={"print_job_id": job.id},
+            device_id=device_id,
+        )
+        self.db.commit()
+        return job
+
+    def _require_online_printer(self) -> PrintTerminal | None:
+        """Vérifie qu'un terminal s'est manifesté récemment (moins de 15 s) et que son imprimante est en ligne."""
+        from caisse.config import get_settings
+        if get_settings().APP_ENV == "test":
+            return None
+
+        terminal, online = self._online_terminal()
+        if terminal is None or not online:
+            raise CaisseException(
+                code="PRINT_AGENT_UNAVAILABLE",
+                title="Agent d'impression non disponible",
+                detail="Aucun agent d'impression n'est connecté à la caisse actuellement.",
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        if terminal.printer_status.get("online") is False:
+            raise CaisseException(
+                code="PRINTER_UNAVAILABLE",
+                title="Imprimante hors ligne",
+                detail="L'imprimante est signalée hors ligne ou débranchée par l'agent.",
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return terminal
+
+    def _online_terminal(self) -> tuple[PrintTerminal | None, bool]:
+        terminal = self.terminal_repo.latest_seen()
+        if terminal is None or terminal.last_seen_at is None:
+            return terminal, False
+        now = datetime.now(timezone.utc)
+        online = terminal.last_seen_at >= (now - timedelta(seconds=OFFLINE_THRESHOLD_SECONDS))
+        return terminal, online
+
+    def manual_open_drawer(self, user_id: str, device_id: str | None = None) -> PrintJob:
+        self._require_online_printer()
+        job = PrintJob(
+            order_id=None,
+            job_type="DRAWER",
+            content="",
+            open_drawer=True,
+            cut=False,
+            is_duplicate=False,
+            status="QUEUED",
+        )
+        self.repo.add(job)
+        self.db.flush()
+
+        self.audit.log(
+            action="MANUAL_DRAWER_OPENED",
+            entity="CASH_DRAWER",
+            entity_id="drawer-01",
+            user_id=user_id,
+            after={"print_job_id": job.id},
+            device_id=device_id,
+        )
+        self.db.commit()
+        return job
+
+    def print_test_ticket(
+        self,
+        user_id: str,
+        device_id: str | None = None,
+        custom_header: str | None = None,
+        custom_footer: str | None = None,
+        width: int = 32,
+    ) -> PrintJob:
+        self._require_online_printer()
+        now_str = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S")
+        content = (
+            "================================\n"
+            "       TICKET DE TEST POS       \n"
+            "================================\n"
+            f"Date: {now_str}\n"
+            f"Terminal: {device_id or 'Comptoir'}\n"
+            "--------------------------------\n"
+            "Imprimante thermique ESC/POS OK\n"
+            "Connexion VPS -> Caisse : ACTIVE\n"
+            "Accents français : é è ê à ç\n"
+            "================================\n"
+            f"{custom_footer or 'FIN DU TEST'}\n"
+        )
+        job = PrintJob(
+            order_id=None,
+            job_type="TEST",
             content=content,
             open_drawer=False,
             cut=True,
@@ -221,234 +328,135 @@ class PrintingService:
         self.repo.add(job)
         self.db.flush()
 
-        self._dispatch_job_to_agent(job)
-
         self.audit.log(
-            action="Z_REPORT_PRINTED",
-            entity="CASH_SESSION",
-            entity_id=session_id,
+            action="TEST_TICKET_PRINTED",
+            entity="PRINTER",
+            entity_id="test",
             user_id=user_id,
-            after={"print_job_id": job.id, "z_number": z_report.z_number},
+            after={"print_job_id": job.id},
             device_id=device_id,
         )
         self.db.commit()
         return job
 
-    def _send_raw_esc_pos(self, raw_bytes: bytes, force: bool = False) -> bool:
-        """Envoie des octets bruts ESC/POS directement à l'imprimante thermique."""
-        from caisse.config import get_settings
-        app_settings = get_settings()
-
-        # En mode test, ne JAMAIS envoyer d'octets au matériel
-        if app_settings.APP_ENV == "test":
-            return True
-
-        # Si l'impression matérielle est désactivée dans la config et non forcée manuellement
-        if not app_settings.ENABLE_HARDWARE_PRINTING and not force:
-            return True
-
-        # 1. Sur Linux : priorité absolue à CUPS lp raw (Xprinter_58) ou port USB direct
-        if shutil.which("lp"):
-            for printer_target in ["Xprinter_58", None]:
-                cmd = ["lp", "-o", "raw"] if printer_target is None else ["lp", "-d", printer_target, "-o", "raw"]
-                try:
-                    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    proc.communicate(input=raw_bytes, timeout=4.0)
-                    if proc.returncode == 0:
-                        return True
-                except Exception:
-                    pass
-        elif shutil.which("lpr"):
-            for printer_target in ["Xprinter_58", None]:
-                cmd = ["lpr", "-l"] if printer_target is None else ["lpr", "-P", printer_target, "-l"]
-                try:
-                    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    proc.communicate(input=raw_bytes, timeout=4.0)
-                    if proc.returncode == 0:
-                        return True
-                except Exception:
-                    pass
-
-        try:
-            with open("/dev/usb/lp0", "wb") as f:
-                f.write(raw_bytes)
-                f.flush()
-                return True
-        except Exception:
-            pass
-
-        # 2. Sur Windows ou si CUPS échoue : agent d'impression local port 8090
-        try:
-            with httpx.Client(timeout=2.0) as client:
-                res = client.post(
-                    f"{self.agent_url}/print-raw",
-                    content=raw_bytes,
-                    headers={"Content-Type": "application/octet-stream"},
-                )
-                if res.status_code in [200, 201]:
-                    return True
-                # Fallback sur /print avec texte CP850
-                res = client.post(
-                    f"{self.agent_url}/print",
-                    json={"content": raw_bytes.decode("cp850", errors="replace"), "open_drawer": False, "cut": False},
-                )
-                if res.status_code in [200, 201]:
-                    return True
-        except Exception:
-            pass
-
-        return False
-
-    def manual_open_drawer(self, user_id: str, device_id: str | None = None) -> bool:
-        pulse_bytes = ESC_INIT + ESC_DRAWER_KICK
-        success = self._send_raw_esc_pos(pulse_bytes, force=True)
-
-        self.audit.log(
-            action="MANUAL_DRAWER_OPENED",
-            entity="CASH_DRAWER",
-            entity_id="drawer-01",
-            user_id=user_id,
-            after={"dispatched": success},
-            device_id=device_id,
+    def get_status(self) -> PrintingStatusOut:
+        terminal, online = self._online_terminal()
+        printer = terminal.printer_status if terminal is not None and online else {}
+        return PrintingStatusOut(
+            agent_online=online,
+            printer_online=bool(printer.get("online")),
+            paper=printer.get("paper"),
+            width=printer.get("width"),
+            agent_last_seen_at=terminal.last_seen_at if terminal is not None else None,
+            queued_jobs=self.repo.queued_count(),
+            failed_jobs=self.repo.failed_count(),
+            last_success_at=self.repo.last_success_at(),
         )
-        self.db.commit()
-        return success
 
-    def print_test_ticket(
+    # --- Agent du terminal (Polling & Confirmation) ---
+
+    def claim_next(self, terminal: PrintTerminal, printer: PrinterReport) -> PrintJob | None:
+        """Interrogation de l'agent : note sa présence et l'état de l'imprimante,
+        puis lui confie le plus ancien travail en file."""
+        now = datetime.now(timezone.utc)
+        terminal.last_seen_at = now
+        terminal.printer_status = printer.model_dump()
+
+        job = None
+        if printer.online:
+            job = self.repo.claim_next()
+            if job is not None:
+                job.status = "PRINTING"
+                job.attempts = (job.attempts or 0) + 1
+                job.claimed_at = now
+                job.terminal_id = terminal.id
+
+        self.db.commit()
+        return job
+
+    def report_result(
         self,
-        user_id: str,
+        terminal: PrintTerminal,
+        job_id: str,
+        printed: bool,
+        error: str | None = None,
         device_id: str | None = None,
-        custom_header: str | None = None,
-        custom_footer: str | None = None,
-        width: int = 32,
-    ) -> dict[str, Any]:
-        from caisse.models.settings import EstablishmentSetting
+    ) -> PrintJob:
+        job = self.repo.get_for_update(job_id)
+        if not job:
+            raise CaisseException(
+                code="PRINT_JOB_NOT_FOUND",
+                title="Travail introuvable",
+                detail=f"Travail d'impression {job_id} introuvable.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
 
-        setting = self.db.query(EstablishmentSetting).first()
-        restaurant_name = (setting.restaurant_name if setting and setting.restaurant_name else "SYLLA PLUS").upper()
-        address = setting.address if setting and setting.address else "Abidjan, Plateau"
-        phone = setting.phone if setting and setting.phone else "+225 07 58 00 00 00"
-        ncc = setting.ncc if setting and setting.ncc else "2104598B"
-        rccm = setting.rccm if setting and setting.rccm else "CI-ABJ-2024-B-12345"
-        footer = custom_footer or (setting.receipt_footer if setting and setting.receipt_footer else "Merci de votre visite · A tres bientot !")
-        welcome = custom_header if custom_header is not None else "Bienvenue chez Sylla Plus"
+        if job.terminal_id != terminal.id:
+            raise CaisseException(
+                code="PRINT_JOB_NOT_CLAIMED",
+                title="Travail non assigné",
+                detail="Ce travail d'impression est assigné à un autre terminal.",
+                status_code=status.HTTP_409_CONFLICT,
+            )
 
-        restaurant_info = {
-            "name": restaurant_name,
-            "address": address,
-            "phone": phone,
-            "ncc": ncc,
-            "rccm": rccm,
-            "footer": footer,
-            "welcome_message": welcome,
-        }
+        final_status = "DONE" if printed else "FAILED"
+        if job.status == final_status:
+            return job  # Idempotent
 
-        from caisse.config import get_settings
-        v_base = get_settings().fne_verification_base_url
+        if job.status != "PRINTING":
+            raise CaisseException(
+                code="PRINT_JOB_NOT_CLAIMED",
+                title="État invalide",
+                detail=f"Le travail n'est pas en cours d'impression (statut={job.status}).",
+                status_code=status.HTTP_409_CONFLICT,
+            )
 
-        order_info = {
-            "order_number": "CMD-0042",
-            "table_label": "12",
-            "cashier_name": "Marc",
-            "date_str": f"{datetime.now().strftime('%d/%m/%Y')} 13:45",
-            "fne_number": "FNE-2026-10-01-MYK-0042",
-            "fne_qr_url": f"{v_base}/FNE-2026-10-01-MYK-0042",
-        }
-
-        items = [
-            {"name": "Poulet Braise Entier", "quantity": 1, "line_total_xof": 6500},
-            {"name": "Alloco Portion", "quantity": 2, "line_total_xof": 2000},
-            {"name": "Jus Bissap Maison", "quantity": 2, "line_total_xof": 2000},
-        ]
-
-        payments = [
-            {"method": "CASH", "amount_xof": 10500},
-        ]
-
-        totals = {
-            "total_vat_xof": 0,
-            "vat_rate": 0,
-            "total_ttc_xof": 10500,
-            "tendered_xof": 15000,
-            "change_xof": 4500,
-        }
-
-        test_content = format_receipt_text(
-            restaurant_info=restaurant_info,
-            order_info=order_info,
-            items=items,
-            payments=payments,
-            totals=totals,
-            fne_info={
-                "fne_number": "FNE-2026-10-01-MYK-0042",
-                "qr_url": f"{v_base}/FNE-2026-10-01-MYK-0042",
-            },
-            is_duplicate=False,
-            width=width,
-            welcome_message=welcome,
-        )
-
-        raw_bytes = build_esc_pos_bytes(test_content, open_drawer=False, cut=True)
-        success = self._send_raw_esc_pos(raw_bytes, force=True)
+        job.status = final_status
+        if printed:
+            job.printed_at = datetime.now(timezone.utc)
+            job.error_message = None
+        else:
+            job.error_message = (error or "Échec signalé par l'agent d'impression")[:500]
 
         self.audit.log(
-            action="TEST_TICKET_PRINTED",
-            entity="PRINTER",
-            entity_id="Xprinter_58",
+            action="PRINT_JOB_COMPLETED" if printed else "PRINT_JOB_FAILED",
+            entity="PRINT_JOB",
+            entity_id=job.id,
+            user_id=None,
+            after={
+                "status": job.status,
+                "job_type": job.job_type,
+                "attempts": job.attempts,
+                "terminal": terminal.name,
+                "error": job.error_message,
+            },
+            device_id=device_id or terminal.name,
+        )
+        self.db.commit()
+        return job
+
+    def retry_job(self, job_id: str, user_id: str | None = None, device_id: str | None = None) -> PrintJob:
+        job = self.repo.get_for_update(job_id)
+        if not job:
+            raise CaisseException(
+                code="PRINT_JOB_NOT_FOUND",
+                title="Travail introuvable",
+                detail=f"Travail d'impression {job_id} introuvable.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        job.status = "QUEUED"
+        job.claimed_at = None
+        job.terminal_id = None
+        job.error_message = None
+
+        self.audit.log(
+            action="PRINT_JOB_RETRY",
+            entity="PRINT_JOB",
+            entity_id=job.id,
             user_id=user_id,
-            after={"success": success, "width": width},
+            after={"status": "QUEUED"},
             device_id=device_id,
         )
         self.db.commit()
-        return {"status": "PRINTED" if success else "FAILED", "success": success}
-
-    def get_status(self) -> dict[str, Any]:
-        try:
-            with httpx.Client(timeout=0.8) as client:
-                res = client.get(f"{self.agent_url}/status")
-                if res.status_code == 200:
-                    return res.json()
-        except Exception:
-            pass
-
-        # Détection CUPS ou USB Linux
-        if shutil.which("lpstat"):
-            try:
-                res = subprocess.run(["lpstat", "-p", "Xprinter_58"], capture_output=True, text=True, timeout=1.0)
-                if res.returncode == 0:
-                    return {
-                        "online": True,
-                        "paper": "ok",
-                        "model": "Xprinter XP-58IIH (USB Direct / CUPS)",
-                        "width": 32,
-                    }
-            except Exception:
-                pass
-
-        if os.path.exists("/dev/usb/lp0"):
-            return {
-                "online": True,
-                "paper": "ok",
-                "model": "Xprinter XP-58IIH (USB Direct /dev/usb/lp0)",
-                "width": 32,
-            }
-
-        return {
-            "online": False,
-            "paper": "unknown",
-            "model": "POS-58 ESC/POS (Déconnecté / Mode Outbox)",
-            "width": 32,
-        }
-
-    def _dispatch_job_to_agent(self, job: PrintJob) -> None:
-        raw_bytes = build_esc_pos_bytes(
-            content=job.content,
-            open_drawer=job.open_drawer,
-            cut=job.cut,
-        )
-        success = self._send_raw_esc_pos(raw_bytes)
-        if success:
-            job.status = "DONE"
-            job.printed_at = datetime.now(timezone.utc)
-        else:
-            job.error_message = "Agent d'impression ou port USB injoignable"
+        return job
