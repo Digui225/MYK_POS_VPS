@@ -70,7 +70,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   <!-- Barre latérale -->
   <div id="sidebar">
     <div class="header-brand">
-      <h1>Caisse MYK <span class="badge">v1.0</span></h1>
+      <h1>OsisPos <span class="badge">v1.0</span></h1>
       <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Point de Vente & API FNE</p>
     </div>
     <div class="search-box">
@@ -316,6 +316,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 """
 
 
-def get_offline_docs_html(title: str = "Caisse MYK - Documentation API") -> str:
+def get_offline_docs_html(title: str = "OsisPos - Documentation API") -> str:
     """Retourne une interface de documentation interactive ultra-rapide 100% autonome et hors-ligne."""
     return HTML_TEMPLATE.replace("__TITLE__", title)

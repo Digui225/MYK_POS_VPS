@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import select, func
 from fastapi import status
 
@@ -373,6 +373,7 @@ def get_weekly_matrix(
     # 4. Fiches techniques pour connaître les plats associés et le rendement par défaut
     components = (
         db.query(ProductComponent)
+        .options(joinedload(ProductComponent.product))
         .join(StockArticle, StockArticle.id == ProductComponent.article_id)
         .filter(StockArticle.category == StockArticleCategory.PROTEINE)
         .all()
@@ -446,59 +447,128 @@ def get_weekly_matrix(
         standard_portion = float(comps[0].quantity) if comps else 1.0
         default_yield = round(1.0 / standard_portion, 2) if standard_portion > 0 else 1.0
 
+        # Détection des plats associés : plat normal vs plat foufou
+        normal_comp = None
+        foufou_comp = None
+        for c in comps:
+            p_name = (c.product.name if c.product else "").lower()
+            if "foufou" in p_name or "foutou" in p_name:
+                if foufou_comp is None:
+                    foufou_comp = c
+            else:
+                if normal_comp is None:
+                    normal_comp = c
+
+        dish_selling_price = 3000
+        if normal_comp and normal_comp.product and normal_comp.product.price_xof:
+            dish_selling_price = int(normal_comp.product.price_xof)
+        elif comps and comps[0].product and comps[0].product.price_xof:
+            dish_selling_price = int(comps[0].product.price_xof)
+
+        foufou_selling_price = dish_selling_price + 500
+        if foufou_comp and foufou_comp.product and foufou_comp.product.price_xof:
+            foufou_selling_price = int(foufou_comp.product.price_xof)
+
         p_qty, p_cost = purchases_map.get(str(a.id), (0.0, 0))
         total_purchases_cost += p_cost
         potential_dishes = int(round(p_qty * default_yield))
+
+        purchase_unit_price = int(round(p_cost / p_qty)) if p_qty > 0 else 0
+        weekly_expected_rev = potential_dishes * dish_selling_price
+        expected_margin_pct = (
+            round(((weekly_expected_rev - p_cost) * 100) / weekly_expected_rev, 2)
+            if weekly_expected_rev > 0
+            else 0.0
+        )
 
         row_days: list[WeeklyDayData] = []
         tot_prep_qty = 0.0
         tot_theo_dishes = 0
         tot_sold_dishes = 0
+        tot_normal_sold = 0
+        tot_foufou_sold = 0
         tot_var_dishes = 0
         tot_impact_xof = 0
+        tot_actual_rev = 0
 
         for d in calendar_dates:
             day_name = DAY_NAMES_FR[d.weekday()]
+            remaining_q = max(0.0, round(p_qty - tot_prep_qty, 3))
+
             prep = prep_map.get((str(a.id), d))
             prepared_q = float(prep.prepared_quantity) if prep else 0.0
             day_yield = float(prep.yield_portions_per_unit) if prep else default_yield
             theo_dishes = prep.theoretical_dishes if prep else int(round(prepared_q * day_yield))
 
             # Ventes des plats liés à cet article pour ce jour
+            day_normal_sold = 0
+            day_foufou_sold = 0
             day_sold = 0
             day_rev = 0
+
             for c in comps:
                 s_q, s_r = sales_by_day_prod.get((d, str(c.product_id)), (0, 0))
-                day_sold += s_q
-                day_rev += s_r
+                if s_q > 0:
+                    day_sold += s_q
+                    day_rev += s_r
+                    p_name = (c.product.name if c.product else "").lower()
+                    if "foufou" in p_name or "foutou" in p_name:
+                        day_foufou_sold += s_q
+                    else:
+                        day_normal_sold += s_q
+
+            # Solution 2 : Quantité suggérée d'après les ventes réelles
+            suggested_q = round(day_sold / day_yield, 2) if day_yield > 0 else 0.0
 
             variance = calculate_dish_variance(day_sold, theo_dishes)
-            avg_dish_price = (day_rev // day_sold) if day_sold > 0 else (
-                int(comps[0].product.price_xof) if comps and comps[0].product else 3000
-            )
+            avg_dish_price = (day_rev // day_sold) if day_sold > 0 else dish_selling_price
             impact = calculate_financial_impact(variance, avg_dish_price)
+
+            day_expected_rev = theo_dishes * dish_selling_price
+            day_actual_rev = day_rev if day_rev > 0 else (day_normal_sold * dish_selling_price + day_foufou_sold * foufou_selling_price)
+            day_rev_variance = day_actual_rev - day_expected_rev
 
             tot_prep_qty += prepared_q
             tot_theo_dishes += theo_dishes
             tot_sold_dishes += day_sold
+            tot_normal_sold += day_normal_sold
+            tot_foufou_sold += day_foufou_sold
             tot_var_dishes += variance
             tot_impact_xof += impact
+            tot_actual_rev += day_actual_rev
 
             row_days.append(
                 WeeklyDayData(
                     business_date=d,
                     day_name=day_name,
+                    remaining_quantity=remaining_q,
                     prepared_quantity=prepared_q,
+                    suggested_quantity=suggested_q,
                     yield_portions_per_unit=day_yield,
                     theoretical_dishes=theo_dishes,
                     sold_dishes=day_sold,
+                    normal_dishes_sold=day_normal_sold,
+                    foufou_dishes_sold=day_foufou_sold,
+                    foufou_price_xof=foufou_selling_price,
                     variance_dishes=variance,
-                    dish_price_xof=avg_dish_price,
+                    dish_price_xof=dish_selling_price,
+                    expected_revenue_xof=day_expected_rev,
+                    actual_revenue_xof=day_actual_rev,
+                    revenue_variance_xof=day_rev_variance,
                     financial_impact_xof=impact,
                 )
             )
 
         total_variance_impact += tot_impact_xof
+
+        actual_margin_xof = tot_actual_rev - p_cost
+        actual_margin_pct = (
+            round((actual_margin_xof * 100) / tot_actual_rev, 2)
+            if tot_actual_rev > 0
+            else 0.0
+        )
+        qty_variance = round(tot_prep_qty - p_qty, 3)
+        dishes_variance = tot_sold_dishes - potential_dishes
 
         rows.append(
             WeeklyProductRow(
@@ -506,15 +576,24 @@ def get_weekly_matrix(
                 article_name=a.name,
                 unit=a.unit,
                 weekly_purchased_qty=p_qty,
+                purchase_unit_price_xof=purchase_unit_price,
                 weekly_purchased_cost_xof=p_cost,
                 default_yield_portions=default_yield,
                 weekly_potential_dishes=potential_dishes,
+                dish_selling_price_xof=dish_selling_price,
+                weekly_expected_revenue_xof=weekly_expected_rev,
+                expected_margin_pct=expected_margin_pct,
                 days=row_days,
                 total_prepared_qty=round(tot_prep_qty, 3),
                 total_theoretical_dishes=tot_theo_dishes,
                 total_sold_dishes=tot_sold_dishes,
                 total_variance_dishes=tot_var_dishes,
                 total_financial_impact_xof=tot_impact_xof,
+                actual_revenue_xof=tot_actual_rev,
+                actual_gross_margin_xof=actual_margin_xof,
+                actual_gross_margin_pct=actual_margin_pct,
+                quantity_variance=qty_variance,
+                dishes_variance=dishes_variance,
             )
         )
 

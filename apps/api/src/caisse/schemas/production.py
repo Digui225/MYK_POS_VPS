@@ -77,12 +77,20 @@ class DailyPreparationOut(BaseSchema):
 class WeeklyDayData(BaseSchema):
     business_date: date
     day_name: str  # Lundi, Mardi, Mercredi...
+    remaining_quantity: float = 0.0
     prepared_quantity: float
+    suggested_quantity: float = 0.0
     yield_portions_per_unit: float
     theoretical_dishes: int
     sold_dishes: int
+    normal_dishes_sold: int = 0
+    foufou_dishes_sold: int = 0
+    foufou_price_xof: int = 0
     variance_dishes: int
     dish_price_xof: int
+    expected_revenue_xof: int = 0
+    actual_revenue_xof: int = 0
+    revenue_variance_xof: int = 0
     financial_impact_xof: int
 
 
@@ -91,15 +99,24 @@ class WeeklyProductRow(BaseSchema):
     article_name: str
     unit: str
     weekly_purchased_qty: float
+    purchase_unit_price_xof: int = 0
     weekly_purchased_cost_xof: int
     default_yield_portions: float
     weekly_potential_dishes: int
+    dish_selling_price_xof: int = 0
+    weekly_expected_revenue_xof: int = 0
+    expected_margin_pct: float = 0.0
     days: list[WeeklyDayData]
     total_prepared_qty: float
     total_theoretical_dishes: int
     total_sold_dishes: int
     total_variance_dishes: int
     total_financial_impact_xof: int
+    actual_revenue_xof: int = 0
+    actual_gross_margin_xof: int = 0
+    actual_gross_margin_pct: float = 0.0
+    quantity_variance: float = 0.0
+    dishes_variance: int = 0
 
 
 class WeeklyMatrixReportOut(BaseSchema):

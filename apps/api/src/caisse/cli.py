@@ -42,7 +42,7 @@ def cmd_set_vat_rate(db, args: argparse.Namespace) -> None:
             product.vat_rate = float(rate)
             changed += 1
     db.commit()
-    print(f"✅ Taux par défaut : {rate} %. Produits modifiés : {changed}.")
+    print(f" Taux par défaut : {rate} %. Produits modifiés : {changed}.")
 
 
 def cmd_fne_probe(args: argparse.Namespace) -> None:
@@ -125,7 +125,7 @@ def cmd_fne_worker(args: argparse.Namespace) -> None:
             stop.wait()
         return
 
-    print(f"🚀 fne_worker démarré (intervalle: {args.interval}s)")
+    print(f" fne_worker démarré (intervalle: {args.interval}s)")
     while not stop.is_set():
         try:
             with SessionLocal() as db:
@@ -136,7 +136,69 @@ def cmd_fne_worker(args: argparse.Namespace) -> None:
         if args.once:
             break
         stop.wait(args.interval)
-    print("🛑 fne_worker arrêté.")
+    print(" fne_worker arrêté.")
+
+
+def cmd_reset_transactions(db, args: argparse.Namespace) -> None:
+    if not args.yes:
+        confirm = input(
+            "  Cette opération va supprimer toutes les transactions (commandes, caisses, mouvements de stock, achats marché) et remettre le stock à zéro en conservant le catalogue et les fiches recettes. Confirmer ? (oui/non) : "
+        )
+        if confirm.strip().lower() not in ("oui", "o", "yes", "y"):
+            print("Annulé.")
+            return
+
+    from caisse.models.stock import StockArticle, StockMovement
+    from caisse.models.order import Order, OrderItem
+    from caisse.models.payment import Payment
+    from caisse.models.cash_session import CashSession, CashMovement
+    from caisse.models.finance import CashExpense, BankDeposit
+    from caisse.models.fne import FneDocument
+    from caisse.models.production import MarketPurchaseList, MarketPurchaseItem
+    from caisse.models.purchase import PurchaseRequest, PurchaseRequestLine
+    from caisse.models.print_job import PrintJob
+    from caisse.models.outbox import OutboxEvent
+    from caisse.models.idempotency import IdempotencyRecord
+    from caisse.models.audit import AuditLog
+
+    # 1. Supprimer les éléments dépendants des commandes et sessions
+    pj_count = db.query(PrintJob).delete()
+    sm_count = db.query(StockMovement).delete()
+    fne_count = db.query(FneDocument).delete()
+    pay_count = db.query(Payment).delete()
+    oi_count = db.query(OrderItem).delete()
+    ord_count = db.query(Order).delete()
+
+    # 2. Supprimer les éléments de caisse
+    cm_count = db.query(CashMovement).delete()
+    ce_count = db.query(CashExpense).delete()
+    bd_count = db.query(BankDeposit).delete()
+    cs_count = db.query(CashSession).delete()
+
+    # 3. Supprimer les achats marché et demandes d'achat
+    mpi_count = db.query(MarketPurchaseItem).delete()
+    mpl_count = db.query(MarketPurchaseList).delete()
+    prl_count = db.query(PurchaseRequestLine).delete()
+    pr_count = db.query(PurchaseRequest).delete()
+
+    # 4. Supprimer les files et idempotence
+    ob_count = db.query(OutboxEvent).delete()
+    idem_count = db.query(IdempotencyRecord).delete()
+    audit_count = db.query(AuditLog).delete()
+
+    # 5. Remettre la quantité des articles de stock à 0
+    art_count = db.query(StockArticle).update({StockArticle.quantity: Decimal(0)})
+
+    db.commit()
+
+    print(" Réinitialisation des transactions terminée avec succès :")
+    print(f"   - Commandes supprimées : {ord_count} (avec {oi_count} lignes, {pay_count} paiements, {fne_count} FNE)")
+    print(f"   - Sessions de caisse supprimées : {cs_count} (avec {cm_count} mouvements, {ce_count} dépenses)")
+    print(f"   - Bons d'achat marché supprimés : {mpl_count} ({mpi_count} lignes)")
+    print(f"   - Mouvements de stock supprimés : {sm_count}")
+    print(f"   - Quantités de stock remises à 0 : {art_count} articles")
+    print("   - Fiches recettes (ProductComponents) : conservées intactes")
+    print("   - Catalogue produits et tables : conservés intacts")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -200,6 +262,20 @@ def main(argv: list[str] | None = None) -> None:
     fne_worker_parser.add_argument("--interval", type=float, default=30.0, help="Secondes entre deux passages")
     fne_worker_parser.add_argument("--once", action="store_true", help="Un seul passage, puis arrêt")
 
+    # Commande outbox-worker
+    outbox_worker_parser = subparsers.add_parser("outbox-worker", help="Worker d'arrière-plan Outbox")
+    outbox_worker_parser.add_argument("--interval", type=float, default=5.0, help="Secondes entre deux passages")
+    outbox_worker_parser.add_argument("--once", action="store_true", help="Un seul passage, puis arrêt")
+
+    # Commande reset-transactions
+    reset_tx_parser = subparsers.add_parser(
+        "reset-transactions",
+        help="Vider toutes les transactions (ventes, caisses, mouvements, achats) et remettre le stock à 0",
+    )
+    reset_tx_parser.add_argument(
+        "--yes", "-y", action="store_true", help="Confirmer automatiquement sans invite interactive"
+    )
+
     args = parser.parse_args(argv)
 
     if args.command == "fne-probe":
@@ -234,12 +310,12 @@ def main(argv: list[str] | None = None) -> None:
                 pin = input("PIN (6 chiffres) : ").strip()
 
             user = auth_service.create_user(full_name=name, pin=pin, role=role)
-            print(f"✅ Utilisateur '{user.full_name}' ({user.role}) créé avec succès. ID: {user.id}")
+            print(f" Utilisateur '{user.full_name}' ({user.role}) créé avec succès. ID: {user.id}")
 
         elif args.command == "reset-pin":
             user = auth_service.user_repo.get_by_name(args.name)
             if not user:
-                print(f"❌ Utilisateur '{args.name}' introuvable.")
+                print(f" Utilisateur '{args.name}' introuvable.")
                 sys.exit(1)
             new_pin = args.new_pin or input(f"Nouveau PIN pour {user.full_name} : ").strip()
             from caisse.security import hash_pin
@@ -247,7 +323,7 @@ def main(argv: list[str] | None = None) -> None:
             user.failed_attempts = 0
             user.locked_until = None
             db.commit()
-            print(f"✅ PIN de '{user.full_name}' réinitialisé avec succès.")
+            print(f" PIN de '{user.full_name}' réinitialisé avec succès.")
 
         elif args.command == "seed":
             session_repo.get_or_create_default_register()
@@ -256,9 +332,9 @@ def main(argv: list[str] | None = None) -> None:
                 auth_service.create_user("Responsable Restaurant", "222222", "RESPONSABLE")
                 auth_service.create_user("Administrateur", "999999", "ADMIN")
                 auth_service.create_user("Économe Marché", "112233", "ECONOME")
-                print("✅ Utilisateurs de démo créés (Caissière: 111111, Responsable: 222222, Admin: 999999, Économe: 112233).")
+                print(" Utilisateurs de démo créés (Caissière: 111111, Responsable: 222222, Admin: 999999, Économe: 112233).")
             seed_catalog_and_tables(db)
-            print("✅ Caisse, menu et tables de base initialisés avec succès.")
+            print(" Caisse, menu et tables de base initialisés avec succès.")
 
         elif args.command == "create-tables":
             created_count = 0
@@ -275,7 +351,7 @@ def main(argv: list[str] | None = None) -> None:
                     db.add(t)
                     created_count += 1
             db.commit()
-            print(f"✅ {created_count} tables créées dans la zone '{args.zone}'.")
+            print(f" {created_count} tables créées dans la zone '{args.zone}'.")
 
         elif args.command == "import-catalog":
             menu_file = args.file or (Path(__file__).parent / "seeds" / "data" / "menu.csv")
@@ -309,7 +385,7 @@ def main(argv: list[str] | None = None) -> None:
                         db.add(prod)
                         count += 1
                 db.commit()
-                print(f"✅ {count} produits importés avec succès depuis '{menu_file}'.")
+                print(f" {count} produits importés avec succès depuis '{menu_file}'.")
 
         elif args.command == "import-stock":
             from caisse.seeds.stock_import import import_articles, import_components, ARTICLES_CSV, COMPONENTS_CSV
@@ -318,14 +394,17 @@ def main(argv: list[str] | None = None) -> None:
             res = import_articles(db, art_path, initial_stock=args.stock_initial)
             comps = import_components(db, comp_path)
             db.commit()
-            print(f"✅ Stock importé : {res.created} créés, {res.skipped} existants, {res.initial_counts} comptages initiaux, {comps} fiches techniques.")
+            print(f" Stock importé : {res.created} créés, {res.skipped} existants, {res.initial_counts} comptages initiaux, {comps} fiches techniques.")
 
         elif args.command == "create-print-terminal":
             from caisse.services.print_terminal_service import PrintTerminalService
             term_service = PrintTerminalService(db)
             terminal, token = term_service.create_terminal(name=args.name)
-            print(f"✅ Terminal « {terminal.name} » créé. Jeton de l'agent (affiché une seule fois) :")
+            print(f" Terminal « {terminal.name} » créé. Jeton de l'agent (affiché une seule fois) :")
             print(token)
+
+        elif args.command == "reset-transactions":
+            cmd_reset_transactions(db, args)
 
     finally:
         db.close()

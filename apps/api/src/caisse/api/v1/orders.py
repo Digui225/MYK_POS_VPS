@@ -33,7 +33,7 @@ async def create_order(
 @router.get("", response_model=Page[OrderResponse], summary="Lister les commandes")
 async def list_orders(
     page: Paging,
-    current_user: User = Depends(require_role("CAISSIER")),
+    current_user: User = Depends(require_role("CAISSIER", "RESPONSABLE", "ADMIN")),
     session_id: str | None = None,
     status: str | None = None,
     business_date: date | None = None,

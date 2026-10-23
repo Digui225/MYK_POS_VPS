@@ -21,6 +21,15 @@ class CategoryCreateRequest(BaseModel):
     fiscal_group: str | None = None
 
 
+class CategoryUpdateRequest(BaseModel):
+    name: str | None = None
+    kind: Literal["FOOD", "DRINK", "OTHER"] | None = None
+    sort_order: int | None = None
+    color: str | None = None
+    fiscal_group: str | None = None
+    is_active: bool | None = None
+
+
 class ProductResponse(BaseSchema):
     id: str
     category_id: str

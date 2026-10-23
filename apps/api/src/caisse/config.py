@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "Caisse MYK API"
+    APP_NAME: str = "OsisPos API"
     APP_ENV: Literal["development", "test", "production"] = "development"
     DEBUG: bool = True
     PORT: int = 8001

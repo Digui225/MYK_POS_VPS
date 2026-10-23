@@ -146,15 +146,22 @@ def test_production_and_market_purchases_workflow(client: TestClient, db_session
     assert chicken_row["weekly_purchased_cost_xof"] == 30000
     assert chicken_row["default_yield_portions"] == 4.0
     assert chicken_row["weekly_potential_dishes"] == 40
+    assert chicken_row["purchase_unit_price_xof"] == 3000  # 30000 / 10
+    assert chicken_row["dish_selling_price_xof"] == 3000  # Plat poulet
+    assert chicken_row["weekly_expected_revenue_xof"] == 120000  # 40 * 3000
+    assert chicken_row["expected_margin_pct"] == 75.0  # (120000 - 30000) / 120000 * 100 = 75%
 
     # Lundi : 3 poulets sortis -> 12 plats prévus -> 0 vendus (pour le moment) -> Écart = -12
     lundi_data = next((d for d in chicken_row["days"] if d["business_date"] == "2026-10-19"), None)
     assert lundi_data is not None
+    assert lundi_data["remaining_quantity"] == 10.0  # stock avant sortie
     assert lundi_data["prepared_quantity"] == 3.0
+    assert lundi_data["suggested_quantity"] == 0.0  # car 0 vendu
     assert lundi_data["theoretical_dishes"] == 12
     assert lundi_data["sold_dishes"] == 0
     assert lundi_data["variance_dishes"] == -12
     assert lundi_data["financial_impact_xof"] == 12 * 3000  # 36 000 FCFA
+    assert lundi_data["expected_revenue_xof"] == 36000  # 12 * 3000
 
     # 8. Tests des cas d'erreur 404
     # Achat avec article inexistant

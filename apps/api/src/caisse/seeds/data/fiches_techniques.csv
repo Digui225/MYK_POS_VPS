@@ -1,6 +1,6 @@
 produit,article,quantite,remarque
-Plat mouton,Mouton,0.27,"observé juin-oct. : 0,26 à 0,29 kg/plat"
-Foufou/foutou mouton,Mouton,0.27,
+Plat mouton,Mouton,0.2857,"règle patron 3,5 plats/kg"
+Foufou/foutou mouton,Mouton,0.2857,
 Plat bœuf,Bœuf,0.2,"règle Excel 5 plats/kg ; observé 0,21"
 Foufou/foutou bœuf,Bœuf,0.2,
 Plat poulet,Poulet,0.25,"observé 0,24 à 0,25"
@@ -17,9 +17,9 @@ Sosso 5500,Sosso,1,
 Faux saumon,Faux saumon,1,1 morceau depuis août 2026
 Carpe 4000,Carpe,1,
 Carpe 5000,Carpe,1,
-Loss 3000,Loss,0.5,"observé 0,5 à 0,7"
-Loss 3500,Loss,0.5,"observé 0,5 à 0,7"
-Loss 4000,Loss,0.5,"observé 0,5 à 0,7"
+Loss 3000,Loss,1,"règle patron 1 pc = 1 plat"
+Loss 3500,Loss,1,"règle patron 1 pc = 1 plat"
+Loss 4000,Loss,1,"règle patron 1 pc = 1 plat"
 Jus de gingembre,Jus de gingembre,1,
 Jus de bissap,Jus de bissap,1,
 Jus Tomy,Jus Tomy,1,
@@ -35,57 +35,57 @@ Canette Cody's,Canette Cody's,1,
 Café expresso,Capsule café expresso,1,
 Lait / dêguê,Lait / dêguê,1,
 Alloco + Boeuf,Bœuf,0.2,Spécialité
-Alloco + Mouton,Mouton,0.27,Spécialité
+Alloco + Mouton,Mouton,0.2857,Spécialité
 Alloco + Poulet,Poulet,0.25,Spécialité
 Alloco + Sosso,Sosso,1,Spécialité
 Attiéké + Boeuf,Bœuf,0.2,Spécialité
-Attiéké + Mouton,Mouton,0.27,Spécialité
+Attiéké + Mouton,Mouton,0.2857,Spécialité
 Attiéké + Poulet,Poulet,0.25,Spécialité
 Attiéké + Sosso,Sosso,1,Spécialité
 Couscous + Boeuf,Bœuf,0.2,Spécialité
-Couscous + Mouton,Mouton,0.27,Spécialité
+Couscous + Mouton,Mouton,0.2857,Spécialité
 Couscous + Poulet,Poulet,0.25,Spécialité
 Frites + Boeuf,Bœuf,0.2,Spécialité
-Frites + Mouton,Mouton,0.27,Spécialité
+Frites + Mouton,Mouton,0.2857,Spécialité
 Frites + Poulet,Poulet,0.25,Spécialité
 Frites + Sosso,Sosso,1,Spécialité
 Igname bouillie + Boeuf,Bœuf,0.2,Spécialité
-Igname bouillie + Mouton,Mouton,0.27,Spécialité
+Igname bouillie + Mouton,Mouton,0.2857,Spécialité
 Igname bouillie + Poulet,Poulet,0.25,Spécialité
 Igname bouillie + Sosso,Sosso,1,Spécialité
 Igname frite + Boeuf,Bœuf,0.2,Spécialité
-Igname frite + Mouton,Mouton,0.27,Spécialité
+Igname frite + Mouton,Mouton,0.2857,Spécialité
 Igname frite + Poulet,Poulet,0.25,Spécialité
 Igname frite + Sosso,Sosso,1,Spécialité
 Kabato Dah + Boeuf,Bœuf,0.2,Spécialité
-Kabato Dah + Mouton,Mouton,0.27,Spécialité
+Kabato Dah + Mouton,Mouton,0.2857,Spécialité
 Kabato Dah + Poulet,Poulet,0.25,Spécialité
 Kabato Kope + Boeuf,Bœuf,0.2,Spécialité
-Kabato Kope + Mouton,Mouton,0.27,Spécialité
+Kabato Kope + Mouton,Mouton,0.2857,Spécialité
 Kabato Kope + Poulet,Poulet,0.25,Spécialité
 Kabato Lafri + Boeuf,Bœuf,0.2,Spécialité
-Kabato Lafri + Mouton,Mouton,0.27,Spécialité
+Kabato Lafri + Mouton,Mouton,0.2857,Spécialité
 Kabato Lafri + Poulet,Poulet,0.25,Spécialité
 Petit pois + Boeuf,Bœuf,0.2,Spécialité
-Petit pois + Mouton,Mouton,0.27,Spécialité
+Petit pois + Mouton,Mouton,0.2857,Spécialité
 Petit pois + Poulet,Poulet,0.25,Spécialité
 Petit pois + Sosso,Sosso,1,Spécialité
 Salade Panachée + Boeuf,Bœuf,0.2,Spécialité
-Salade Panachée + Mouton,Mouton,0.27,Spécialité
+Salade Panachée + Mouton,Mouton,0.2857,Spécialité
 Salade Panachée + Poulet,Poulet,0.25,Spécialité
 Salade Panachée + Sosso,Sosso,1,Spécialité
 Sauce Dah + Boeuf,Bœuf,0.2,Spécialité
-Sauce Dah + Mouton,Mouton,0.27,Spécialité
+Sauce Dah + Mouton,Mouton,0.2857,Spécialité
 Sauce Dah + Poulet,Poulet,0.25,Spécialité
 Sauce Feuille + Boeuf,Bœuf,0.2,Spécialité
-Sauce Feuille + Mouton,Mouton,0.27,Spécialité
+Sauce Feuille + Mouton,Mouton,0.2857,Spécialité
 Sauce Feuille + Poulet,Poulet,0.25,Spécialité
 Sauce Légume + Boeuf,Bœuf,0.2,Spécialité
-Sauce Légume + Mouton,Mouton,0.27,Spécialité
+Sauce Légume + Mouton,Mouton,0.2857,Spécialité
 Sauce Légume + Poulet,Poulet,0.25,Spécialité
 Tchep + Boeuf,Bœuf,0.2,Spécialité
-Tchep + Mouton,Mouton,0.27,Spécialité
+Tchep + Mouton,Mouton,0.2857,Spécialité
 Tchep + Poulet,Poulet,0.25,Spécialité
 Yassa + Boeuf,Bœuf,0.2,Spécialité
-Yassa + Mouton,Mouton,0.27,Spécialité
+Yassa + Mouton,Mouton,0.2857,Spécialité
 Yassa + Poulet,Poulet,0.25,Spécialité

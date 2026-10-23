@@ -7,6 +7,7 @@ from caisse.models.user import User
 from caisse.schemas.catalog import (
     CategoryResponse,
     CategoryCreateRequest,
+    CategoryUpdateRequest,
     ProductResponse,
     ProductCreateRequest,
     ProductPriceUpdateRequest,
@@ -48,6 +49,37 @@ async def create_category(
     return service.create_category(payload, user_id=current_user.id, device_id=device_id)
 
 
+@router.patch(
+    "/categories/{id}",
+    response_model=CategoryResponse,
+    summary="Modifier une catégorie (Responsable/Admin)",
+)
+@router.patch(
+    "/catalog/categories/{id}",
+    response_model=CategoryResponse,
+    summary="Modifier une catégorie (alias)",
+)
+@router.put(
+    "/categories/{id}",
+    response_model=CategoryResponse,
+    summary="Modifier une catégorie (Responsable/Admin)",
+)
+@router.put(
+    "/catalog/categories/{id}",
+    response_model=CategoryResponse,
+    summary="Modifier une catégorie (alias)",
+)
+async def update_category(
+    id: str,
+    payload: CategoryUpdateRequest,
+    current_user: User = Depends(require_role("RESPONSABLE", "ADMIN")),
+    device_id: str = Depends(require_device_id),
+    db: Session = Depends(get_db),
+) -> CategoryResponse:
+    service = CatalogService(db)
+    return service.update_category(id, payload, user_id=current_user.id, device_id=device_id)
+
+
 @router.get("/products", response_model=list[ProductResponse], summary="Lister les produits actifs du menu")
 @router.get("/catalog/products", response_model=list[ProductResponse], summary="Lister les produits actifs du menu (alias)")
 async def list_products(
@@ -84,7 +116,7 @@ async def get_product(
 )
 async def create_product(
     payload: ProductCreateRequest,
-    current_user: User = Depends(require_role("RESPONSABLE", "ADMIN")),
+    current_user: User = Depends(require_role("CAISSIER", "RESPONSABLE", "ADMIN")),
     device_id: str = Depends(require_device_id),
     db: Session = Depends(get_db),
 ) -> ProductResponse:

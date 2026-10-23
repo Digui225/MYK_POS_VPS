@@ -7,6 +7,7 @@ from caisse.repositories.catalog import CatalogRepository
 from caisse.schemas.catalog import (
     CategoryResponse,
     CategoryCreateRequest,
+    CategoryUpdateRequest,
     ProductResponse,
     ProductCreateRequest,
     ProductPriceUpdateRequest,
@@ -78,6 +79,79 @@ class CatalogService:
             color=created.color,
             fiscal_group=created.fiscal_group,
             is_active=created.is_active,
+        )
+
+    def update_category(
+        self,
+        category_id: str,
+        payload: CategoryUpdateRequest,
+        user_id: str,
+        device_id: str | None = None,
+    ) -> CategoryResponse:
+        category = self.repo.get_category_by_id(category_id)
+        if not category:
+            raise CaisseException(
+                code="CATEGORY_NOT_FOUND",
+                title="Catégorie introuvable",
+                detail=f"Aucune catégorie trouvée avec l'ID {category_id}.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        before = {
+            "name": category.name,
+            "kind": category.kind,
+            "sort_order": category.sort_order,
+            "fiscal_group": category.fiscal_group,
+            "is_active": category.is_active,
+        }
+
+        if payload.name and payload.name.strip() != category.name:
+            existing = self.repo.get_category_by_name(payload.name.strip())
+            if existing and existing.id != category.id:
+                raise CaisseException(
+                    code="CATEGORY_ALREADY_EXISTS",
+                    title="Catégorie déjà existante",
+                    detail=f"Une catégorie nommée '{payload.name}' existe déjà.",
+                    status_code=status.HTTP_409_CONFLICT,
+                )
+            category.name = payload.name.strip()
+
+        if payload.kind is not None:
+            category.kind = payload.kind
+        if payload.sort_order is not None:
+            category.sort_order = payload.sort_order
+        if payload.color is not None:
+            category.color = payload.color
+        if payload.fiscal_group is not None:
+            category.fiscal_group = payload.fiscal_group
+        if payload.is_active is not None:
+            category.is_active = payload.is_active
+
+        self.audit.log(
+            action="CATEGORY_UPDATED",
+            entity="CATEGORY",
+            entity_id=category.id,
+            user_id=user_id,
+            before=before,
+            after={
+                "name": category.name,
+                "kind": category.kind,
+                "sort_order": category.sort_order,
+                "fiscal_group": category.fiscal_group,
+                "is_active": category.is_active,
+            },
+            device_id=device_id,
+        )
+        self.db.commit()
+
+        return CategoryResponse(
+            id=category.id,
+            name=category.name,
+            kind=category.kind,  # type: ignore
+            sort_order=category.sort_order,
+            color=category.color,
+            fiscal_group=category.fiscal_group,
+            is_active=category.is_active,
         )
 
     def list_products(self, category_id: str | None = None) -> list[ProductResponse]:

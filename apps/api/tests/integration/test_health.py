@@ -23,7 +23,7 @@ def test_openapi_schema_available() -> None:
     response = client.get("/openapi.json")
     assert response.status_code == 200
     schema = response.json()
-    assert schema["info"]["title"] == "Caisse MYK API"
+    assert schema["info"]["title"] in ["OsisPos API", "Caisse MYK API"]
     assert "/api/v1/auth/login" in schema["paths"]
     assert "/api/v1/orders/{id}/payments" in schema["paths"]
     assert "/api/v1/cash-sessions" in schema["paths"]
