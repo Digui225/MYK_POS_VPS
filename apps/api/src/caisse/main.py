@@ -1,41 +1,29 @@
 import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, Depends
+
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+from caisse.api.v1.router import api_v1_router
 from caisse.config import get_settings
 from caisse.database import Base, engine, get_db
-import caisse.models.audit
-import caisse.models.cash_session
-import caisse.models.catalog
-import caisse.models.customer
-import caisse.models.fne
-import caisse.models.idempotency
-import caisse.models.order
-import caisse.models.outbox
-import caisse.models.payment
-import caisse.models.stock
-import caisse.models.settings
-import caisse.models.table
-import caisse.models.user
 from caisse.errors import (
     CaisseException,
     caisse_exception_handler,
-    validation_exception_handler,
-    unhandled_exception_handler,
     problem_json_response,
+    unhandled_exception_handler,
+    validation_exception_handler,
 )
-from caisse.api.v1.router import api_v1_router
-from caisse.schemas.common import HealthResponse, HealthReadyResponse
+from caisse.schemas.common import HealthReadyResponse, HealthResponse
 
 settings = get_settings()
 
 
 import asyncio
+
 from caisse.infrastructure.outbox.worker import run_outbox_worker_loop
 
 
@@ -69,10 +57,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 from pathlib import Path
+
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.openapi.docs import get_swagger_ui_html
 
 SWAGGER_UI_DIR = Path(__file__).parent / "static" / "swagger-ui"
 
@@ -172,7 +161,7 @@ app.add_middleware(
 # Enregistrement des gestionnaires d'erreurs RFC 7807 (problem+json)
 app.add_exception_handler(CaisseException, caisse_exception_handler)  # type: ignore
 app.add_exception_handler(RequestValidationError, validation_exception_handler)  # type: ignore
-app.add_exception_handler(Exception, unhandled_exception_handler)  # type: ignore
+app.add_exception_handler(Exception, unhandled_exception_handler)
 
 # Routes système / Health
 @app.get("/health", response_model=HealthResponse, tags=["Système"])
@@ -186,10 +175,11 @@ async def health_check() -> HealthResponse:
 
 @app.get("/health/ready", response_model=HealthReadyResponse, tags=["Système"])
 async def health_ready(db: Session = Depends(get_db)) -> HealthReadyResponse:
-    from sqlalchemy import text
-    from caisse.models.fne import FneDocument
-    from caisse.domain.enums import FneStatus
     import httpx
+    from sqlalchemy import text
+
+    from caisse.domain.enums import FneStatus
+    from caisse.models.fne import FneDocument
 
     db_ok = False
     fne_queue = 0

@@ -1,6 +1,8 @@
 from typing import Literal
-from pydantic import BaseModel, Field
-from caisse.schemas.common import BaseSchema, BaseRequestSchema
+
+from pydantic import Field
+
+from caisse.schemas.common import BaseRequestSchema, BaseSchema
 
 
 class OrderItemResponse(BaseSchema):

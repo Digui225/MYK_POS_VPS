@@ -1,7 +1,12 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
+
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_BASE_DIR = Path(__file__).resolve().parents[2]
+_ENV_FILE = _BASE_DIR / ".env"
 
 
 class Settings(BaseSettings):
@@ -41,6 +46,11 @@ class Settings(BaseSettings):
 
     # Fuseau horaire
     TZ: str = "Africa/Abidjan"
+
+    # Budget Marché
+    MARKET_BUDGET_TOTAL_LIMIT_XOF: int = 300_000
+    MARKET_BUDGET_ECONOME_LIMIT_XOF: int = 145_000
+    MARKET_BUDGET_RESERVE_XOF: int = 155_000
 
     # Intégrations
     PRINT_AGENT_URL: str = "http://host.docker.internal:8090"
@@ -96,7 +106,7 @@ class Settings(BaseSettings):
         return self
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(_ENV_FILE, ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )

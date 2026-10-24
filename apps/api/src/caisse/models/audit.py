@@ -1,4 +1,5 @@
 from typing import Any
+
 from sqlalchemy import JSON, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 

@@ -1,4 +1,3 @@
-import uuid
 from datetime import date, datetime
 
 from pydantic import Field

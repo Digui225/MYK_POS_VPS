@@ -48,6 +48,33 @@ def test_session_lifecycle_with_orders_and_z_report(client: TestClient) -> None:
     assert session_data["status"] == "OPEN"
     assert session_data["opening_float_xof"] == 25000
 
+    # 3b. Idempotence ouverture session : rejeu identique -> 200 OK + header Idempotent-Replay
+    replay_open_res = client.post(
+        "/api/v1/cash-sessions",
+        headers={**headers, "Idempotency-Key": "idem-sess-001"},
+        json={
+            "cash_register_id": "reg-01",
+            "opening_float_xof": 25000,
+            "business_date": "2026-09-28",
+        },
+    )
+    assert replay_open_res.status_code == 200
+    assert replay_open_res.headers.get("Idempotent-Replay") == "true"
+    assert replay_open_res.json()["id"] == session_id
+
+    # 3c. Idempotence ouverture session : conflit de corps -> 409 IDEMPOTENCY_CONFLICT
+    conflict_open_res = client.post(
+        "/api/v1/cash-sessions",
+        headers={**headers, "Idempotency-Key": "idem-sess-001"},
+        json={
+            "cash_register_id": "reg-01",
+            "opening_float_xof": 50000,
+            "business_date": "2026-09-28",
+        },
+    )
+    assert conflict_open_res.status_code == 409
+    assert conflict_open_res.json()["code"] == "IDEMPOTENCY_CONFLICT"
+
     # 4. Créer une commande de 8 000 XOF
     order_id = client.post(
         "/api/v1/orders",
@@ -126,6 +153,37 @@ def test_session_lifecycle_with_orders_and_z_report(client: TestClient) -> None:
     assert close_data["expected_cash_xof"] == 27000
     assert close_data["variance_xof"] == 0
     assert close_data["z_number"] == 1
+
+    # 9b. Idempotence clôture session : rejeu identique -> 200 OK + header Idempotent-Replay
+    replay_close_res = client.post(
+        f"/api/v1/cash-sessions/{session_id}/close",
+        headers={**headers, "Idempotency-Key": "idem-close-success"},
+        json={
+            "counted_breakdown": {
+                "10000": 2,
+                "5000": 1,
+                "1000": 2,
+            },
+            "notes": "Clôture conforme service soir",
+        },
+    )
+    assert replay_close_res.status_code == 200
+    assert replay_close_res.headers.get("Idempotent-Replay") == "true"
+    assert replay_close_res.json()["id"] == session_id
+
+    # 9c. Idempotence clôture session : conflit de corps -> 409 IDEMPOTENCY_CONFLICT
+    conflict_close_res = client.post(
+        f"/api/v1/cash-sessions/{session_id}/close",
+        headers={**headers, "Idempotency-Key": "idem-close-success"},
+        json={
+            "counted_breakdown": {
+                "10000": 3,
+            },
+            "notes": "Autre comptage",
+        },
+    )
+    assert conflict_close_res.status_code == 409
+    assert conflict_close_res.json()["code"] == "IDEMPOTENCY_CONFLICT"
 
     # 10. Consulter le Rapport Z définitif figé
     z_res = client.get(f"/api/v1/cash-sessions/{session_id}/z-report", headers=headers)

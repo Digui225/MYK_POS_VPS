@@ -1,12 +1,17 @@
 from typing import Annotated, Any
-from fastapi import APIRouter, Depends, Path, Query, Response, status
-from sqlalchemy.orm import Session
 
-from caisse.database import get_db
-from caisse.deps import Admin, CurrentUser, DbSession, Responsable, Ctx, Paging, require_role, require_device_id
-from caisse.models.user import User
-from caisse.models.order import Order
+from fastapi import APIRouter, Path, Query, status
+
+from caisse.deps import (
+    Admin,
+    Ctx,
+    CurrentUser,
+    DbSession,
+    Paging,
+    Responsable,
+)
 from caisse.errors import CaisseException
+from caisse.models.order import Order
 from caisse.pagination import split
 from caisse.schemas.common import Page
 from caisse.schemas.printing import (
@@ -16,8 +21,8 @@ from caisse.schemas.printing import (
     PrintTerminalCreated,
     PrintTerminalOut,
 )
-from caisse.services.printing_service import PrintingService
 from caisse.services.print_terminal_service import PrintTerminalService
+from caisse.services.printing_service import PrintingService
 
 router = APIRouter(prefix="/printing", tags=["Impression & Tiroir"])
 

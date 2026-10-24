@@ -1,18 +1,22 @@
 from datetime import date
-from fastapi import APIRouter, Depends, Header, status
+
+from fastapi import APIRouter, Depends, Request, Response, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from caisse import idempotency
 from caisse.database import get_db
-from caisse.deps import CurrentUser, Paging, require_role, require_device_id
+from caisse.deps import Paging, require_device_id, require_role
+from caisse.idempotency import OptionalIdempotencyKey
 from caisse.models.user import User
 from caisse.pagination import split
 from caisse.schemas.common import Page
 from caisse.schemas.orders import (
-    OrderResponse,
+    OrderCancelRequest,
     OrderCreateRequest,
     OrderItemAddRequest,
     OrderItemRemoveRequest,
-    OrderCancelRequest,
+    OrderResponse,
 )
 from caisse.services.order_service import OrderService
 
@@ -67,12 +71,49 @@ async def get_order(
 async def add_order_item(
     id: str,
     payload: OrderItemAddRequest,
+    request: Request,
+    response: Response,
+    idempotency_key: OptionalIdempotencyKey = None,
     current_user: User = Depends(require_role("CAISSIER")),
     device_id: str = Depends(require_device_id),
     db: Session = Depends(get_db),
 ) -> OrderResponse:
+    request_hash = idempotency.hash_request(payload)
+    if idempotency_key:
+        replay = idempotency.find_replay(
+            db, idempotency_key, method="POST", path=request.url.path, request_hash=request_hash
+        )
+        if replay is not None:
+            idempotency.apply_replay_headers(response)
+            return OrderResponse.model_validate(replay)
+
     service = OrderService(db)
-    return service.add_item(id, payload, user_id=current_user.id, device_id=device_id)
+    result = service.add_item(id, payload, user_id=current_user.id, device_id=device_id)
+
+    if idempotency_key:
+        idempotency.save(
+            db,
+            idempotency_key,
+            method="POST",
+            path=request.url.path,
+            request_hash=request_hash,
+            status=200,
+            body=result.model_dump(mode="json"),
+            user_id=current_user.id,
+        )
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            replay = idempotency.find_replay(
+                db, idempotency_key, method="POST", path=request.url.path, request_hash=request_hash
+            )
+            if replay is not None:
+                idempotency.apply_replay_headers(response)
+                return OrderResponse.model_validate(replay)
+            raise
+
+    return result
 
 
 @router.delete("/{id}/items/{item_id}", response_model=OrderResponse, summary="Retirer une ligne (tracé)")
@@ -92,9 +133,46 @@ async def remove_order_item(
 async def cancel_order(
     id: str,
     payload: OrderCancelRequest,
+    request: Request,
+    response: Response,
+    idempotency_key: OptionalIdempotencyKey = None,
     current_user: User = Depends(require_role("CAISSIER", "RESPONSABLE", "ADMIN")),
     device_id: str = Depends(require_device_id),
     db: Session = Depends(get_db),
 ) -> OrderResponse:
+    request_hash = idempotency.hash_request(payload)
+    if idempotency_key:
+        replay = idempotency.find_replay(
+            db, idempotency_key, method="POST", path=request.url.path, request_hash=request_hash
+        )
+        if replay is not None:
+            idempotency.apply_replay_headers(response)
+            return OrderResponse.model_validate(replay)
+
     service = OrderService(db)
-    return service.cancel_order(id, payload, user_id=current_user.id, device_id=device_id)
+    result = service.cancel_order(id, payload, user_id=current_user.id, device_id=device_id)
+
+    if idempotency_key:
+        idempotency.save(
+            db,
+            idempotency_key,
+            method="POST",
+            path=request.url.path,
+            request_hash=request_hash,
+            status=200,
+            body=result.model_dump(mode="json"),
+            user_id=current_user.id,
+        )
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            replay = idempotency.find_replay(
+                db, idempotency_key, method="POST", path=request.url.path, request_hash=request_hash
+            )
+            if replay is not None:
+                idempotency.apply_replay_headers(response)
+                return OrderResponse.model_validate(replay)
+            raise
+
+    return result

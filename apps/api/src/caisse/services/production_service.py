@@ -1,39 +1,47 @@
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Optional
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import select, func
-from fastapi import status
 
-from caisse.domain.enums import StockArticleCategory, StockMovementType, StockOutMode, OrderStatus, CashSessionStatus
+from fastapi import status
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, joinedload
+
+from caisse.domain.enums import (
+    CashSessionStatus,
+    OrderStatus,
+    StockArticleCategory,
+    StockMovementType,
+    StockOutMode,
+)
 from caisse.domain.production_rules import (
-    calculate_item_total,
-    calculate_theoretical_dishes,
     calculate_dish_variance,
     calculate_financial_impact,
+    calculate_item_total,
+    calculate_theoretical_dishes,
 )
 from caisse.domain.stock_rules import weighted_average_cost
-from caisse.models.production import (
-    MarketPurchaseList,
-    MarketPurchaseItem,
-    DailyPreparation,
-)
-from caisse.models.stock import StockArticle, StockMovement, ProductComponent
-from caisse.models.order import Order, OrderItem
-from caisse.models.cash_session import CashSession, CashMovement
+from caisse.errors import CaisseException
+from caisse.models.cash_session import CashMovement, CashSession
 from caisse.models.finance import CashExpense
+from caisse.models.order import Order, OrderItem
+from caisse.models.production import (
+    DailyPreparation,
+    MarketPurchaseItem,
+    MarketPurchaseList,
+)
+from caisse.models.stock import ProductComponent, StockArticle, StockMovement
 from caisse.models.user import User
 from caisse.schemas.production import (
-    MarketPurchaseListCreate,
-    MarketPurchaseListOut,
-    MarketPurchaseItemOut,
     DailyPreparationCreate,
     DailyPreparationOut,
+    MarketBudgetStatusOut,
+    MarketPurchaseItemOut,
+    MarketPurchaseListCreate,
+    MarketPurchaseListOut,
+    WeeklyDayData,
     WeeklyMatrixReportOut,
     WeeklyProductRow,
-    WeeklyDayData,
 )
-from caisse.errors import CaisseException
 
 DAY_NAMES_FR = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
 
@@ -144,9 +152,38 @@ def create_market_purchase(
         db.add(item)
 
     purchase.total_budget_xof = total_budget
+
+    # Contrôle strict du plafond budgétaire côté serveur
+    from caisse.domain.market_budget_rules import get_market_budget_limits, validate_market_budget
+    total_limit, econome_limit, _ = get_market_budget_limits(db)
+    validate_market_budget(
+        total_budget,
+        role=user.role,
+        total_limit=total_limit,
+        econome_limit=econome_limit,
+    )
+
     db.commit()
     db.refresh(purchase)
     return _format_purchase_out(purchase)
+
+
+def get_market_budget_status_service(
+    db: Session, user: User, total_budget_xof: int = 0
+) -> MarketBudgetStatusOut:
+    from caisse.domain.market_budget_rules import (
+        calculate_market_budget_status,
+        get_market_budget_limits,
+    )
+
+    total_limit, econome_limit, _ = get_market_budget_limits(db)
+    raw = calculate_market_budget_status(
+        total_budget_xof,
+        role=user.role,
+        total_limit=total_limit,
+        econome_limit=econome_limit,
+    )
+    return MarketBudgetStatusOut(**raw)
 
 
 def get_market_purchase(db: Session, purchase_id: str) -> MarketPurchaseListOut:

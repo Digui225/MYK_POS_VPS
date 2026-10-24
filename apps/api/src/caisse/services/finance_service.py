@@ -1,9 +1,8 @@
 from datetime import date
-from sqlalchemy import func, select
+
 from sqlalchemy.orm import Session
 
 from caisse.domain.enums import CashSessionStatus
-from caisse.errors import ValidationError
 from caisse.models.cash_session import CashMovement, CashSession
 from caisse.models.finance import BankDeposit, CashExpense
 from caisse.models.user import User

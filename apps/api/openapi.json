@@ -1871,6 +1871,25 @@
             }
           },
           {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)"
+          },
+          {
             "name": "X-Device-Id",
             "in": "header",
             "required": false,
@@ -2026,6 +2045,25 @@
             }
           },
           {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)"
+          },
+          {
             "name": "X-Device-Id",
             "in": "header",
             "required": false,
@@ -2105,14 +2143,17 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 64
                 },
                 {
                   "type": "null"
                 }
               ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
               "title": "Idempotency-Key"
-            }
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
           },
           {
             "name": "X-Device-Id",
@@ -2297,6 +2338,25 @@
         ],
         "parameters": [
           {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
+          },
+          {
             "name": "X-Device-Id",
             "in": "header",
             "required": false,
@@ -2310,22 +2370,6 @@
                 }
               ],
               "title": "X-Device-Id"
-            }
-          },
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Idempotency-Key"
             }
           }
         ],
@@ -2459,6 +2503,25 @@
             }
           },
           {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
+          },
+          {
             "name": "X-Device-Id",
             "in": "header",
             "required": false,
@@ -2472,22 +2535,6 @@
                 }
               ],
               "title": "X-Device-Id"
-            }
-          },
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Idempotency-Key"
             }
           }
         ],
@@ -3047,18 +3094,6 @@
         ],
         "parameters": [
           {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 64,
-              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
-              "title": "Idempotency-Key"
-            },
-            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
-          },
-          {
             "name": "X-Device-Id",
             "in": "header",
             "required": false,
@@ -3089,6 +3124,25 @@
               ],
               "title": "X-Request-Id"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
           }
         ],
         "requestBody": {
@@ -3140,18 +3194,6 @@
         ],
         "parameters": [
           {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 64,
-              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
-              "title": "Idempotency-Key"
-            },
-            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
-          },
-          {
             "name": "X-Device-Id",
             "in": "header",
             "required": false,
@@ -3182,6 +3224,25 @@
               ],
               "title": "X-Request-Id"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
           }
         ],
         "requestBody": {
@@ -3233,18 +3294,6 @@
         ],
         "parameters": [
           {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 64,
-              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
-              "title": "Idempotency-Key"
-            },
-            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
-          },
-          {
             "name": "X-Device-Id",
             "in": "header",
             "required": false,
@@ -3275,6 +3324,25 @@
               ],
               "title": "X-Request-Id"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
           }
         ],
         "requestBody": {
@@ -4504,6 +4572,58 @@
         }
       }
     },
+    "/api/v1/production/market-purchases/budget-status": {
+      "get": {
+        "tags": [
+          "Achats March\u00e9 & Production Cuisine"
+        ],
+        "summary": "Consulter le statut du budget march\u00e9 (jauge)",
+        "description": "Retourne l'\u00e9tat de remplissage de la jauge budg\u00e9taire march\u00e9.\nPour l'\u00e9conome/acheteur, aucun montant en FCFA n'est retourn\u00e9 (confidentialit\u00e9).",
+        "operationId": "get_market_budget_status_endpoint_api_v1_production_market_purchases_budget_status_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "total_budget_xof",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Montant total en FCFA estim\u00e9",
+              "default": 0,
+              "title": "Total Budget Xof"
+            },
+            "description": "Montant total en FCFA estim\u00e9"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketBudgetStatusOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/production/market-purchases/{purchase_id}": {
       "get": {
         "tags": [
@@ -4721,6 +4841,58 @@
         }
       }
     },
+    "/api/v1/purchases/market/budget-status": {
+      "get": {
+        "tags": [
+          "Approvisionnement"
+        ],
+        "summary": "Consulter le statut du budget march\u00e9 (jauge)",
+        "description": "Retourne l'\u00e9tat de remplissage de la jauge budg\u00e9taire march\u00e9.\nPour l'\u00e9conome/acheteur, aucun montant en FCFA n'est retourn\u00e9 (confidentialit\u00e9).",
+        "operationId": "get_purchase_market_budget_status_api_v1_purchases_market_budget_status_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "total_budget_xof",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Montant total en FCFA estim\u00e9",
+              "default": 0,
+              "title": "Total Budget Xof"
+            },
+            "description": "Montant total en FCFA estim\u00e9"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketBudgetStatusOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/purchases/articles": {
       "get": {
         "tags": [
@@ -4812,18 +4984,6 @@
         ],
         "parameters": [
           {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 64,
-              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
-              "title": "Idempotency-Key"
-            },
-            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
-          },
-          {
             "name": "X-Device-Id",
             "in": "header",
             "required": false,
@@ -4854,6 +5014,25 @@
               ],
               "title": "X-Request-Id"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
           }
         ],
         "requestBody": {
@@ -5874,6 +6053,25 @@
               "type": "string",
               "title": "Order Id"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)"
           }
         ],
         "requestBody": {
@@ -6086,6 +6284,25 @@
               "type": "string",
               "title": "Document Id"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)"
           }
         ],
         "responses": {
@@ -6134,6 +6351,25 @@
               "type": "string",
               "title": "Document Id"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)"
           }
         ],
         "requestBody": {
@@ -6192,6 +6428,25 @@
               "type": "string",
               "title": "Document Id"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)"
           }
         ],
         "requestBody": {
@@ -6368,15 +6623,42 @@
         ],
         "summary": "Alias r\u00e9tro-compatible pour \u00e9mettre une FNE",
         "operationId": "legacy_generate_api_v1_fne_generate_post",
+        "deprecated": true,
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)"
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/FneGenerateRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "201": {
@@ -6384,8 +6666,8 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Legacy Generate Api V1 Fne Generate Post"
                 }
               }
@@ -6401,13 +6683,7 @@
               }
             }
           }
-        },
-        "deprecated": true,
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/v1/fne/export": {
@@ -10822,6 +11098,94 @@
           "quantity"
         ],
         "title": "LossLine"
+      },
+      "MarketBudgetStatusOut": {
+        "properties": {
+          "ratio": {
+            "type": "number",
+            "title": "Ratio"
+          },
+          "percentage": {
+            "type": "integer",
+            "title": "Percentage"
+          },
+          "is_exceeded": {
+            "type": "boolean",
+            "title": "Is Exceeded"
+          },
+          "level_text": {
+            "type": "string",
+            "title": "Level Text"
+          },
+          "color_class": {
+            "type": "string",
+            "title": "Color Class"
+          },
+          "total_budget_xof": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Budget Xof"
+          },
+          "econome_limit_xof": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Econome Limit Xof"
+          },
+          "total_limit_xof": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Limit Xof"
+          },
+          "remaining_budget_xof": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Budget Xof"
+          },
+          "remaining_econome_xof": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Econome Xof"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ratio",
+          "percentage",
+          "is_exceeded",
+          "level_text",
+          "color_class"
+        ],
+        "title": "MarketBudgetStatusOut"
       },
       "MarketPurchaseItemCreate": {
         "properties": {

@@ -14,7 +14,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from caisse.domain import stock_rules
-from caisse.domain.enums import OrderStatus, StockArticleCategory, StockMovementType, StockOutMode
+from caisse.domain.enums import (
+    CashSessionStatus,
+    OrderStatus,
+    StockArticleCategory,
+    StockMovementType,
+    StockOutMode,
+)
 from caisse.errors import ValidationError
 from caisse.models.cash_session import CashSession
 from caisse.models.finance import BankDeposit, CashExpense
@@ -43,6 +49,9 @@ from caisse.schemas.reports import (
     DashboardPayment,
     DashboardProduct,
     DashboardSession,
+    ProteinYieldItem,
+    ProteinYieldReportOut,
+    ProteinYieldTotals,
     SalesCashSession,
     SalesCategory,
     SalesDay,
@@ -53,9 +62,6 @@ from caisse.schemas.reports import (
     StockReportArticle,
     StockReportOut,
     StockTotals,
-    ProteinYieldItem,
-    ProteinYieldTotals,
-    ProteinYieldReportOut,
 )
 
 MAX_DAYS = 366
@@ -240,7 +246,7 @@ def sales_report(db: Session, date_from: date, date_to: date) -> SalesReportOut:
             SalesCashSession(
                 id=str(s.id),
                 business_date=s.business_date,
-                status=s.status,
+                status=CashSessionStatus(s.status),
                 z_number=s.z_number,
                 expected_cash_xof=s.expected_cash_xof,
                 counted_cash_xof=s.counted_cash_xof,
@@ -382,7 +388,7 @@ def dashboard(db: Session, day: date) -> DashboardOut:
             DashboardSession(
                 id=str(s.id),
                 cash_register=register,
-                status=s.status,
+                status=CashSessionStatus(s.status),
                 opened_by=opener,
                 opened_at=s.opened_at,
                 closed_at=s.closed_at,

@@ -1,6 +1,7 @@
 from datetime import date, datetime, timezone
 from typing import Any
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, JSON, String
+
+from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from caisse.database import Base

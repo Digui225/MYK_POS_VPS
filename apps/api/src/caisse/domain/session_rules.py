@@ -1,7 +1,9 @@
 import re
 from datetime import date
-from caisse.errors import CaisseException
+
 from fastapi import status
+
+from caisse.errors import CaisseException
 
 VALID_DENOMINATIONS = [10000, 5000, 2000, 1000, 500, 200, 100, 50, 25, 10, 5]
 

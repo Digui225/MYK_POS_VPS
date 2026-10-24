@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from caisse.schemas.common import BaseSchema
@@ -44,6 +45,19 @@ class MarketPurchaseListOut(BaseSchema):
     notes: str | None
     items: list[MarketPurchaseItemOut]
     created_at: datetime
+
+
+class MarketBudgetStatusOut(BaseSchema):
+    ratio: float
+    percentage: int
+    is_exceeded: bool
+    level_text: str
+    color_class: str
+    total_budget_xof: int | None = None
+    econome_limit_xof: int | None = None
+    total_limit_xof: int | None = None
+    remaining_budget_xof: int | None = None
+    remaining_econome_xof: int | None = None
 
 
 class DailyPreparationCreate(BaseModel):

@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Self
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from caisse.domain.enums import StockArticleCategory, StockMovementType, StockOutMode

@@ -1,30 +1,33 @@
 from datetime import datetime, timezone
 from typing import Any
-from sqlalchemy.orm import Session
-from fastapi import status
 
+from fastapi import status
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from caisse import idempotency
+from caisse.domain.session_rules import (
+    calculate_counted_cash,
+    calculate_variance,
+    validate_business_date,
+    validate_opening_float,
+)
 from caisse.errors import CaisseException
-from caisse.models.cash_session import CashSession, CashMovement
+from caisse.infrastructure.websocket.manager import ws_manager
+from caisse.models.cash_session import CashMovement, CashSession
 from caisse.models.order import Order
 from caisse.models.payment import Payment
 from caisse.repositories.sessions import CashSessionRepository
 from caisse.repositories.users import UserRepository
-from caisse.domain.session_rules import (
-    validate_business_date,
-    validate_opening_float,
-    calculate_counted_cash,
-    calculate_variance,
-)
 from caisse.schemas.sessions import (
-    CashSessionResponse,
     CashMovementResponse,
+    CashSessionResponse,
+    ItemSalesDetail,
     XReportResponse,
     ZReportResponse,
-    ItemSalesDetail,
 )
 from caisse.services.audit_service import AuditService
 from caisse.services.printing_service import PrintingService
-from caisse.infrastructure.websocket.manager import ws_manager
 
 
 class CashSessionService:
@@ -54,7 +57,18 @@ class CashSessionService:
         business_date_str: str,
         user_id: str,
         device_id: str | None = None,
-    ) -> CashSessionResponse:
+        idempotency_key: str | None = None,
+        path: str = "",
+        payload: Any = None,
+    ) -> tuple[CashSessionResponse, bool]:
+        request_hash = idempotency.hash_request(payload)
+        if idempotency_key:
+            replay = idempotency.find_replay(
+                self.db, idempotency_key, method="POST", path=path, request_hash=request_hash
+            )
+            if replay is not None:
+                return CashSessionResponse.model_validate(replay), True
+
         b_date = validate_business_date(business_date_str)
         validate_opening_float(opening_float_xof)
 
@@ -98,7 +112,32 @@ class CashSessionService:
             after={"opening_float_xof": opening_float_xof, "business_date": business_date_str},
             device_id=device_id,
         )
-        self.db.commit()
+
+        resp = self._to_session_response(created)
+
+        if idempotency_key:
+            idempotency.save(
+                self.db,
+                idempotency_key,
+                method="POST",
+                path=path,
+                request_hash=request_hash,
+                status=201,
+                body=resp.model_dump(mode="json"),
+                user_id=user_id,
+            )
+
+        try:
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            if idempotency_key:
+                replay = idempotency.find_replay(
+                    self.db, idempotency_key, method="POST", path=path, request_hash=request_hash
+                )
+                if replay is not None:
+                    return CashSessionResponse.model_validate(replay), True
+            raise
 
         ws_manager.broadcast_sync(
             "SESSION_OPENED",
@@ -109,7 +148,7 @@ class CashSessionService:
             },
         )
 
-        return self._to_session_response(created)
+        return resp, False
 
     def add_movement(
         self,
@@ -215,7 +254,7 @@ class CashSessionService:
 
         # 4. Ventes par catégorie et par article
         sales_by_category: dict[str, int] = {}
-        items_map: dict[str, dict] = {}
+        items_map: dict[str, dict[str, Any]] = {}
 
         for o in settled_orders:
             for item in o.items:
@@ -268,7 +307,18 @@ class CashSessionService:
         user_id: str,
         notes: str | None = None,
         device_id: str | None = None,
-    ) -> CashSessionResponse:
+        idempotency_key: str | None = None,
+        path: str = "",
+        payload: Any = None,
+    ) -> tuple[CashSessionResponse, bool]:
+        request_hash = idempotency.hash_request(payload)
+        if idempotency_key:
+            replay = idempotency.find_replay(
+                self.db, idempotency_key, method="POST", path=path, request_hash=request_hash
+            )
+            if replay is not None:
+                return CashSessionResponse.model_validate(replay), True
+
         session = self.repo.get_by_id(session_id)
         if not session or session.status != "OPEN":
             raise CaisseException(
@@ -343,7 +393,32 @@ class CashSessionService:
             },
             device_id=device_id,
         )
-        self.db.commit()
+
+        resp = self._to_session_response(session)
+
+        if idempotency_key:
+            idempotency.save(
+                self.db,
+                idempotency_key,
+                method="POST",
+                path=path,
+                request_hash=request_hash,
+                status=200,
+                body=resp.model_dump(mode="json"),
+                user_id=user_id,
+            )
+
+        try:
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            if idempotency_key:
+                replay = idempotency.find_replay(
+                    self.db, idempotency_key, method="POST", path=path, request_hash=request_hash
+                )
+                if replay is not None:
+                    return CashSessionResponse.model_validate(replay), True
+            raise
 
         ws_manager.broadcast_sync(
             "SESSION_CLOSED",
@@ -354,7 +429,7 @@ class CashSessionService:
             },
         )
 
-        return self._to_session_response(session)
+        return resp, False
 
     def get_z_report(self, session_id: str) -> ZReportResponse:
         session = self.repo.get_by_id(session_id)

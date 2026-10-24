@@ -1,31 +1,30 @@
 from datetime import datetime, timezone
-from sqlalchemy.orm import Session
-from fastapi import status
 
-from caisse.errors import CaisseException
-from caisse.domain.enums import OrderStatus
+from fastapi import status
+from sqlalchemy.orm import Session
+
 from caisse.domain.order_rules import (
-    generate_order_number,
     assert_order_editable,
     calculate_line_total,
+    generate_order_number,
     recalculate_order_totals,
 )
+from caisse.errors import CaisseException
+from caisse.infrastructure.websocket.manager import ws_manager
 from caisse.models.order import Order, OrderItem
-from caisse.repositories.orders import OrderRepository
 from caisse.repositories.catalog import CatalogRepository
-from caisse.repositories.tables import TableRepository
+from caisse.repositories.orders import OrderRepository
 from caisse.repositories.sessions import CashSessionRepository
+from caisse.repositories.tables import TableRepository
 from caisse.schemas.orders import (
-    OrderResponse,
-    OrderItemResponse,
+    OrderCancelRequest,
     OrderCreateRequest,
     OrderItemAddRequest,
     OrderItemRemoveRequest,
-    OrderCancelRequest,
+    OrderItemResponse,
+    OrderResponse,
 )
 from caisse.services.audit_service import AuditService
-from caisse.infrastructure.websocket.manager import ws_manager
-
 
 
 class OrderService:

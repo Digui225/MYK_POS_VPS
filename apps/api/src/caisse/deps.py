@@ -1,8 +1,9 @@
 import uuid
 from collections.abc import Callable
 from typing import Any
+
 from fastapi import Depends, Header, Query, Request, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from caisse.database import get_db
@@ -29,15 +30,6 @@ def require_device_id(x_device_id: str | None = Header(None, alias="X-Device-Id"
     return x_device_id or "default-pos-device"
 
 
-def require_idempotency_key(idempotency_key: str | None = Header(None, alias="Idempotency-Key")) -> str:
-    if not idempotency_key:
-        raise CaisseException(
-            code="IDEMPOTENCY_KEY_REQUIRED",
-            title="Clé d'idempotence manquante",
-            detail="L'en-tête Idempotency-Key est obligatoire pour cette opération financière.",
-            status_code=status.HTTP_400_BAD_REQUEST,
-        )
-    return idempotency_key
 
 
 def get_current_user(
@@ -111,6 +103,7 @@ def get_fne_provider() -> Any:
 
 from typing import Annotated
 
+
 class RequestContext:
     def __init__(self, device_id: str, client_ip: str | None = None, request_id: str | None = None):
         self.device_id = device_id
@@ -153,8 +146,7 @@ FneProviderDep = Annotated[Any, Depends(get_fne_provider)]
 def get_current_terminal(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: Session = Depends(get_db),
-):
-    from caisse.models.print_terminal import PrintTerminal
+) -> Any:
     from caisse.services.print_terminal_service import PrintTerminalService
 
     if not credentials:

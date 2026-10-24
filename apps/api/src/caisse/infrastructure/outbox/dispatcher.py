@@ -1,14 +1,14 @@
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
+
 from sqlalchemy.orm import Session
 
-from caisse.models.outbox import OutboxEvent
-from caisse.models.fne import FneDocument
-from caisse.domain.enums import FneStatus
-from caisse.repositories.outbox import OutboxRepository
-from caisse.repositories import fne as fne_repo
 from caisse.config import get_settings
+from caisse.domain.enums import FneStatus
+from caisse.models.fne import FneDocument
+from caisse.models.outbox import OutboxEvent
+from caisse.repositories.outbox import OutboxRepository
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +23,9 @@ RETRY_DELAYS = [
 
 def dispatch_event(db: Session, event: OutboxEvent) -> bool:
     """Traite un événement individuel de l'Outbox."""
-    from caisse.services.printing_service import PrintingService
     from caisse.models.print_job import PrintJob
     from caisse.models.user import User
+    from caisse.services.printing_service import PrintingService
 
     now = datetime.now(timezone.utc)
     event.status = "PROCESSING"
@@ -52,8 +52,8 @@ def dispatch_event(db: Session, event: OutboxEvent) -> bool:
                 raise RuntimeError(job.error_message or "Agent d'impression indisponible")
 
         elif event.event_type == "FNE_CERTIFICATION":
-            from caisse.services import fne_service
             from caisse.infrastructure.fne import HttpFneProvider, MockFneProvider
+            from caisse.services import fne_service
 
             settings = get_settings()
             provider: Any = None
@@ -131,9 +131,9 @@ def dispatch_pending_outbox_events(db: Session, limit: int = 50) -> dict[str, in
 
     # Dépiler également les FneDocuments QUEUED ou PENDING avec backoff dépassé
     now = datetime.now(timezone.utc)
-    from caisse.services import fne_service
     from caisse.infrastructure.fne import HttpFneProvider, MockFneProvider
     from caisse.models.user import User
+    from caisse.services import fne_service
 
     settings = get_settings()
     provider: Any = None
@@ -150,7 +150,7 @@ def dispatch_pending_outbox_events(db: Session, limit: int = 50) -> dict[str, in
                 .filter(
                     FneDocument.status.in_([FneStatus.QUEUED, FneStatus.PENDING]),
                     FneDocument.is_uncertain == False,
-                    (FneDocument.next_retry_at == None) | (FneDocument.next_retry_at <= now),
+                    FneDocument.next_retry_at.is_(None) | (FneDocument.next_retry_at <= now),
                 )
                 .limit(limit)
                 .all()

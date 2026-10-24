@@ -82,10 +82,24 @@ def test_payment_lifecycle_and_idempotency(client: TestClient) -> None:
             "tendered_xof": 10000,
         },
     )
-    assert replay_res.status_code == 201
+    assert replay_res.status_code == 200
+    assert replay_res.headers.get("Idempotent-Replay") == "true"
     replay_data = replay_res.json()
     assert replay_data["payment"]["id"] == pay_data["payment"]["id"]
     assert replay_data["change_xof"] == 3000
+
+    # 5b. Idempotence : Même clé mais corps différent -> 409 IDEMPOTENCY_CONFLICT
+    conflict_res = client.post(
+        f"/api/v1/orders/{order_id}/payments",
+        headers=pay_headers,
+        json={
+            "method": "CASH",
+            "amount_xof": 5000,
+            "tendered_xof": 5000,
+        },
+    )
+    assert conflict_res.status_code == 409
+    assert conflict_res.json()["code"] == "IDEMPOTENCY_CONFLICT"
 
     # 6. Lister les paiements de la commande
     list_payments_res = client.get(f"/api/v1/orders/{order_id}/payments", headers=headers)

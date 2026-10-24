@@ -93,15 +93,17 @@ def test_order_lifecycle(client: TestClient) -> None:
     assert conflict_res.status_code == 409
     assert conflict_res.json()["code"] == "TABLE_ALREADY_OCCUPIED"
 
-    # 7. Ajouter un produit du catalogue à la commande
+    # 7. Ajouter un produit du catalogue à la commande avec clé d'idempotence
+    add_item_headers = {**headers, "Idempotency-Key": "order-add-item-01"}
+    item_payload = {
+        "product_id": product_1["id"],
+        "quantity": 2,
+        "note": "Sans piment",
+    }
     add_item_1_res = client.post(
         f"/api/v1/orders/{order_id}/items",
-        headers=headers,
-        json={
-            "product_id": product_1["id"],
-            "quantity": 2,
-            "note": "Sans piment",
-        },
+        headers=add_item_headers,
+        json=item_payload,
     )
     assert add_item_1_res.status_code == 200
     order_after_item1 = add_item_1_res.json()
@@ -114,6 +116,26 @@ def test_order_lifecycle(client: TestClient) -> None:
     assert item_1["unit_price_xof"] == product_1["price_xof"]
     assert item_1["quantity"] == 2
     assert item_1["note"] == "Sans piment"
+
+    # 7b. Rejeu ajout d'article : ne doit PAS doubler l'article !
+    replay_item_res = client.post(
+        f"/api/v1/orders/{order_id}/items",
+        headers=add_item_headers,
+        json=item_payload,
+    )
+    assert replay_item_res.status_code == 200
+    assert replay_item_res.headers.get("Idempotent-Replay") == "true"
+    assert len(replay_item_res.json()["items"]) == 1
+    assert replay_item_res.json()["total_ttc_xof"] == expected_total1
+
+    # 7c. Conflit ajout d'article : même clé mais quantité différente -> 409
+    conflict_item_res = client.post(
+        f"/api/v1/orders/{order_id}/items",
+        headers=add_item_headers,
+        json={**item_payload, "quantity": 5},
+    )
+    assert conflict_item_res.status_code == 409
+    assert conflict_item_res.json()["code"] == "IDEMPOTENCY_CONFLICT"
 
     # 8. Ajouter un produit personnalisé hors menu
     add_item_2_res = client.post(
@@ -165,16 +187,37 @@ def test_order_lifecycle(client: TestClient) -> None:
     assert table_in_board["items_summary"][0]["quantity"] >= 1
     assert "name" in table_in_board["items_summary"][0]
 
-    # 12. Annuler la commande avec motif
+    # 12. Annuler la commande avec motif et clé d'idempotence
+    cancel_headers = {**headers, "Idempotency-Key": "order-cancel-01"}
+    cancel_payload = {"reason": "Erreur de saisie / Départ des clients"}
     cancel_res = client.post(
         f"/api/v1/orders/{order_id}/cancel",
-        headers=headers,
-        json={"reason": "Erreur de saisie / Départ des clients"},
+        headers=cancel_headers,
+        json=cancel_payload,
     )
     assert cancel_res.status_code == 200
     cancelled_order = cancel_res.json()
     assert cancelled_order["status"] == "CANCELLED"
     assert cancelled_order["cancelled_reason"] == "Erreur de saisie / Départ des clients"
+
+    # 12b. Rejeu annulation de commande -> 200 OK + header Idempotent-Replay
+    replay_cancel_res = client.post(
+        f"/api/v1/orders/{order_id}/cancel",
+        headers=cancel_headers,
+        json=cancel_payload,
+    )
+    assert replay_cancel_res.status_code == 200
+    assert replay_cancel_res.headers.get("Idempotent-Replay") == "true"
+    assert replay_cancel_res.json()["status"] == "CANCELLED"
+
+    # 12c. Conflit annulation : même clé mais motif différent -> 409 IDEMPOTENCY_CONFLICT
+    conflict_cancel_res = client.post(
+        f"/api/v1/orders/{order_id}/cancel",
+        headers=cancel_headers,
+        json={"reason": "Autre motif"},
+    )
+    assert conflict_cancel_res.status_code == 409
+    assert conflict_cancel_res.json()["code"] == "IDEMPOTENCY_CONFLICT"
 
     # 13. Vérifier que la table est à nouveau libre
     board_res_after = client.get("/api/v1/tables/board", headers=headers)

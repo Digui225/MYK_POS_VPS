@@ -36,7 +36,3 @@ Dossier_Homologation_FNE.zip
 .vscode/
 *.swp
 *~
-
-# Documentation racine & exploitation
-/*.md
-docs/*.md

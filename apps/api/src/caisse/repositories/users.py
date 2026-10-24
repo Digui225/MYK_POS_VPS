@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+
 from caisse.models.user import User
 from caisse.repositories.base import BaseRepository
 

@@ -1,8 +1,9 @@
 from datetime import date
 from typing import Annotated
-from fastapi import APIRouter, Depends, Query, status
 
-from caisse.deps import Admin, CurrentUser, DbSession, Responsable
+from fastapi import APIRouter, Query, status
+
+from caisse.deps import CurrentUser, DbSession, Responsable
 from caisse.schemas.finance import (
     BankDepositCreate,
     BankDepositListOut,

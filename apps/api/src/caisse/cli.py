@@ -1,21 +1,24 @@
 import argparse
 import csv
-from datetime import datetime, timezone
-from decimal import Decimal
 import json
-from pathlib import Path
 import signal
 import sys
-from sqlalchemy import select
+from datetime import datetime, timezone
+from decimal import Decimal
+from pathlib import Path
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from caisse.config import get_settings
 from caisse.database import SessionLocal
 from caisse.deps import get_fne_provider
 from caisse.models.catalog import Category, Product
 from caisse.models.settings import AppSetting
 from caisse.models.table import RestaurantTable
-from caisse.services.auth_service import AuthService
 from caisse.repositories.sessions import CashSessionRepository
 from caisse.seeds.demo_data import seed_catalog_and_tables
+from caisse.services.auth_service import AuthService
 
 PROBE_LINES = [
     # TTC attendu : 2 x 3 500 + 1 x 1 000 = 8 000 XOF
@@ -24,7 +27,7 @@ PROBE_LINES = [
 ]
 
 
-def cmd_set_vat_rate(db, args: argparse.Namespace) -> None:
+def cmd_set_vat_rate(db: Session, args: argparse.Namespace) -> None:
     try:
         rate = Decimal(args.rate).quantize(Decimal("0.01"))
     except Exception:
@@ -109,9 +112,8 @@ def cmd_fne_worker(args: argparse.Namespace) -> None:
     `--interval` secondes, jusqu'à l'arrêt (SIGTERM/SIGINT). L'envoi en cours est terminé
     avant de s'arrêter : un document coupé en plein appel deviendrait incertain."""
     import logging
-    import signal
     import threading
-    from caisse.deps import get_fne_provider
+
     from caisse.services import fne_service
 
     logger = logging.getLogger("caisse.fne_worker")
@@ -139,7 +141,12 @@ def cmd_fne_worker(args: argparse.Namespace) -> None:
     print(" fne_worker arrêté.")
 
 
-def cmd_reset_transactions(db, args: argparse.Namespace) -> None:
+def cmd_reset_transactions(db: Session, args: argparse.Namespace) -> None:
+    settings = get_settings()
+    if settings.APP_ENV == "production":
+        print(" ERREUR CRITIQUE : La commande reset-transactions est STRICTEMENT INTERDITE en environnement de production.")
+        sys.exit(1)
+
     if not args.yes:
         confirm = input(
             "  Cette opération va supprimer toutes les transactions (commandes, caisses, mouvements de stock, achats marché) et remettre le stock à zéro en conservant le catalogue et les fiches recettes. Confirmer ? (oui/non) : "
@@ -148,18 +155,18 @@ def cmd_reset_transactions(db, args: argparse.Namespace) -> None:
             print("Annulé.")
             return
 
-    from caisse.models.stock import StockArticle, StockMovement
-    from caisse.models.order import Order, OrderItem
-    from caisse.models.payment import Payment
-    from caisse.models.cash_session import CashSession, CashMovement
-    from caisse.models.finance import CashExpense, BankDeposit
-    from caisse.models.fne import FneDocument
-    from caisse.models.production import MarketPurchaseList, MarketPurchaseItem
-    from caisse.models.purchase import PurchaseRequest, PurchaseRequestLine
-    from caisse.models.print_job import PrintJob
-    from caisse.models.outbox import OutboxEvent
-    from caisse.models.idempotency import IdempotencyRecord
     from caisse.models.audit import AuditLog
+    from caisse.models.cash_session import CashMovement, CashSession
+    from caisse.models.finance import BankDeposit, CashExpense
+    from caisse.models.fne import FneDocument
+    from caisse.models.idempotency import IdempotencyRecord
+    from caisse.models.order import Order, OrderItem
+    from caisse.models.outbox import OutboxEvent
+    from caisse.models.payment import Payment
+    from caisse.models.print_job import PrintJob
+    from caisse.models.production import DailyPreparation, MarketPurchaseItem, MarketPurchaseList
+    from caisse.models.purchase import PurchaseRequest, PurchaseRequestLine
+    from caisse.models.stock import StockArticle, StockMovement
 
     # 1. Supprimer les éléments dépendants des commandes et sessions
     pj_count = db.query(PrintJob).delete()
@@ -175,30 +182,58 @@ def cmd_reset_transactions(db, args: argparse.Namespace) -> None:
     bd_count = db.query(BankDeposit).delete()
     cs_count = db.query(CashSession).delete()
 
-    # 3. Supprimer les achats marché et demandes d'achat
+    # 3. Supprimer les achats marché, sorties cuisine et demandes d'achat
+    dp_count = db.query(DailyPreparation).delete()
     mpi_count = db.query(MarketPurchaseItem).delete()
     mpl_count = db.query(MarketPurchaseList).delete()
     prl_count = db.query(PurchaseRequestLine).delete()
     pr_count = db.query(PurchaseRequest).delete()
 
-    # 4. Supprimer les files et idempotence
+    # 4. Supprimer les files et idempotence (l'historique d'audit est conservé pour conformité)
     ob_count = db.query(OutboxEvent).delete()
     idem_count = db.query(IdempotencyRecord).delete()
-    audit_count = db.query(AuditLog).delete()
 
     # 5. Remettre la quantité des articles de stock à 0
     art_count = db.query(StockArticle).update({StockArticle.quantity: Decimal(0)})
 
+    # 6. Tracer l'opération dans l'AuditLog
+    reset_audit = AuditLog(
+        action="RESET_TRANSACTIONS",
+        entity="SYSTEM",
+        reason="Réinitialisation des transactions via CLI",
+        after={
+            "deleted_orders": ord_count,
+            "deleted_order_items": oi_count,
+            "deleted_payments": pay_count,
+            "deleted_print_jobs": pj_count,
+            "deleted_fne": fne_count,
+            "deleted_sessions": cs_count,
+            "deleted_cash_movements": cm_count,
+            "deleted_expenses": ce_count,
+            "deleted_bank_deposits": bd_count,
+            "deleted_market_purchases": mpl_count,
+            "deleted_preparations": dp_count,
+            "deleted_purchase_requests": pr_count,
+            "deleted_purchase_request_lines": prl_count,
+            "deleted_outbox_events": ob_count,
+            "deleted_idempotency_records": idem_count,
+            "deleted_stock_movements": sm_count,
+            "reset_stock_articles": art_count,
+        },
+    )
+    db.add(reset_audit)
     db.commit()
 
     print(" Réinitialisation des transactions terminée avec succès :")
     print(f"   - Commandes supprimées : {ord_count} (avec {oi_count} lignes, {pay_count} paiements, {fne_count} FNE)")
     print(f"   - Sessions de caisse supprimées : {cs_count} (avec {cm_count} mouvements, {ce_count} dépenses)")
     print(f"   - Bons d'achat marché supprimés : {mpl_count} ({mpi_count} lignes)")
+    print(f"   - Sorties cuisine supprimées : {dp_count}")
     print(f"   - Mouvements de stock supprimés : {sm_count}")
     print(f"   - Quantités de stock remises à 0 : {art_count} articles")
     print("   - Fiches recettes (ProductComponents) : conservées intactes")
     print("   - Catalogue produits et tables : conservés intacts")
+    print("   - Audit log : tracé avec l'événement RESET_TRANSACTIONS")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -276,6 +311,17 @@ def main(argv: list[str] | None = None) -> None:
         "--yes", "-y", action="store_true", help="Confirmer automatiquement sans invite interactive"
     )
 
+    # Commande seed-weekly-flow
+    seed_flow_parser = subparsers.add_parser(
+        "seed-weekly-flow",
+        help="Générer des données cohérentes Achat économe -> Ventes pour tester la matrice hebdomadaire",
+    )
+    seed_flow_parser.add_argument(
+        "--monday",
+        default="2026-10-19",
+        help="Date du lundi de la semaine à tester (YYYY-MM-DD, défaut: 2026-10-19)",
+    )
+
     args = parser.parse_args(argv)
 
     if args.command == "fne-probe":
@@ -313,17 +359,17 @@ def main(argv: list[str] | None = None) -> None:
             print(f" Utilisateur '{user.full_name}' ({user.role}) créé avec succès. ID: {user.id}")
 
         elif args.command == "reset-pin":
-            user = auth_service.user_repo.get_by_name(args.name)
-            if not user:
+            target_user = auth_service.user_repo.get_by_name(args.name)
+            if not target_user:
                 print(f" Utilisateur '{args.name}' introuvable.")
                 sys.exit(1)
-            new_pin = args.new_pin or input(f"Nouveau PIN pour {user.full_name} : ").strip()
+            new_pin = args.new_pin or input(f"Nouveau PIN pour {target_user.full_name} : ").strip()
             from caisse.security import hash_pin
-            user.pin_hash = hash_pin(new_pin)
-            user.failed_attempts = 0
-            user.locked_until = None
+            target_user.pin_hash = hash_pin(new_pin)
+            target_user.failed_attempts = 0
+            target_user.locked_until = None
             db.commit()
-            print(f" PIN de '{user.full_name}' réinitialisé avec succès.")
+            print(f" PIN de '{target_user.full_name}' réinitialisé avec succès.")
 
         elif args.command == "seed":
             session_repo.get_or_create_default_register()
@@ -388,7 +434,12 @@ def main(argv: list[str] | None = None) -> None:
                 print(f" {count} produits importés avec succès depuis '{menu_file}'.")
 
         elif args.command == "import-stock":
-            from caisse.seeds.stock_import import import_articles, import_components, ARTICLES_CSV, COMPONENTS_CSV
+            from caisse.seeds.stock_import import (
+                ARTICLES_CSV,
+                COMPONENTS_CSV,
+                import_articles,
+                import_components,
+            )
             art_path = Path(args.articles_csv) if args.articles_csv else ARTICLES_CSV
             comp_path = Path(args.fiches_csv) if args.fiches_csv else COMPONENTS_CSV
             res = import_articles(db, art_path, initial_stock=args.stock_initial)
@@ -405,6 +456,19 @@ def main(argv: list[str] | None = None) -> None:
 
         elif args.command == "reset-transactions":
             cmd_reset_transactions(db, args)
+
+        elif args.command == "seed-weekly-flow":
+            from datetime import date
+
+            from caisse.seeds.seed_weekly_flow import seed_weekly_flow
+            m_date = date.fromisoformat(args.monday)
+            flow_res = seed_weekly_flow(db, monday_date=m_date)
+            print(" Données de simulation générées avec succès :")
+            print(f"   - Période : du {flow_res['start_date']} au {flow_res['end_date']}")
+            print(f"   - Total achats économe : {flow_res['total_purchases_xof']:,} XOF (Plafond <= 300 000 XOF)")
+            print(f"   - Total plats vendus : {flow_res['total_dishes_sold']} plats")
+            print(f"   - Chiffre d'affaires réalisé : {flow_res['total_sales_xof']:,} XOF")
+            print(f"   - Écarts portions : {flow_res['variance_dishes']} (Perte valorisée : {flow_res['variance_loss_xof']:,} XOF)")
 
     finally:
         db.close()

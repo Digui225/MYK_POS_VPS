@@ -1,7 +1,9 @@
 import textwrap
 import unicodedata
-from datetime import datetime
+from typing import Any
+
 from fastapi import status
+
 from caisse.domain.enums import PaymentMethod
 from caisse.errors import CaisseException
 
@@ -240,12 +242,12 @@ def get_payment_method_display_label(method: str, provider: str | None = None) -
 
 
 def format_receipt_text(
-    restaurant_info: dict,
-    order_info: dict,
-    items: list[dict],
-    payments: list[dict],
-    totals: dict,
-    fne_info: dict | None = None,
+    restaurant_info: dict[str, Any],
+    order_info: dict[str, Any],
+    items: list[dict[str, Any]],
+    payments: list[dict[str, Any]],
+    totals: dict[str, Any],
+    fne_info: dict[str, Any] | None = None,
     is_duplicate: bool = False,
     width: int = 32,
     welcome_message: str | None = None,
@@ -400,8 +402,8 @@ def format_receipt_text(
 
 
 def format_z_report_text(
-    restaurant_info: dict,
-    z_data: dict,
+    restaurant_info: dict[str, Any],
+    z_data: dict[str, Any],
     width: int = 32,
 ) -> str:
     """Genere le texte structure pour l'impression thermique du Rapport Z (58mm / 32 col)."""

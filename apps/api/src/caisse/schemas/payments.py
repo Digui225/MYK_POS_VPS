@@ -1,8 +1,9 @@
 from typing import Any, Literal
-from pydantic import BaseModel, Field
+
+from pydantic import Field
 
 from caisse.domain.enums import PaymentMethod
-from caisse.schemas.common import BaseSchema, BaseRequestSchema
+from caisse.schemas.common import BaseRequestSchema, BaseSchema
 
 
 class PaymentRequest(BaseRequestSchema):

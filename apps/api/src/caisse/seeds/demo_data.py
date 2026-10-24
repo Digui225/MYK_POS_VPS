@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+
 from caisse.models.catalog import Category, Product
 from caisse.models.table import RestaurantTable
 

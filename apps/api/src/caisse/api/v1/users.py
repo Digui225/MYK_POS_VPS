@@ -1,9 +1,8 @@
-from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from caisse.database import get_db
-from caisse.deps import get_current_user, require_role
+from caisse.deps import require_role
 from caisse.errors import CaisseException
 from caisse.models.user import User
 from caisse.repositories.users import UserRepository

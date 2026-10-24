@@ -1,6 +1,9 @@
+from typing import Any
+
 from sqlalchemy.orm import Session, joinedload
-from caisse.models.table import RestaurantTable
+
 from caisse.models.order import Order
+from caisse.models.table import RestaurantTable
 from caisse.repositories.base import BaseRepository
 
 
@@ -19,7 +22,7 @@ class TableRepository(BaseRepository[RestaurantTable]):
     def get_by_label(self, label: str) -> RestaurantTable | None:
         return self.db.query(RestaurantTable).filter(RestaurantTable.label == label).first()
 
-    def get_table_board_data(self) -> list[dict]:
+    def get_table_board_data(self) -> list[dict[str, Any]]:
         tables = self.list_active_tables()
         table_ids = [t.id for t in tables]
 

@@ -1,5 +1,7 @@
 from typing import Any
+
 from sqlalchemy.orm import Session
+
 from caisse.models.audit import AuditLog
 from caisse.repositories.audit import AuditRepository
 

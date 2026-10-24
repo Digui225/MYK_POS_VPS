@@ -1,6 +1,8 @@
 from datetime import datetime
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+
 from caisse.models.print_job import PrintJob
 from caisse.pagination import PageRequest, newest_first
 from caisse.repositories.base import BaseRepository

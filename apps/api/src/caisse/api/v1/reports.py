@@ -1,15 +1,21 @@
 import csv
-from datetime import date
 import io
+from datetime import date
 from typing import Annotated, Optional
+
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
 from caisse.database import get_db
-from caisse.deps import Admin, DbSession, Responsable, get_current_user
+from caisse.deps import DbSession, Responsable, get_current_user
 from caisse.models.user import User
 from caisse.schemas.report import DashboardKpiResponse
-from caisse.schemas.reports import DashboardOut, ProteinYieldReportOut, SalesReportOut, StockReportOut
+from caisse.schemas.reports import (
+    DashboardOut,
+    ProteinYieldReportOut,
+    SalesReportOut,
+    StockReportOut,
+)
 from caisse.services import reporting_service, stock_service
 from caisse.services.reporting_service import ReportingService
 
@@ -33,7 +39,7 @@ def get_dashboard_kpis(
     date: Optional[str] = Query(None, description="Date d'exploitation (YYYY-MM-DD), défaut aujourd'hui"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
+) -> DashboardKpiResponse:
     service = ReportingService(db)
     return service.get_dashboard_kpis(business_date_str=date)
 

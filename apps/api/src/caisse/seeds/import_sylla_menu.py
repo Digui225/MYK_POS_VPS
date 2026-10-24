@@ -6,6 +6,7 @@ Usage:
 
 from dataclasses import dataclass, field
 from pathlib import Path
+
 from sqlalchemy import text
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
@@ -186,7 +187,7 @@ def parse_and_import_menu(db: Session, menu_path: Path) -> tuple[int, int]:
     return total_categories, total_products
 
 
-def main():
+def main() -> None:
     db = SessionLocal()
     try:
         print("🚀 Démarrage de la purge des données de simulation...")

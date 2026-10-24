@@ -1,10 +1,9 @@
-import uuid
 from datetime import date, datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
-from caisse.domain.enums import FneDocumentType, FneStatus, PaymentMethod
+from caisse.domain.enums import PaymentMethod
 from caisse.domain.fne import FneTemplate
 from caisse.schemas.common import ApiWarning, BaseSchema
 from caisse.schemas.customer import CustomerOut

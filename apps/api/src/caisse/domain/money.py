@@ -1,10 +1,10 @@
-from typing import Any
 import math
+from typing import Any
 
 
 def calculate_vat_split(total_ttc_xof: int, vat_rate: float | int | Any = 18.0) -> tuple[int, int]:
     """Calcule la ventilation HT et TVA depuis un montant TTC en entier XOF.
-    
+
     Règle métier ADR-04 :
     - Le TTC fait foi (entier XOF).
     - HT = arrondi commercial à l'entier le plus proche (demi-point supérieur) :

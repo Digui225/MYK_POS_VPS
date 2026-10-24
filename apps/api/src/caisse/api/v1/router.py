@@ -1,23 +1,23 @@
 from fastapi import APIRouter
 
 from caisse.api.v1.auth import router as auth_router
-from caisse.api.v1.users import router as users_router
 from caisse.api.v1.catalog import router as catalog_router
-from caisse.api.v1.tables import router as tables_router
+from caisse.api.v1.customers import router as customers_router
+from caisse.api.v1.finance import router as finance_router
+from caisse.api.v1.fne import router as fne_router
 from caisse.api.v1.orders import router as orders_router
 from caisse.api.v1.payments import router as payments_router
-from caisse.api.v1.sessions import router as sessions_router
-from caisse.api.v1.stock import router as stock_router
-from caisse.api.v1.reports import router as reports_router
-from caisse.api.v1.customers import router as customers_router
-from caisse.api.v1.fne import router as fne_router
-from caisse.api.v1.printing import router as printing_router
 from caisse.api.v1.print_agent import router as print_agent_router
-from caisse.api.v1.settings import router as settings_router
-from caisse.api.v1.ws import router as ws_router
-from caisse.api.v1.finance import router as finance_router
+from caisse.api.v1.printing import router as printing_router
 from caisse.api.v1.production import router as production_router
 from caisse.api.v1.purchases import router as purchases_router
+from caisse.api.v1.reports import router as reports_router
+from caisse.api.v1.sessions import router as sessions_router
+from caisse.api.v1.settings import router as settings_router
+from caisse.api.v1.stock import router as stock_router
+from caisse.api.v1.tables import router as tables_router
+from caisse.api.v1.users import router as users_router
+from caisse.api.v1.ws import router as ws_router
 
 api_v1_router = APIRouter(prefix="/api/v1")
 

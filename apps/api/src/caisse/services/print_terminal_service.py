@@ -1,8 +1,9 @@
 import hashlib
 import secrets
 from datetime import datetime, timezone
-from sqlalchemy.orm import Session
+
 from fastapi import status
+from sqlalchemy.orm import Session
 
 from caisse.errors import CaisseException
 from caisse.models.print_terminal import PrintTerminal

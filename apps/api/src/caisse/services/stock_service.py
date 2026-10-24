@@ -103,7 +103,6 @@ def business_day(db: Session, requested: date | None = None) -> date:
     if requested is not None:
         return requested
     from caisse.repositories.sessions import CashSessionRepository
-    from caisse.domain.enums import CashSessionStatus
     repo = CashSessionRepository(db)
     active = repo.db.query(repo.model).filter(repo.model.status == "OPEN").first()
     if active and hasattr(active, "business_date"):
@@ -517,7 +516,7 @@ def apply_sale(db: Session, order: Order, user_id: str) -> list[ApiWarning]:
     if not article_ids:
         return []
     articles = stock_repo.lock_articles(db, article_ids)
-    
+
     # Résolution de la journée comptable de la commande
     order_date = order.business_date if hasattr(order, "business_date") and order.business_date else business_day(db)
     if isinstance(order_date, str):
@@ -551,7 +550,7 @@ def reverse_sale(db: Session, order: Order, user_id: str) -> None:
     if not article_ids:
         return
     articles = stock_repo.lock_articles(db, article_ids)
-    
+
     order_date = order.business_date if hasattr(order, "business_date") and order.business_date else business_day(db)
     if isinstance(order_date, str):
         try:

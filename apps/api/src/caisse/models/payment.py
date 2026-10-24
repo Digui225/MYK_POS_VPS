@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from caisse.database import Base

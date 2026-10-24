@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, Header, status
+from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy.orm import Session
 
+from caisse import idempotency
 from caisse.database import get_db
-from caisse.deps import require_role, require_device_id, require_idempotency_key
+from caisse.deps import require_device_id, require_role
+from caisse.idempotency import IdempotencyKey
 from caisse.models.user import User
-from caisse.schemas.payments import PaymentRequest, OrderPaymentResult, PaymentResponse
+from caisse.schemas.payments import OrderPaymentResult, PaymentRequest, PaymentResponse
 from caisse.services.payment_service import PaymentService
 
 router = APIRouter(prefix="/orders", tags=["Encaissement & Paiements"])
@@ -19,19 +21,25 @@ router = APIRouter(prefix="/orders", tags=["Encaissement & Paiements"])
 def process_payment(
     id: str,
     payload: PaymentRequest,
+    request: Request,
+    response: Response,
+    idempotency_key: IdempotencyKey,
     current_user: User = Depends(require_role("CAISSIER", "RESPONSABLE", "ADMIN")),
-    idempotency_key: str = Depends(require_idempotency_key),
     device_id: str = Depends(require_device_id),
     db: Session = Depends(get_db),
 ) -> OrderPaymentResult:
     service = PaymentService(db)
-    return service.process_payment(
+    result, replayed = service.process_payment(
         order_id=id,
         payload=payload,
         user_id=current_user.id,
         idempotency_key=idempotency_key,
         device_id=device_id,
+        path=request.url.path,
     )
+    if replayed:
+        idempotency.apply_replay_headers(response)
+    return result
 
 
 @router.get(

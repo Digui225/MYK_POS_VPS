@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from caisse.models.cash_session import CashRegister, CashSession, CashMovement
+
+from caisse.models.cash_session import CashMovement, CashRegister, CashSession
 from caisse.pagination import PageRequest, newest_first
 from caisse.repositories.base import BaseRepository
 

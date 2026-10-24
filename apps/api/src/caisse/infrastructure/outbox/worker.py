@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+
 from caisse.database import SessionLocal
 from caisse.infrastructure.outbox.dispatcher import dispatch_pending_outbox_events
 

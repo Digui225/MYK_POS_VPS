@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+
 from caisse.models.payment import Payment
 from caisse.repositories.base import BaseRepository
 

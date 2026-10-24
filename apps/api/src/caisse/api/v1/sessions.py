@@ -1,18 +1,28 @@
-from fastapi import APIRouter, Depends, status
+from typing import Any
+
+from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy.orm import Session
 
+from caisse import idempotency
 from caisse.database import get_db
-from caisse.deps import DbSession, Paging, Responsable, get_current_user, require_role, require_device_id, require_idempotency_key
-from caisse.models.cash_session import CashSession
+from caisse.deps import (
+    DbSession,
+    Paging,
+    Responsable,
+    get_current_user,
+    require_device_id,
+    require_role,
+)
+from caisse.idempotency import IdempotencyKey
 from caisse.models.user import User
 from caisse.pagination import split
 from caisse.schemas.common import Page
 from caisse.schemas.sessions import (
-    SessionOpenRequest,
-    CashSessionResponse,
     CashMovementRequest,
     CashMovementResponse,
+    CashSessionResponse,
     SessionCloseRequest,
+    SessionOpenRequest,
     XReportResponse,
     ZReportResponse,
 )
@@ -54,19 +64,27 @@ async def get_current_session(
 )
 async def open_session(
     payload: SessionOpenRequest,
+    request: Request,
+    response: Response,
+    idempotency_key: IdempotencyKey,
     current_user: User = Depends(require_role("CAISSIER", "RESPONSABLE", "ADMIN")),
     device_id: str = Depends(require_device_id),
-    idempotency_key: str = Depends(require_idempotency_key),
     db: Session = Depends(get_db),
 ) -> CashSessionResponse:
     session_service = CashSessionService(db)
-    return session_service.open_session(
+    result, replayed = session_service.open_session(
         cash_register_id=payload.cash_register_id,
         opening_float_xof=payload.opening_float_xof,
         business_date_str=payload.business_date,
         user_id=current_user.id,
         device_id=device_id,
+        idempotency_key=idempotency_key,
+        path=request.url.path,
+        payload=payload,
     )
+    if replayed:
+        idempotency.apply_replay_headers(response)
+    return result
 
 
 @router.get("/{id}/x-report", response_model=XReportResponse, summary="Consulter le Rapport X (intermédiaire)")
@@ -87,19 +105,27 @@ async def get_x_report(
 async def close_session(
     id: str,
     payload: SessionCloseRequest,
+    request: Request,
+    response: Response,
+    idempotency_key: IdempotencyKey,
     current_user: User = Depends(require_role("CAISSIER")),
     device_id: str = Depends(require_device_id),
-    idempotency_key: str = Depends(require_idempotency_key),
     db: Session = Depends(get_db),
 ) -> CashSessionResponse:
     session_service = CashSessionService(db)
-    return session_service.close_session(
+    result, replayed = session_service.close_session(
         session_id=id,
         counted_breakdown=payload.counted_breakdown,
         user_id=current_user.id,
         notes=payload.notes,
         device_id=device_id,
+        idempotency_key=idempotency_key,
+        path=request.url.path,
+        payload=payload,
     )
+    if replayed:
+        idempotency.apply_replay_headers(response)
+    return result
 
 
 @router.get(
@@ -126,7 +152,7 @@ async def print_z_report_from_session(
     current_user: User = Depends(require_role("CAISSIER", "RESPONSABLE", "ADMIN")),
     device_id: str = Depends(require_device_id),
     db: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     from caisse.services.printing_service import PrintingService
     service = PrintingService(db)
     job = service.print_z_report(

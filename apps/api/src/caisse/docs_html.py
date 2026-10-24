@@ -1,4 +1,4 @@
-HTML_TEMPLATE = """<!DOCTYPE html>
+HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -36,25 +36,25 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     .m-post { background: var(--post); }
     .m-patch { background: var(--patch); }
     .m-delete { background: var(--delete); }
-    
+
     #main-content { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
     .topbar { padding: 12px 24px; border-bottom: 1px solid var(--border); background: #0b1120; display: flex; align-items: center; justify-content: space-between; }
     .auth-input { display: flex; align-items: center; gap: 10px; }
     .auth-input input { background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; color: #fff; font-size: 12px; width: 320px; outline: none; }
     .auth-input button { background: var(--accent); color: #000; border: none; font-weight: 600; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; }
-    
+
     .content-body { padding: 32px 40px; max-width: 1000px; }
     .endpoint-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2); }
     .endpoint-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
     .endpoint-path { font-size: 18px; font-weight: 700; font-family: monospace; }
     .endpoint-summary { font-size: 15px; color: var(--text-muted); margin-bottom: 20px; }
-    
+
     .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin: 16px 0 8px; }
     .param-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
     .param-table th, .param-table td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
     .param-table th { color: var(--text-muted); font-size: 11px; }
     .param-name { font-weight: 600; color: var(--accent); font-family: monospace; }
-    
+
     .body-editor { width: 100%; height: 140px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; color: #38bdf8; font-family: monospace; font-size: 13px; padding: 12px; outline: none; resize: vertical; }
     .execute-btn { background: var(--get); color: #fff; border: none; font-size: 14px; font-weight: 700; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-top: 16px; transition: opacity 0.15s; }
     .execute-btn:hover { opacity: 0.9; }

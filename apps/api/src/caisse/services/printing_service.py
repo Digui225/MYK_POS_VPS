@@ -1,9 +1,11 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
-from sqlalchemy.orm import Session
+
 from fastapi import status
+from sqlalchemy.orm import Session
 
 from caisse.domain.payment_rules import format_receipt_text
+from caisse.errors import CaisseException
 from caisse.models.order import Order
 from caisse.models.payment import Payment
 from caisse.models.print_job import PrintJob
@@ -13,7 +15,6 @@ from caisse.repositories.print_jobs import PrintJobRepository
 from caisse.repositories.print_terminals import PrintTerminalRepository
 from caisse.schemas.printing import PrinterReport, PrintingStatusOut
 from caisse.services.audit_service import AuditService
-from caisse.errors import CaisseException
 
 OFFLINE_THRESHOLD_SECONDS = 15
 
@@ -44,7 +45,7 @@ class PrintingService:
         payments: list[Payment],
         cashier_name: str,
         is_duplicate: bool = False,
-        fne_info: dict | None = None,
+        fne_info: dict[str, Any] | None = None,
     ) -> str:
         setting = self.db.query(EstablishmentSetting).first()
 
@@ -118,7 +119,7 @@ class PrintingService:
         cashier_name: str,
         open_drawer: bool = False,
         is_duplicate: bool = False,
-        fne_info: dict | None = None,
+        fne_info: dict[str, Any] | None = None,
     ) -> PrintJob:
         content = self.generate_receipt_content(
             order=order,
@@ -193,8 +194,8 @@ class PrintingService:
         user_id: str,
         device_id: str | None = None,
     ) -> PrintJob:
-        from caisse.services.cash_session_service import CashSessionService
         from caisse.domain.payment_rules import format_z_report_text
+        from caisse.services.cash_session_service import CashSessionService
 
         session_service = CashSessionService(self.db)
         z_report = session_service.get_z_report(session_id)

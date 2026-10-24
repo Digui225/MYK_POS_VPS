@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from typing import Optional
+
 from sqlalchemy.orm import Session
 
 from caisse.models.outbox import OutboxEvent
@@ -18,7 +19,7 @@ class OutboxRepository:
             self.db.query(OutboxEvent)
             .filter(
                 OutboxEvent.status.in_(["PENDING", "PROCESSING"]),
-                (OutboxEvent.next_retry_at == None) | (OutboxEvent.next_retry_at <= now),
+                OutboxEvent.next_retry_at.is_(None) | (OutboxEvent.next_retry_at <= now),
             )
             .order_by(OutboxEvent.created_at.asc())
             .limit(limit)

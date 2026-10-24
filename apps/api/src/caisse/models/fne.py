@@ -1,13 +1,13 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
+
 from sqlalchemy import (
+    JSON,
     Boolean,
-    Column,
     DateTime,
     ForeignKey,
     Index,
     Integer,
-    JSON,
     String,
     Text,
     false,

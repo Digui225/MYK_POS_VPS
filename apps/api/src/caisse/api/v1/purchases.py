@@ -2,12 +2,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Path, Query, Request, Response, status
 
-from caisse.deps import Acheteur, Ctx, DbSession, Paging, Responsable
+from caisse.deps import Acheteur, Ctx, CurrentUser, DbSession, Paging, Responsable
 from caisse.domain.enums import PurchaseStatus, StockArticleCategory
 from caisse.idempotency import IdempotencyKey
 from caisse.pagination import split
 from caisse.repositories import purchases as purchases_repo
 from caisse.schemas.common import Page
+from caisse.schemas.production import MarketBudgetStatusOut
 from caisse.schemas.purchases import (
     BuyerPurchaseOut,
     BuyerPurchaseSummaryOut,
@@ -34,6 +35,24 @@ StatusFilter = Annotated[
 _STATE_ERROR = (
     "`409 PURCHASE_STATE` (`meta.status` : état actuel, `meta.expected` : états acceptés)"
 )
+
+
+# --- Budget Marché -----------------------------------------------------------------------
+
+
+@router.get(
+    "/market/budget-status",
+    response_model=MarketBudgetStatusOut,
+    summary="Consulter le statut du budget marché (jauge)",
+)
+def get_purchase_market_budget_status(
+    user: CurrentUser,
+    db: DbSession,
+    total_budget_xof: Annotated[int, Query(ge=0, description="Montant total en FCFA estimé")] = 0,
+) -> MarketBudgetStatusOut:
+    """Retourne l'état de remplissage de la jauge budgétaire marché.
+    Pour l'économe/acheteur, aucun montant en FCFA n'est retourné (confidentialité)."""
+    return purchase_service.market_budget_status(db, user, total_budget_xof)
 
 
 # --- Acheteur ----------------------------------------------------------------------------

@@ -1,8 +1,10 @@
-from datetime import datetime, timezone
+from typing import Any
+
+from fastapi import status
+
 from caisse.domain.enums import OrderStatus
 from caisse.domain.money import calculate_vat_split
 from caisse.errors import CaisseException
-from fastapi import status
 
 
 def generate_order_number(business_date_str: str, sequence_number: int) -> str:
@@ -41,7 +43,7 @@ def calculate_line_total(unit_price_xof: int, quantity: int) -> int:
     return unit_price_xof * quantity
 
 
-def recalculate_order_totals(items: list) -> tuple[int, int, int]:
+def recalculate_order_totals(items: list[Any]) -> tuple[int, int, int]:
     """Recalcule les totaux (TTC, HT, TVA) d'une commande à partir de ses lignes actives."""
     total_ttc = 0
     total_ht = 0

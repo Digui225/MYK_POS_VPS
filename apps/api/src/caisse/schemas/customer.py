@@ -1,7 +1,8 @@
 import re
 from datetime import datetime
 from typing import Any, Optional
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from pydantic import Field, field_validator, model_validator
 
 from caisse.schemas.common import BaseSchema
 

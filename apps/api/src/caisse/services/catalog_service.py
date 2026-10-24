@@ -1,16 +1,16 @@
-from sqlalchemy.orm import Session
 from fastapi import status
+from sqlalchemy.orm import Session
 
 from caisse.errors import CaisseException
 from caisse.models.catalog import Category, Product, ProductPriceHistory
 from caisse.repositories.catalog import CatalogRepository
 from caisse.schemas.catalog import (
-    CategoryResponse,
     CategoryCreateRequest,
+    CategoryResponse,
     CategoryUpdateRequest,
-    ProductResponse,
     ProductCreateRequest,
     ProductPriceUpdateRequest,
+    ProductResponse,
 )
 from caisse.services.audit_service import AuditService
 

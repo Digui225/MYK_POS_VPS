@@ -5,10 +5,10 @@ avant l'appel ; si l'issue est inconnue (délai dépassé, 500…), il reste `SU
 `is_uncertain` et n'est jamais renvoyé sans qu'un responsable ait vérifié l'espace FNE.
 """
 
-from datetime import date, datetime, timedelta, timezone
 import logging
-from typing import Any
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session

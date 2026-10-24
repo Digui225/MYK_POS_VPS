@@ -5,9 +5,10 @@ l'imprime, rend le résultat, puis interroge de nouveau sans attendre.
 """
 
 from typing import Annotated
-from fastapi import APIRouter, Depends, Path, Response, status
 
-from caisse.deps import CurrentTerminal, DbSession, Ctx
+from fastapi import APIRouter, Path, Response, status
+
+from caisse.deps import Ctx, CurrentTerminal, DbSession
 from caisse.schemas.printing import AgentJobOut, AgentPollIn, AgentPollOut, AgentResultIn
 from caisse.services.printing_service import PrintingService
 

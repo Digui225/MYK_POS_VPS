@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
+from fastapi import APIRouter, Path, Query, Request, Response, status
 
 from caisse.deps import Ctx, CurrentUser, DbSession, Paging, Responsable
 from caisse.domain.enums import StockArticleCategory, StockMovementType
@@ -20,8 +20,6 @@ from caisse.schemas.stock import (
     StockItemResponse,
     StockLossCreate,
     StockMovementOut,
-    StockMovementRequest,
-    StockMovementResponse,
     StockOperationOut,
     StockReceiptCreate,
 )

@@ -1,9 +1,12 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import DateTime, String
+
+from sqlalchemy import DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
-from caisse.database import Base
+from caisse.database import Base as Base
+
+__all__ = ["Base", "TimestampMixin", "generate_uuid"]
 
 
 def generate_uuid() -> str:

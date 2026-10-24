@@ -1,4 +1,5 @@
 from typing import Optional
+
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
@@ -20,9 +21,10 @@ def list_customers(
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
-):
+) -> list[CustomerOut]:
     query_str = search or q
-    return customer_service.search_customers(db, query=query_str, ncc=ncc, limit=limit)
+    customers = customer_service.search_customers(db, query=query_str, ncc=ncc, limit=limit)
+    return [CustomerOut.model_validate(c) for c in customers]
 
 
 @router.post("", response_model=CustomerOut, status_code=status.HTTP_201_CREATED, summary="Créer un client d'entreprise")
@@ -30,9 +32,9 @@ def create_customer(
     payload: CustomerCreate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-):
+) -> CustomerOut:
     company_name = payload.company_name or payload.name or ""
-    return customer_service.create_customer(
+    created = customer_service.create_customer(
         db,
         company_name=company_name,
         ncc=payload.ncc,
@@ -42,6 +44,7 @@ def create_customer(
         email=payload.email,
         actor_id=str(user.id),
     )
+    return CustomerOut.model_validate(created)
 
 
 @router.get("/{customer_id}", response_model=CustomerOut, summary="Détail d'un client")
@@ -49,7 +52,7 @@ def get_customer(
     customer_id: str,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
-):
+) -> CustomerOut:
     cust = customer_service.get_by_id(db, customer_id)
     if not cust:
         raise CaisseException(
@@ -58,4 +61,4 @@ def get_customer(
             detail=f"Aucun client trouvé avec l'ID {customer_id}.",
             status_code=status.HTTP_404_NOT_FOUND,
         )
-    return cust
+    return CustomerOut.model_validate(cust)

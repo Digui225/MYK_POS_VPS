@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+
 from sqlalchemy import (
     CheckConstraint,
     Date,

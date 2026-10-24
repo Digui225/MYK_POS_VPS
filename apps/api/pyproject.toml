@@ -36,6 +36,10 @@ build-backend = "setuptools.build_meta"
 line-length = 100
 target-version = "py312"
 
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501", "E712", "E402"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true

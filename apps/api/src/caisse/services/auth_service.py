@@ -1,15 +1,29 @@
 import logging
-from datetime import datetime, timedelta, timezone
-from sqlalchemy.orm import Session
+from datetime import datetime, timezone
+
 from fastapi import status
+from sqlalchemy.orm import Session
 
 from caisse.config import get_settings
 from caisse.errors import CaisseException
 from caisse.models.user import User
-from caisse.repositories.users import UserRepository
 from caisse.repositories.sessions import CashSessionRepository
-from caisse.security import verify_pin, hash_pin, create_access_token, create_refresh_token, create_override_token, decode_token
-from caisse.schemas.auth import LoginResponse, UserResponse, OpenSessionInfo, RefreshTokenResponse, OverrideResponse
+from caisse.repositories.users import UserRepository
+from caisse.schemas.auth import (
+    LoginResponse,
+    OpenSessionInfo,
+    OverrideResponse,
+    RefreshTokenResponse,
+    UserResponse,
+)
+from caisse.security import (
+    create_access_token,
+    create_override_token,
+    create_refresh_token,
+    decode_token,
+    hash_pin,
+    verify_pin,
+)
 from caisse.services.audit_service import AuditService
 
 logger = logging.getLogger("caisse.security")

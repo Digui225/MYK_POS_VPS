@@ -1,5 +1,7 @@
 import logging
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
 from caisse.infrastructure.websocket.manager import ws_manager
 
 logger = logging.getLogger(__name__)

@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from caisse import idempotency
 from caisse.deps import RequestContext
 from caisse.domain import stock_rules
-from caisse.domain.enums import PurchaseStatus, StockArticleCategory
+from caisse.domain.enums import PurchaseStatus, StockArticleCategory, UserRole
 from caisse.errors import (
     IdempotencyConflictError,
     NotFoundError,
@@ -25,6 +25,7 @@ from caisse.models.purchase import PurchaseRequest, PurchaseRequestLine
 from caisse.models.user import User
 from caisse.repositories import purchases as purchases_repo
 from caisse.repositories import stock as stock_repo
+from caisse.schemas.production import MarketBudgetStatusOut
 from caisse.schemas.purchases import (
     BuyerLineOut,
     BuyerPurchaseOut,
@@ -177,7 +178,7 @@ def summaries(db: Session, requests: list[PurchaseRequest]) -> list[PurchaseSumm
             id=str(r.id),
             number=r.number,
             status=PurchaseStatus(r.status) if isinstance(r.status, str) else r.status,
-            requested_by=user(r.requested_by_user_id),
+            requested_by=user(r.requested_by_user_id) or UserOut(id=str(r.requested_by_user_id or ""), full_name="Inconnu", role=UserRole.ECONOME),
             note=r.note,
             estimated_total_xof=r.estimated_total_xof,
             approved_total_xof=r.approved_total_xof,
@@ -274,6 +275,17 @@ def create(
     ]
     db.add_all(lines)
     request.estimated_total_xof = sum(_line_amount(line) for line in lines)
+
+    # Contrôle strict du plafond budgétaire côté serveur
+    from caisse.domain.market_budget_rules import get_market_budget_limits, validate_market_budget
+    total_limit, econome_limit, _ = get_market_budget_limits(db)
+    validate_market_budget(
+        request.estimated_total_xof,
+        role=user.role,
+        total_limit=total_limit,
+        econome_limit=econome_limit,
+    )
+
     db.flush()
     audit_service.log(
         db,
@@ -543,3 +555,22 @@ def _log(
         entity_id=str(request.id),
         after={"number": request.number, "status": status_val, **after},
     )
+
+
+def market_budget_status(
+    db: Session, user: User, total_budget_xof: int = 0
+) -> MarketBudgetStatusOut:
+    from caisse.domain.market_budget_rules import (
+        calculate_market_budget_status,
+        get_market_budget_limits,
+    )
+    from caisse.schemas.production import MarketBudgetStatusOut
+
+    total_limit, econome_limit, _ = get_market_budget_limits(db)
+    raw = calculate_market_budget_status(
+        total_budget_xof,
+        role=user.role,
+        total_limit=total_limit,
+        econome_limit=econome_limit,
+    )
+    return MarketBudgetStatusOut(**raw)

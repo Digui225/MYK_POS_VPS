@@ -1,8 +1,9 @@
 import uuid
 from typing import Any
+
 from fastapi import Request, status
-from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 
 class CaisseException(Exception):
@@ -62,6 +63,17 @@ class IdempotencyConflictError(CaisseException):
             title="Conflit d'idempotence",
             detail=detail,
             status_code=status.HTTP_409_CONFLICT,
+            meta=meta or {},
+        )
+
+
+class MarketBudgetExceededError(CaisseException):
+    def __init__(self, detail: str = "Le budget marché dépasse le plafond autorisé", meta: dict[str, Any] | None = None):
+        super().__init__(
+            code="MARKET_BUDGET_EXCEEDED",
+            title="Plafond budgétaire dépassé",
+            detail=detail,
+            status_code=422,
             meta=meta or {},
         )
 

@@ -1,21 +1,23 @@
-from datetime import datetime, timezone
-import json
 import logging
-from sqlalchemy.orm import Session
-from fastapi import status
+from datetime import datetime, timezone
+from typing import Literal
 
+from fastapi import status
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from caisse import idempotency
 from caisse.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-from caisse.domain.enums import OrderStatus, PaymentMethod
+from caisse.domain.enums import OrderStatus
 from caisse.domain.payment_rules import (
-    validate_payment_amount,
     calculate_change,
     should_open_drawer,
+    validate_payment_amount,
 )
 from caisse.errors import CaisseException
-from caisse.models.idempotency import IdempotencyRecord
 from caisse.models.order import Order
 from caisse.models.payment import Payment
 from caisse.models.user import User
@@ -23,9 +25,9 @@ from caisse.repositories.orders import OrderRepository
 from caisse.repositories.payments import PaymentRepository
 from caisse.repositories.sessions import CashSessionRepository
 from caisse.schemas.payments import (
+    OrderPaymentResult,
     PaymentRequest,
     PaymentResponse,
-    OrderPaymentResult,
 )
 from caisse.services.audit_service import AuditService
 from caisse.services.printing_service import PrintingService
@@ -47,16 +49,16 @@ class PaymentService:
         user_id: str,
         idempotency_key: str | None = None,
         device_id: str | None = None,
-    ) -> OrderPaymentResult:
+        path: str = "",
+    ) -> tuple[OrderPaymentResult, bool]:
         # 1. Vérification Idempotence
+        request_hash = idempotency.hash_request(payload)
         if idempotency_key:
-            existing_rec = (
-                self.db.query(IdempotencyRecord)
-                .filter(IdempotencyRecord.key == idempotency_key)
-                .first()
+            replay = idempotency.find_replay(
+                self.db, idempotency_key, method="POST", path=path, request_hash=request_hash
             )
-            if existing_rec and existing_rec.response_body:
-                return OrderPaymentResult(**existing_rec.response_body)
+            if replay is not None:
+                return OrderPaymentResult.model_validate(replay), True
 
         # 2. Vérification de la session de caisse active
         register = self.session_repo.get_or_create_default_register()
@@ -262,10 +264,13 @@ class PaymentService:
         # Garantir le statut de commande requis par le schéma de retour
         final_order_status = OrderStatus.PAID if order.due_xof == 0 else OrderStatus.PARTIALLY_PAID
         order.status = final_order_status
+        status_lit: Literal["PARTIALLY_PAID", "PAID"] = (
+            "PAID" if order.due_xof == 0 else "PARTIALLY_PAID"
+        )
 
         result = OrderPaymentResult(
             payment=payment_res,
-            order_status=final_order_status.value,
+            order_status=status_lit,
             remaining_due_xof=order.due_xof,
             change_xof=change_xof,
             drawer_opened=drawer_opened,
@@ -276,16 +281,28 @@ class PaymentService:
 
         # 9. Enregistrement Idempotence
         if idempotency_key:
-            record = IdempotencyRecord(
-                key=idempotency_key,
-                request_path=f"/orders/{order_id}/payments",
-                request_hash="",
-                response_status=201,
-                response_body=result.model_dump(),
+            idempotency.save(
+                self.db,
+                idempotency_key,
+                method="POST",
+                path=path,
+                request_hash=request_hash,
+                status=201,
+                body=result.model_dump(mode="json"),
+                user_id=user_id,
             )
-            self.db.add(record)
 
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            if idempotency_key:
+                replay = idempotency.find_replay(
+                    self.db, idempotency_key, method="POST", path=path, request_hash=request_hash
+                )
+                if replay is not None:
+                    return OrderPaymentResult.model_validate(replay), True
+            raise
 
         try:
             from caisse.infrastructure.websocket.manager import ws_manager
@@ -305,7 +322,7 @@ class PaymentService:
         except Exception as ws_err:
             logger.debug(f"Erreur lors de la diffusion WebSocket de l'événement de paiement: {ws_err}")
 
-        return result
+        return result, False
 
 
     def list_order_payments(self, order_id: str) -> list[PaymentResponse]:

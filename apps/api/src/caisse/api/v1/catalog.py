@@ -2,15 +2,15 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from caisse.database import get_db
-from caisse.deps import CurrentUser, require_role, require_device_id
+from caisse.deps import require_device_id, require_role
 from caisse.models.user import User
 from caisse.schemas.catalog import (
-    CategoryResponse,
     CategoryCreateRequest,
+    CategoryResponse,
     CategoryUpdateRequest,
-    ProductResponse,
     ProductCreateRequest,
     ProductPriceUpdateRequest,
+    ProductResponse,
 )
 from caisse.services.catalog_service import CatalogService
 
