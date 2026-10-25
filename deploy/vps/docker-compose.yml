@@ -59,7 +59,8 @@ services:
     container_name: caisse-fne-worker
     restart: always
     env_file: ${CAISSE_ROOT:-/opt/caisse}/api.env
-    command: ["python", "-m", "caisse.cli", "fne-worker"]
+    entrypoint: ["python", "-m", "caisse.cli", "fne-worker"]
+    command: []
     depends_on:
       caisse-db:
         condition: service_healthy
