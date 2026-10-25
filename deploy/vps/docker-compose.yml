@@ -43,9 +43,9 @@ services:
       caisse-db:
         condition: service_healthy
     ports:
-      - "127.0.0.1:8011:8000"           # joignable par Nginx seulement
+      - "127.0.0.1:8011:8001"           # joignable par Nginx seulement
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
       interval: 15s
       timeout: 5s
       retries: 5
