@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: 🧪 Tests Backend
+    name:  Tests Backend
     runs-on: ubuntu-latest
 
     # Service PostgreSQL requis par la suite de tests
@@ -28,33 +28,33 @@ jobs:
           --health-retries 10
 
     steps:
-      - name: 📥 Récupérer le code
+      - name:  Récupérer le code
         uses: actions/checkout@v4
 
-      - name: ⚙️ Configurer Python 3.12
+      - name:  Configurer Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: "pip"
 
-      - name: 📦 Installer les dépendances
+      - name:  Installer les dépendances
         run: |
           python -m pip install --upgrade pip
           pip install -e "./apps/api[dev]"
 
-      - name: 🧪 Lancer les tests unitaires
+      - name:  Lancer les tests unitaires
         run: |
           pytest apps/api/tests/unit -q
 
   deploy:
-    name: 🚀 Déploiement VPS
+    name:  Déploiement VPS
     needs: [test]
     runs-on: ubuntu-latest
     steps:
-      - name: 📥 Récupérer le code
+      - name:  Récupérer le code
         uses: actions/checkout@v4
 
-      - name: 🚀 Déployer sur le VPS
+      - name:  Déployer sur le VPS
         env:
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           RAW_HOST: ${{ secrets.VPS_HOST }}
