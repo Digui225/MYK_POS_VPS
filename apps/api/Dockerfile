@@ -12,7 +12,10 @@ RUN useradd --create-home --uid 1000 caisse
 COPY --from=build /install /usr/local
 COPY alembic.ini ./
 COPY alembic ./alembic
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 COPY src ./src
 USER caisse
-EXPOSE 8000
-CMD ["uvicorn", "caisse.main:app", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 8001
+ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["uvicorn", "caisse.main:app", "--host", "0.0.0.0", "--port", "8001"]

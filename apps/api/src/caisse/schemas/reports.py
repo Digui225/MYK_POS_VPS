@@ -271,3 +271,67 @@ class ProteinYieldReportOut(Schema):
     date_to: date = Field(description="Dernière journée incluse")
     totals: ProteinYieldTotals
     items: list[ProteinYieldItem] = Field(description="Détail par viande/poisson")
+
+
+# --- KPI & Synthèse Temps Réel -----------------------------------------------------------
+
+
+class TopProductReport(Schema):
+    product_id: str
+    product_name: str
+    category_name: str | None = None
+    quantity_sold: float
+    total_revenue_xof: int
+
+
+class PaymentMethodSplit(Schema):
+    method: str
+    provider: str | None = None
+    count: int
+    total_amount_xof: int
+
+
+class HourlySalesItem(Schema):
+    hour: str
+    total_sales_xof: int
+    orders_count: int
+
+
+class ClosingStatusResponse(Schema):
+    is_closed: bool
+    closed_at: str | None = None
+    closed_by_name: str | None = None
+    session_id: str | None = None
+    z_number: int | None = None
+
+
+class CashierSalesResponse(Schema):
+    cashier_name: str
+    orders_count: int
+    total_sales_ttc_xof: int
+
+
+class DashboardKpiResponse(Schema):
+    business_date: str
+    total_orders: int
+    settled_orders: int
+    open_orders: int = 0
+    active_tables_count: int = 0
+    total_tables_count: int = 14
+    dine_in_orders_count: int = 0
+    takeaway_orders_count: int = 0
+    total_sales_ttc_xof: int
+    total_sales_ht_xof: int
+    total_sales_vat_xof: int
+    average_basket_xof: int
+    payments_by_method: list[PaymentMethodSplit]
+    top_products: list[TopProductReport]
+    hourly_sales: list[HourlySalesItem] = Field(default_factory=list)
+    active_sessions_count: int
+    low_stock_items_count: int
+    fne_certified_count: int
+    fne_pending_count: int
+    closing_status: ClosingStatusResponse | None = None
+    last_x_report_at: str | None = None
+    sales_by_cashier: list[CashierSalesResponse] = Field(default_factory=list)
+

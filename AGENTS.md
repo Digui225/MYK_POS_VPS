@@ -5,17 +5,19 @@ Dépôt jumeau : `../Caisse_MYK_frontend` (application React qui appelle cette A
 La documentation, les commentaires, les messages d'erreur et les textes d'interface sont en **français**. On garde ça.
 
 ## Documents de référence (à lire avant tout changement important)
-- `00-ARCHITECTURE-GLOBALE.md` : modèle de domaine, règles métier, ADR, FNE (§8), infrastructure partagée avec le PMS (§4)
-- `01-BACKEND.md` : couches, schéma, services, transactions, agent d'impression, adaptateur FNE
-- `03-CONTRAT-API.md` : **contrat d'API v1 gelé** (erreurs, idempotence, endpoints)
-- `04-EXPLOITATION-BACKEND.md` et `docs/RUNBOOK-EXPLOITATION-WINDOWS.md` : exploitation, sauvegardes, migrations
-- `05-PLAN-IMPLEMENTATION.md` : lots de livraison L0 à L7 et Definition of Done
+- `docs/00-ARCHITECTURE-GLOBALE.md` : modèle de domaine, règles métier, ADR, FNE (§8), infrastructure partagée avec le PMS (§4)
+- `docs/01-BACKEND.md` : couches, schéma, services, transactions, agent d'impression, adaptateur FNE
+- `docs/03-CONTRAT-API.md` : **contrat d'API v1 gelé** (erreurs, idempotence, endpoints)
+- `docs/04-EXPLOITATION-BACKEND.md` et `docs/RUNBOOK-EXPLOITATION-WINDOWS.md` : exploitation, sauvegardes, migrations
+- `docs/05-PLAN-IMPLEMENTATION.md` : lots de livraison L0 à L7 et Definition of Done
 
 ## Arborescence
 ```
 apps/api/                 service FastAPI (Python ≥ 3.12, paquet `caisse`)
   src/caisse/
     main.py               création de l'app, gestionnaires d'exceptions, montage des routeurs
+    core/                 socle transverse : config, database, security, deps, errors, pagination
+    cli/                  CLI modulaire d'administration (commandes users, db, catalog, fne, workers)
     api/v1/               routeurs HTTP (router.py les regroupe)
     schemas/              modèles Pydantic v2 de requête et de réponse
     services/             cas d'usage et transactions (*_service.py)
@@ -23,7 +25,7 @@ apps/api/                 service FastAPI (Python ≥ 3.12, paquet `caisse`)
     repositories/         accès aux données SQLAlchemy
     models/               modèles ORM SQLAlchemy
     infrastructure/       adaptateurs : fne/ (fournisseurs manual|mock|api), printing/, outbox/
-    seeds/, cli.py        données de démo et CLI d'administration
+    seeds/                données de démo et catalogue initial
   alembic/versions/       migrations 001…007 (numérotées, séquentielles)
   tests/{unit,integration,e2e}
 apps/print-agent/         agent imprimante USB ESC/POS et tiroir-caisse, tourne HORS de Docker (port 8090)

@@ -33,7 +33,7 @@ from caisse.models.user import User
 from caisse.repositories import fne as fne_repo
 from caisse.repositories import reports as reports_repo
 from caisse.repositories import stock as stock_repo
-from caisse.schemas.report import (
+from caisse.schemas.reports import (
     CashierSalesResponse,
     ClosingStatusResponse,
     DashboardKpiResponse,

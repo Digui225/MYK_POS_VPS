@@ -8,11 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from caisse.api.v1.router import api_v1_router
-from caisse.config import get_settings
-from caisse.database import Base, engine, get_db
-from caisse.errors import (
+from caisse.core import (
+    Base,
     CaisseException,
     caisse_exception_handler,
+    engine,
+    get_db,
+    get_settings,
     problem_json_response,
     unhandled_exception_handler,
     validation_exception_handler,

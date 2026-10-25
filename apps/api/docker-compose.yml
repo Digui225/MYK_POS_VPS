@@ -7,8 +7,11 @@ services:
     restart: always
     environment:
       APP_ENV: ${APP_ENV:-production}
+      DEBUG: ${DEBUG:-false}
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://caisse:caisse_secret@db:5432/caisse}
       JWT_SECRET: ${JWT_SECRET:-default_secret_key_to_be_replaced_in_env_with_at_least_64_random_characters}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
       TZ: ${TZ:-Africa/Abidjan}
       PRINT_AGENT_URL: ${PRINT_AGENT_URL:-http://host.docker.internal:8090}
       FNE_PROVIDER: ${FNE_PROVIDER:-manual}

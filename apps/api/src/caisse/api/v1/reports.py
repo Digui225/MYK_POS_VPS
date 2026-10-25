@@ -6,11 +6,11 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
-from caisse.database import get_db
-from caisse.deps import DbSession, Responsable, get_current_user
+from caisse.core.database import get_db
+from caisse.core.deps import DbSession, Responsable, get_current_user
 from caisse.models.user import User
-from caisse.schemas.report import DashboardKpiResponse
 from caisse.schemas.reports import (
+    DashboardKpiResponse,
     DashboardOut,
     ProteinYieldReportOut,
     SalesReportOut,

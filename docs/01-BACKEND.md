@@ -66,28 +66,44 @@ apps/api/
 │   └── env.py
 ├── src/caisse/
 │   ├── main.py                     # création de l'app, middlewares, lifespan
-│   ├── config.py                   # Settings (pydantic-settings)
-│   ├── database.py                 # engine, SessionLocal, get_db
-│   ├── deps.py                     # dépendances communes (current_user, require_role, idempotency)
-│   ├── errors.py                   # exceptions métier → problem+json
+│   ├── core/                       # ⚙️ socle transverse & plomberie FastAPI
+│   │   ├── config.py               # Settings (pydantic-settings)
+│   │   ├── database.py             # engine, SessionLocal, get_db, Base
+│   │   ├── deps.py                 # dépendances FastAPI (current_user, RBAC, pagination...)
+│   │   ├── errors.py               # hiérarchie CaisseException & format RFC 7807
+│   │   ├── security.py             # Argon2id, JWT tokens & overrides
+│   │   ├── security_rate_limit.py  # limiteur de débit IP glissant en mémoire
+│   │   ├── idempotency.py          # déduplication Idempotency-Key
+│   │   ├── pagination.py           # keyset pagination par curseur opaque
+│   │   ├── sequences.py            # compteurs séquentiels FOR UPDATE
+│   │   └── docs_html.py            # template Swagger autonome hors-ligne
+│   │
+│   ├── cli/                        # 🛠️ CLI modulaire d'administration
+│   │   ├── main.py                 # parser argparse et dispatch des sous-commandes
+│   │   └── commands/
+│   │       ├── users.py            # create-user, reset-pin
+│   │       ├── db.py               # seed, create-tables, reset-transactions, seed-weekly-flow
+│   │       ├── catalog.py          # import-catalog, import-stock, set-vat-rate
+│   │       ├── fne.py              # fne-probe, fne-worker
+│   │       └── workers.py          # outbox-worker, create-print-terminal
 │   │
 │   ├── domain/                     # ❗ zéro I/O
-│   │   ├── money.py                # type Money (int XOF), arrondis, ventilation TVA
+│   │   ├── money.py                # calculs entiers XOF, TVA, arrondis
 │   │   ├── order_rules.py          # transitions, totaux, ajout/retrait de ligne
 │   │   ├── payment_rules.py        # reste dû, mixte, rendu monnaie
 │   │   ├── session_rules.py        # ouverture/clôture, écart de caisse
 │   │   ├── stock_rules.py          # mouvements, seuils
-│   │   ├── fiscal.py               # construction du payload fiscal
+│   │   ├── fiscal.py               # construction du payload fiscal FNE
 │   │   ├── enums.py                # OrderStatus, PaymentMethod, MovementType…
 │   │   └── ports.py                # Printer, FneProvider, Clock, IdGenerator
 │   │
-│   ├── models/                     # SQLAlchemy
+│   ├── models/                     # SQLAlchemy 2.0
 │   │   ├── base.py                 # Base, TimestampMixin, UUID pk
 │   │   ├── user.py  catalog.py  table.py  order.py  payment.py
 │   │   ├── cash_session.py  stock.py  customer.py  fne.py
 │   │   └── audit.py  outbox.py  settings.py
 │   │
-│   ├── schemas/                    # Pydantic (entrée/sortie API)
+│   ├── schemas/                    # Pydantic v2 (entrée/sortie API)
 │   │   └── auth.py  catalog.py  orders.py  payments.py  sessions.py  reports.py  fne.py
 │   │
 │   ├── repositories/
