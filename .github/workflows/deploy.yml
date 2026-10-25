@@ -57,20 +57,24 @@ jobs:
       - name: 🚀 Déployer sur le VPS
         env:
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-          HOST: ${{ secrets.VPS_HOST }}
-          USER: ${{ secrets.VPS_USER }}
+          RAW_HOST: ${{ secrets.VPS_HOST }}
+          RAW_USER: ${{ secrets.VPS_USER }}
         run: |
+          # Nettoyage automatique de l'IP (supprime espaces, retours à la ligne ou :port)
+          HOST=$(echo "$RAW_HOST" | sed 's/:.*//' | tr -d '[:space:]')
+          USER=$(echo "$RAW_USER" | tr -d '[:space:]')
+
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
 
           # Envoyer le code source compressé vers le VPS
-          ssh -i ~/.ssh/id_ed25519 "$USER@$HOST" "mkdir -p /opt/Departement_Bi/OsisPos_Backend/code"
-          tar -czf - --exclude='.git' --exclude='__pycache__' --exclude='.venv' . | ssh -i ~/.ssh/id_ed25519 "$USER@$HOST" "tar -xzf - -C /opt/Departement_Bi/OsisPos_Backend/code"
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new "$USER@$HOST" "mkdir -p /opt/Departement_Bi/OsisPos_Backend/code"
+          tar -czf - --exclude='.git' --exclude='__pycache__' --exclude='.venv' . | ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new "$USER@$HOST" "tar -xzf - -C /opt/Departement_Bi/OsisPos_Backend/code"
 
           # Démarrer Docker Compose et exécuter les migrations
-          ssh -i ~/.ssh/id_ed25519 "$USER@$HOST" "bash -s" << 'EOF'
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new "$USER@$HOST" "bash -s" << 'EOF'
             set -e
             export CAISSE_ROOT=/opt/Departement_Bi/OsisPos_Backend
             cd /opt/Departement_Bi/OsisPos_Backend/code/deploy/vps
