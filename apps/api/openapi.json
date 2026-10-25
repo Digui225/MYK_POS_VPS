@@ -2663,7 +2663,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Print Z Report From Session Api V1 Cash Sessions  Id  Print Z Post"
+                }
               }
             }
           },
@@ -4555,58 +4559,6 @@
                     "$ref": "#/components/schemas/MarketPurchaseListOut"
                   },
                   "title": "Response List Market Purchases Endpoint Api V1 Production Market Purchases Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/production/market-purchases/budget-status": {
-      "get": {
-        "tags": [
-          "Achats March\u00e9 & Production Cuisine"
-        ],
-        "summary": "Consulter le statut du budget march\u00e9 (jauge)",
-        "description": "Retourne l'\u00e9tat de remplissage de la jauge budg\u00e9taire march\u00e9.\nPour l'\u00e9conome/acheteur, aucun montant en FCFA n'est retourn\u00e9 (confidentialit\u00e9).",
-        "operationId": "get_market_budget_status_endpoint_api_v1_production_market_purchases_budget_status_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "total_budget_xof",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "Montant total en FCFA estim\u00e9",
-              "default": 0,
-              "title": "Total Budget Xof"
-            },
-            "description": "Montant total en FCFA estim\u00e9"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MarketBudgetStatusOut"
                 }
               }
             }

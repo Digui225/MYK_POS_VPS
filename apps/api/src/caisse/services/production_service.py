@@ -168,23 +168,6 @@ def create_market_purchase(
     return _format_purchase_out(purchase)
 
 
-def get_market_budget_status_service(
-    db: Session, user: User, total_budget_xof: int = 0
-) -> MarketBudgetStatusOut:
-    from caisse.domain.market_budget_rules import (
-        calculate_market_budget_status,
-        get_market_budget_limits,
-    )
-
-    total_limit, econome_limit, _ = get_market_budget_limits(db)
-    raw = calculate_market_budget_status(
-        total_budget_xof,
-        role=user.role,
-        total_limit=total_limit,
-        econome_limit=econome_limit,
-    )
-    return MarketBudgetStatusOut(**raw)
-
 
 def get_market_purchase(db: Session, purchase_id: str) -> MarketPurchaseListOut:
     purchase = (

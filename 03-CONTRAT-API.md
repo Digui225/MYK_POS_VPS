@@ -70,6 +70,7 @@ Format unique `application/problem+json` :
 | `TABLE_ALREADY_OCCUPIED` | 409 | Proposer d'ouvrir `meta.order_id` |
 | `ORDER_NOT_EDITABLE` | 409 | Rafraîchir la commande, expliquer l'état |
 | `PAYMENT_EXCEEDS_DUE` | 422 | Ajuster le montant au reste dû |
+| `MARKET_BUDGET_EXCEEDED` | 422 | Budget marché journalier dépassé : validation bloquée côté front |
 | `IDEMPOTENCY_CONFLICT` | 409 | Même clé, corps différent → bug client à corriger |
 | `PRINTER_UNAVAILABLE` | 503 | Bandeau, **ne bloque pas la vente** |
 | `PRINT_AGENT_UNAVAILABLE` | 503 | Idem, et signaler que **le tiroir ne s'est pas ouvert** |
@@ -81,7 +82,7 @@ Format unique `application/problem+json` :
 
 ## 3. Idempotence
 
-Sur `POST /orders/{id}/payments`, `POST /cash-sessions`, `POST /cash-sessions/{id}/close`, `POST /orders/{id}/refunds` :
+Sur toute mutation financière ou irréversible : encaissements (`POST /orders/{id}/payments`), avoirs/remboursements (`POST /orders/{id}/refunds`), annulations (`POST /orders/{id}/cancel`), modifications de lignes (`POST /orders/{id}/items`), sessions de caisse (`POST /cash-sessions`, `POST /cash-sessions/{id}/close`), mouvements de stock (`POST /stock/receipts`, `POST /stock/losses`, `POST /stock/counts`), approvisionnement (`POST /purchases`), et émissions FNE (`POST /orders/{id}/fne`, `POST /fne/generate`) :
 
 1. Le **front** génère un UUID **avant** l'appel et le conserve tant qu'aucune réponse définitive n'est reçue.
 2. Le **backend** stocke la clé (index unique) avec le hachage du corps et la réponse produite.
@@ -92,7 +93,7 @@ Sur `POST /orders/{id}/payments`, `POST /cash-sessions`, `POST /cash-sessions/{i
 
 ## 4. Endpoints
 
-Légende des rôles : `C` Caissier (Vente/Caisse) · `R` Responsable (Supervision/Dashboard/Stocks) · `A` Admin (Système/Utilisateurs).
+Légende des rôles : `C` Caissier (Vente/Caisse) · `R` Responsable (Supervision/Dashboard/Stocks) · `A` Admin (Système/Utilisateurs) · `E` Acheteur/Économe (Approvisionnement).
 
 ### 4.1 Authentification
 
@@ -340,6 +341,7 @@ Statuts possibles de `fiscal_document.status` : `PENDING`, `SUBMITTING`, `CERTIF
 | GET | `/customers?search=&ncc=` | C / R / A | Recherche fiche client / NCC |
 | POST | `/customers` | C / R / A | Création fiche client |
 | POST | `/orders/{id}/fne` | C | Émission facture normalisée entreprise |
+| POST | `/fne/generate` | C / R / A | Émission FNE directe (alias rétrocompatible, idempotent) |
 | GET | `/fne/documents?status=&business_date=` | R / A | Suivi des documents fiscaux |
 | POST | `/fne/documents/{id}/retry` | R / A | Rejeu manuel d'un document en échec |
 | GET | `/fne/documents/{id}/duplicate` | C / R / A | Duplicata fiscal |
@@ -356,7 +358,24 @@ business_date,fiscal_group,quantity,gross_ht_xof,vat_xof,total_ttc_xof
 2026-09-24,EAU,71,30085,5415,35500
 ```
 
-### 4.9 Impression
+### 4.9 Approvisionnement & Achats marché
+
+| Méthode | Chemin | Rôle | Description |
+|---|---|---|---|
+| GET | `/purchases/market/budget-status?total_budget_xof=` | E / R / A | Statut de la jauge budgétaire marché (masque les montants pour l'économe) |
+| GET | `/purchases/articles` | E / R / A | Liste des articles éligibles à l'achat |
+| POST | `/purchases` | E / R / A | Créer une demande d'achat marché (idempotent, vérification de budget) |
+| GET | `/purchases/mine` | E | Mes demandes d'achat |
+| GET | `/purchases/mine/{id}` | E | Détail de ma demande |
+| POST | `/purchases/mine/{id}/cancel` | E | Retirer ma demande en attente |
+| GET | `/purchases` | R / A | Suivi de l'ensemble des demandes d'achat |
+| GET | `/purchases/{id}` | R / A | Détail d'une demande d'achat |
+| POST | `/purchases/{id}/approve` | R / A | Valider une demande d'achat |
+| POST | `/purchases/{id}/reject` | R / A | Refuser une demande d'achat |
+| POST | `/purchases/{id}/disburse` | R / A | Décaisser les fonds pour l'achat |
+| POST | `/purchases/{id}/receive` | R / A | Réceptionner les achats et intégrer au stock |
+
+### 4.10 Impression
 
 | Méthode | Chemin | Rôle | Description |
 |---|---|---|---|
@@ -376,7 +395,7 @@ GET /api/v1/printing/status
 }
 ```
 
-### 4.10 Rapports & Tableau de bord
+### 4.11 Rapports & Tableau de bord
 
 | Méthode | Chemin | Rôle | Description |
 |---|---|---|---|
@@ -389,7 +408,7 @@ GET /api/v1/printing/status
 | GET | `/reports/stock?date_from=&date_to=` | R / A | **Rapport de stock, consommations et valorisation au CMP** |
 | GET | `/reports/audit?from=&to=&action=` | A | Journal d'audit de sécurité |
 
-### 4.11 Finance & Décaissements
+### 4.12 Finance & Décaissements
 
 | Méthode | Chemin | Rôle | Description |
 |---|---|---|---|
@@ -398,7 +417,7 @@ GET /api/v1/printing/status
 | POST | `/finance/bank-deposits` | R / A | **Enregistrer un bordereau de versement bancaire** (rapprochement) |
 | GET | `/finance/bank-deposits?date_from=&date_to=` | C / R / A | **Lister les versements bancaires** de la période |
 
-### 4.12 Administration
+### 4.13 Administration
 
 | Méthode | Chemin | Rôle | Description |
 |---|---|---|---|
@@ -407,7 +426,7 @@ GET /api/v1/printing/status
 | GET / PUT | `/settings` | A | Paramètres généraux (ticket, TVA, FNE) |
 | GET / POST / PATCH | `/cash-registers` | A | Paramétrage des postes de caisse |
 
-### 4.12 Santé
+### 4.14 Santé
 
 | Méthode | Chemin | Rôle | Description |
 |---|---|---|---|

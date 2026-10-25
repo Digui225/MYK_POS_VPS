@@ -49,8 +49,8 @@ class Settings(BaseSettings):
 
     # Budget Marché
     MARKET_BUDGET_TOTAL_LIMIT_XOF: int = 300_000
-    MARKET_BUDGET_ECONOME_LIMIT_XOF: int = 145_000
-    MARKET_BUDGET_RESERVE_XOF: int = 155_000
+    MARKET_BUDGET_ECONOME_LIMIT_XOF: int = 300_000
+    MARKET_BUDGET_RESERVE_XOF: int = 0
 
     # Intégrations
     PRINT_AGENT_URL: str = "http://host.docker.internal:8090"

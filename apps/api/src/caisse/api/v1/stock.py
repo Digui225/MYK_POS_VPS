@@ -6,7 +6,7 @@ from fastapi import APIRouter, Path, Query, Request, Response, status
 from caisse.deps import Ctx, CurrentUser, DbSession, Paging, Responsable
 from caisse.domain.enums import StockArticleCategory, StockMovementType
 from caisse.domain.stock_rules import is_below_threshold
-from caisse.idempotency import IdempotencyKey
+from caisse.idempotency import IdempotencyKey, apply_replay_headers
 from caisse.pagination import split
 from caisse.repositories import stock as stock_repo
 from caisse.schemas.common import Page
@@ -40,13 +40,6 @@ sous zéro : rien n'est bloqué.
 Erreurs : `404 NOT_FOUND` (`meta.article_ids` : articles inconnus), `409 IDEMPOTENCY_CONFLICT`,
 `422 VALIDATION_ERROR` (article présent deux fois, quantité ≤ 0…).
 """
-
-
-def _send(response: Response, result: StockOperationOut, replayed: bool) -> StockOperationOut:
-    if replayed:
-        response.status_code = status.HTTP_200_OK
-        response.headers["Idempotent-Replay"] = "true"
-    return result
 
 
 # --- Articles ----------------------------------------------------------------------------
@@ -130,7 +123,9 @@ def receive(
     result, replayed = stock_service.receive(
         db, body, key=idempotency_key, path=request.url.path, user=user, ctx=ctx
     )
-    return _send(response, result, replayed)
+    if replayed:
+        apply_replay_headers(response)
+    return result
 
 
 @router.post(
@@ -152,7 +147,9 @@ def declare_loss(
     result, replayed = stock_service.declare_loss(
         db, body, key=idempotency_key, path=request.url.path, user=user, ctx=ctx
     )
-    return _send(response, result, replayed)
+    if replayed:
+        apply_replay_headers(response)
+    return result
 
 
 @router.post(
@@ -174,7 +171,9 @@ def count(
     result, replayed = stock_service.count(
         db, body, key=idempotency_key, path=request.url.path, user=user, ctx=ctx
     )
-    return _send(response, result, replayed)
+    if replayed:
+        apply_replay_headers(response)
+    return result
 
 
 @router.get(

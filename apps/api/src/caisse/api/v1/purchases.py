@@ -4,7 +4,7 @@ from fastapi import APIRouter, Path, Query, Request, Response, status
 
 from caisse.deps import Acheteur, Ctx, CurrentUser, DbSession, Paging, Responsable
 from caisse.domain.enums import PurchaseStatus, StockArticleCategory
-from caisse.idempotency import IdempotencyKey
+from caisse.idempotency import IdempotencyKey, apply_replay_headers
 from caisse.pagination import split
 from caisse.repositories import purchases as purchases_repo
 from caisse.schemas.common import Page
@@ -101,8 +101,7 @@ def create(
         db, body, key=idempotency_key, path=request.url.path, user=user, ctx=ctx
     )
     if replayed:
-        response.status_code = status.HTTP_200_OK
-        response.headers["Idempotent-Replay"] = "true"
+        apply_replay_headers(response)
     return result
 
 

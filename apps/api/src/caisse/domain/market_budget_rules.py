@@ -17,8 +17,8 @@ from typing import Any
 from caisse.errors import MarketBudgetExceededError
 
 DEFAULT_TOTAL_LIMIT_XOF = 300_000
-DEFAULT_ECONOME_LIMIT_XOF = 145_000
-DEFAULT_RESERVE_XOF = 155_000
+DEFAULT_ECONOME_LIMIT_XOF = 300_000
+DEFAULT_RESERVE_XOF = 0
 
 
 def calculate_market_budget_status(
@@ -28,11 +28,10 @@ def calculate_market_budget_status(
     total_limit: int = DEFAULT_TOTAL_LIMIT_XOF,
     econome_limit: int = DEFAULT_ECONOME_LIMIT_XOF,
 ) -> dict[str, Any]:
-    """Calcule le statut visuel du budget marché.
-    Masque les montants financiers pour les rôles opérationnels (Économe, Acheteur, Caissier).
+    """Calcule le statut budgétaire du marché.
+    Plafond unifié à 300 000 XOF, montants chiffrés visibles par l'économe et les superviseurs.
     """
-    is_supervisor = role in ("RESPONSABLE", "ADMIN")
-    reference_limit = total_limit if is_supervisor else econome_limit
+    reference_limit = total_limit if role in ("RESPONSABLE", "ADMIN") else econome_limit
 
     ratio = total_budget_xof / reference_limit if reference_limit > 0 else 0.0
     percentage = min(100, int(ratio * 100))
@@ -51,26 +50,18 @@ def calculate_market_budget_status(
         level_text = "Capacité maximale atteinte — Transmission bloquée"
         color_class = "rose"
 
-    base_status: dict[str, Any] = {
+    return {
         "ratio": round(ratio, 4),
         "percentage": percentage,
         "is_exceeded": is_exceeded,
         "level_text": level_text,
         "color_class": color_class,
+        "total_budget_xof": total_budget_xof,
+        "econome_limit_xof": econome_limit,
+        "total_limit_xof": total_limit,
+        "remaining_budget_xof": max(0, reference_limit - total_budget_xof),
+        "remaining_econome_xof": max(0, econome_limit - total_budget_xof),
     }
-
-    if is_supervisor:
-        base_status.update(
-            {
-                "total_budget_xof": total_budget_xof,
-                "econome_limit_xof": econome_limit,
-                "total_limit_xof": total_limit,
-                "remaining_budget_xof": max(0, total_limit - total_budget_xof),
-                "remaining_econome_xof": max(0, econome_limit - total_budget_xof),
-            }
-        )
-
-    return base_status
 
 
 def validate_market_budget(

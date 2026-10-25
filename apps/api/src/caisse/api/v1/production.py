@@ -50,20 +50,6 @@ def list_market_purchases_endpoint(
     return production_service.list_market_purchases(db, date_from, date_to)
 
 
-@router.get(
-    "/market-purchases/budget-status",
-    response_model=MarketBudgetStatusOut,
-    summary="Consulter le statut du budget marché (jauge)",
-)
-def get_market_budget_status_endpoint(
-    current_user: CurrentUser,
-    db: DbSession,
-    total_budget_xof: Annotated[int, Query(ge=0, description="Montant total en FCFA estimé")] = 0,
-) -> MarketBudgetStatusOut:
-    """Retourne l'état de remplissage de la jauge budgétaire marché.
-    Pour l'économe/acheteur, aucun montant en FCFA n'est retourné (confidentialité)."""
-    return production_service.get_market_budget_status_service(db, current_user, total_budget_xof)
-
 
 @router.get(
     "/market-purchases/{purchase_id}",
