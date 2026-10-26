@@ -68,6 +68,13 @@ class EscposDriver:
             printer.close()
 
     def _setup(self, printer: Escpos) -> None:
+        # 1. Annuler le mode caractères chinois (FS .) actif par défaut sur les Xprinter
+        try:
+            printer._raw(b"\x1c\x2e")
+        except Exception:
+            pass
+
+        # 2. Configurer la page de codes occidentale
         try:
             printer.charcode(self.settings.printer_codepage)
         except Exception:
@@ -95,15 +102,37 @@ class EscposDriver:
             except PrinterUnavailable:
                 return Status(online=False, paper="unknown", model=model, width=s.printer_width)
 
-    def print(self, content: str, *, qr: str | None, open_drawer: bool, cut: bool) -> None:
+    def print(self, content: str, *, qr: str | None = None, open_drawer: bool = False, cut: bool = True) -> None:
+        import re
         with self._lock, self._printer() as printer:
             # le tiroir s'ouvre dans le même job que le ticket (exigence client)
             if open_drawer:
                 printer._raw(self.settings.drawer_pulse_bytes)
             self._setup(printer)
-            printer.text(content if content.endswith("\n") else content + "\n")
-            if qr:
-                printer.qr(qr, size=6, center=True)
+
+            # Découpage si QR code FNE présent au milieu du ticket
+            qr_match = re.search(r"\[QR_CODE:\s*([^\]]+)\]", content)
+            if qr_match:
+                extracted_qr = qr_match.group(1).strip()
+                parts = re.split(r"\[QR_CODE:\s*[^\]]+\]", content, maxsplit=1)
+                before_qr = parts[0]
+                after_qr = parts[1] if len(parts) > 1 else ""
+
+                printer.text(before_qr if before_qr.endswith("\n") else before_qr + "\n")
+                try:
+                    printer.qr(extracted_qr, size=4, center=True)
+                except Exception as exc:
+                    log.error("échec d'impression du QR code : %s", exc)
+                if after_qr.strip():
+                    printer.text(after_qr if after_qr.endswith("\n") else after_qr + "\n")
+            else:
+                printer.text(content if content.endswith("\n") else content + "\n")
+                if qr:
+                    try:
+                        printer.qr(qr, size=4, center=True)
+                    except Exception as exc:
+                        log.error("échec d'impression du QR code : %s", exc)
+
             if cut:
                 printer.cut()
 

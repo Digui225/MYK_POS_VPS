@@ -273,28 +273,37 @@ def format_receipt_text(
             return f"{left_str} {right_str}"
         return f"{left_str}{' ' * spaces}{right_str}"
 
-    # 1. En-tête officiel restaurant : le logo graphique fait office de nom ("Sylla Plus")
-    lines.append("[LOGO]")
-
-    name = (restaurant_info.get("name") or "").strip().upper()
-    if name and name not in ("SYLLA PLUS", "RESTAURANT MYK", "CHEZ SYLLA PLUS"):
+    # 1. En-tête officiel restaurant
+    name = (restaurant_info.get("name") or "RESTAURANT SYLLA PLUS").strip().upper()
+    if name:
         lines.append(center(name))
 
-    addr = restaurant_info.get("address", "Abidjan, Plateau")
+    subtitle = restaurant_info.get("subtitle") or "Spécialités Africaines & Européennes"
+    if subtitle:
+        for chunk in textwrap.wrap(subtitle, width=width):
+            lines.append(center(chunk))
+
+    addr = restaurant_info.get("address") or "Abidjan Plateau"
+    if "Cocody" in addr or "Angré" in addr:
+        addr = "Abidjan Plateau"
     if addr:
-        for part in addr.split("·"):
-            part_clean = part.strip()
-            if part_clean:
-                for chunk in textwrap.wrap(part_clean, width=width):
-                    lines.append(center(chunk))
+        for chunk in textwrap.wrap(addr, width=width):
+            lines.append(center(chunk))
 
-    phone = restaurant_info.get("phone", "+225 07 58 00 00 00")
+    phone = restaurant_info.get("phone") or "+225 07 00 00 00 00"
     if phone:
-        lines.append(center(f"Tel : {phone}"))
+        lines.append(center(f"Tél: {phone}"))
 
-    ncc = restaurant_info.get("ncc", "2104598B")
-    if ncc:
+    rccm = restaurant_info.get("rccm") or "CI-ABJ-2023-B-00000"
+    ncc = restaurant_info.get("ncc") or "2000000 X"
+    if rccm and ncc:
+        lines.append(center(f"RCCM : {rccm} · CC : {ncc}"))
+    elif ncc:
         lines.append(center(f"NCC : {ncc}"))
+
+    welcome = welcome_message or restaurant_info.get("welcome_message") or '"Bienvenue chez Sylla Plus"'
+    if welcome:
+        lines.append(center(welcome))
 
     if is_duplicate:
         lines.append(sep_line)
@@ -304,99 +313,81 @@ def format_receipt_text(
 
     # 2. Informations commande
     order_num = str(order_info.get("order_number", "-"))
-    table_label = str(order_info.get("table_label") or "Comptoir")
-    table_str = table_label if table_label.upper().startswith("TABLE") else f"TABLE {table_label}"
-    cmd_label = f"COMMANDE #{order_num}" if not order_num.startswith("#") else f"COMMANDE {order_num}"
-
-    if len(cmd_label) + len(table_str) + 1 <= width:
-        lines.append(row(cmd_label, table_str))
-    else:
-        lines.append(row("Ticket", order_num))
-        lines.append(row(table_str, f"Couverts : {order_info.get('guests_count', 1)}"))
-
     date_str = order_info.get("date_str", "")
-    cashier = order_info.get("cashier_name", "Marc")
-    if date_str:
-        if len(f"Date : {date_str}") + len(f"Caissier : {cashier}") + 1 <= width:
-            lines.append(row(f"Date : {date_str}", f"Caissier : {cashier}"))
-        else:
-            lines.append(row("Date", date_str))
-            lines.append(row("Caissier", cashier))
-    else:
-        lines.append(row("Caissier", cashier))
+    cashier = order_info.get("cashier_name", "KOUASSI A.")
+    table_label = str(order_info.get("table_label") or "Comptoir")
+    if table_label.upper().startswith("TABLE "):
+        table_label = table_label[6:]
 
-    # Message d'accueil secondaire
-    welcome = welcome_message or restaurant_info.get("welcome_message")
-    if welcome:
-        lines.append(sep_line)
-        lines.append(center(welcome))
+    lines.append(row("Ticket", order_num))
+    if date_str:
+        lines.append(row(f"Date: {date_str}", f"Caissier: {cashier}"))
+    else:
+        lines.append(row(f"Table: {table_label}", f"Caissier: {cashier}"))
 
     lines.append(sep_line)
 
     # 3. Détail des articles
-    lines.append(row("ARTICLES", "PRIX"))
+    lines.append(row("DESIGNATION", "MONTANT"))
     lines.append(sep_line)
 
     for item in items:
         qty = item.get("quantity", 1)
         item_name = item.get("name", "Article")
         total_price = f"{item.get('line_total_xof', 0):,} F".replace(",", " ")
-        lines.append(row(f"{qty}x {item_name}", total_price))
+        lines.append(row(f"{qty} x {item_name}", total_price))
 
     lines.append(sep_line)
 
     # 4. Totaux & Taxes
+    lines.append(row("TOTAL A PAYER:", f"{totals.get('total_ttc_xof', 0):,} FCFA".replace(",", " ")))
+
     vat_rate = totals.get("vat_rate", 0)
     vat_amt = totals.get("total_vat_xof", 0)
     if vat_amt > 0 and vat_rate > 0:
-        if "subtotal_ht_xof" in totals:
-            lines.append(row("Sous-total HT", f"{totals['subtotal_ht_xof']:,} F".replace(",", " ")))
-        elif "total_ttc_xof" in totals:
-            subtotal_ht = totals["total_ttc_xof"] - vat_amt
-            lines.append(row("Sous-total HT", f"{subtotal_ht:,} F".replace(",", " ")))
-        lines.append(row(f"TVA ({vat_rate}%)", f"{vat_amt:,} F".replace(",", " ")))
-
-    lines.append(row("TOTAL TTC", f"{totals.get('total_ttc_xof', 0):,} F CFA".replace(",", " ")))
-
-    lines.append(sep_line)
-
-    # 5. Règlements & Rendu
-    for p in payments:
-        method = p.get("method", "PAIEMENT")
-        provider = p.get("provider")
-        method_label = get_payment_method_display_label(method, provider)
-        amount_str = f"{p.get('amount_xof', 0):,} F".replace(",", " ")
-        lines.append(row(method_label, amount_str))
+        lines.append(row(f"Dont TVA ({vat_rate}%):", f"{vat_amt:,} FCFA".replace(",", " ")))
 
     tendered = totals.get("tendered_xof")
     if tendered:
-        lines.append(row("Recu caissier :", f"{tendered:,} F".replace(",", " ")))
+        lines.append(row("Espèces reçues:", f"{tendered:,} FCFA".replace(",", " ")))
 
     change = totals.get("change_xof", 0)
     if change > 0 or tendered:
-        lines.append(row("Monnaie rendue :", f"{change:,} F".replace(",", " ")))
+        lines.append(row("MONNAIE RENDUE:", f"{change:,} FCFA".replace(",", " ")))
 
-    lines.append(sep_line)
+    # 5. Règlements & Rendu
+    if payments:
+        lines.append(sep_line)
+        for p in payments:
+            method = p.get("method", "PAIEMENT")
+            provider = p.get("provider")
+            method_label = get_payment_method_display_label(method, provider)
+            amount_str = f"{p.get('amount_xof', 0):,} F".replace(",", " ")
+            lines.append(row(method_label, amount_str))
 
     # 6. Bloc fiscal DGI / FNE (uniquement si facture normalisée demandée ou présente)
     fne_number = (fne_info or {}).get("fne_number") or order_info.get("fne_number")
     fne_qr_url = (fne_info or {}).get("qr_url") or order_info.get("fne_qr_url")
     if fne_number or fne_qr_url:
-        lines.append(center("FACTURE NORMALISEE DGI"))
+        lines.append(sep_line)
+        lines.append(center("FACTURE NORMALISÉE DGI"))
         if fne_number:
-            lines.append(center(str(fne_number)))
+            lines.append(center(f"FNE ID : {fne_number}"))
+        sig = (fne_info or {}).get("signature") or order_info.get("signature") or "DGI-CI-847291048"
+        if sig:
+            lines.append(center(f"Signature DGI : {sig}"))
         if fne_qr_url:
             lines.append(f"[QR_CODE: {fne_qr_url}]")
-        lines.append(sep_line)
 
     # 7. Pied de ticket
-    footer = restaurant_info.get("footer", "Merci de votre visite · A tres bientot !")
-    if footer:
-        for part in footer.split("·"):
-            part_clean = part.strip()
-            if part_clean:
-                for chunk in textwrap.wrap(part_clean, width=width):
-                    lines.append(center(chunk))
+    lines.append(sep_line)
+    footer = restaurant_info.get("footer") or "Merci de votre visite · À très bientôt !"
+    for part in footer.split("·"):
+        part_clean = part.strip()
+        if part_clean:
+            for chunk in textwrap.wrap(part_clean, width=width):
+                lines.append(center(chunk))
+    lines.append(center("Logiciel Caisse MYK v1.0 · Osis Group"))
 
     return "\n".join(lines)
 

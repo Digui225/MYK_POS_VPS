@@ -198,10 +198,16 @@ async def health_ready(db: Session = Depends(get_db)) -> HealthReadyResponse:
 
     print_agent_ok = False
     try:
-        async with httpx.AsyncClient(timeout=0.6) as client:
-            resp = await client.get(f"{settings.PRINT_AGENT_URL}/status")
-            if resp.status_code == 200:
-                print_agent_ok = True
+        from caisse.services.printing_service import PrintingService
+        ps = PrintingService(db)
+        status_info = ps.get_status()
+        if status_info.agent_online and status_info.printer_online:
+            print_agent_ok = True
+        else:
+            async with httpx.AsyncClient(timeout=0.6) as client:
+                resp = await client.get(f"{settings.PRINT_AGENT_URL}/status")
+                if resp.status_code == 200:
+                    print_agent_ok = True
     except Exception:
         # En environnement sans print-agent démarré (ex: CI/tests ou dev)
         print_agent_ok = settings.APP_ENV == "test"
