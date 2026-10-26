@@ -549,6 +549,37 @@ INSERT INTO public.product_components (id, product_id, article_id, quantity) VAL
 INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('fa8224f2-5dfa-416d-b751-aa83d4d6c4ac', '7daa6be8-3b60-452f-8488-cd7f5a44b3ae', 'ebb5f404-2267-4fa1-bd71-dd9e54707294', 0.200);
 INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('fc793652-3982-4c83-bd38-41fefa7d316a', '5320f791-91f4-4d1d-9c34-c548579ce7d4', 'ebb5f404-2267-4fa1-bd71-dd9e54707294', 0.200);
 
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('0bb45a4d-ab6f-4386-b317-695ad1358bb9', 'c227722f-b1c2-4c4b-b00a-33424082f995', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('134bb401-59ea-454e-9e78-1a50174a052a', '28e30eaa-c921-4371-8e7e-f0c7d3d1e011', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('16624cc8-8bc5-47e0-a281-6eda3efb591c', '1670d48a-5aa8-484b-8d51-87c0552f423d', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('1e15ab77-88e0-4d31-9493-5c026774ea92', 'b7acc96a-f4f3-4722-b388-91a0d82cdfff', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('2b6da9d7-f56b-44da-a46e-4b2d99f1d782', 'd354b5f0-e3a9-4024-9a11-6524de50706c', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('3c915789-d792-4b98-b649-2343223f9995', '5617cdc0-98fd-4866-a33b-9571696ab1e5', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('4cbafcc0-d1dd-4087-9c8d-848f8ce70fb1', '2df7ac91-2836-49ed-ace0-40ca1cb82fc0', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('51ccf7d7-3c87-4555-a13a-5df73c50511f', '89acb320-982c-45ac-8675-16e846d5dcf7', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('536d9a4c-bfdb-456c-abc7-cfaa2bd7a938', 'd1ca497d-4d17-4b6f-b7a5-37d772e72507', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('6ddb8e92-e62f-4524-9971-c63f2e6e4e36', '22956d43-3013-43b2-a1ce-0480e9abec6a', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('7372878a-94ba-47b2-b946-47bb42b3e9d4', 'ee109fb4-61db-4bd2-803d-911a26183e28', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('76cb1c6a-9ffa-4676-8991-dbf11d8f08b1', '4fa1d747-7bc0-4ec1-b54e-371169717ec3', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('77e48d75-48f0-4b66-814d-c2341b317cee', 'e124aaf5-e8c4-4540-a893-6c1bda0142e1', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('7a8ea4fd-fd5e-48b1-85cf-45a24a699362', 'cd408593-401c-46d0-8507-624f0342f05a', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('8a7e447f-ccee-482e-a030-11e5070cceec', '90ad3b70-6c4f-4050-a3c5-d157cd072af5', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('8e969762-d32b-4370-8ca7-15ea601b00e7', 'ab821a9a-4978-4b9e-ad54-672a6e3d99fc', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('9a106717-0a0b-407b-97db-f65da8014c4c', 'f01823cb-78e6-4174-9d72-aadfd2436a19', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('aa48a4a1-8f1c-4e44-9adf-7cde4ea6957d', 'ffaae71c-9438-4299-8493-21ce4201f095', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('abf5e4df-a55f-4d12-bc80-1f340272d5d1', '91355c62-fd26-494e-9c6c-910d5837a22a', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('b5dc9a2e-e150-4e50-a579-da9687e42823', 'b9aac2ad-498b-4996-85ab-4a87a3bf8b93', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('b93b7ac9-d0fc-4170-bdce-18b708bab78f', 'ab541db9-d472-4db5-b3aa-ffc75fb46468', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('c0094b9e-935e-48d5-8129-d5076be74e9c', 'ba1fbd68-73d4-4610-8b06-bf2bbb4ca927', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('c05fb7f8-5bc9-4690-80d4-fa0776b55d62', '4aa4a646-b2c9-4ac8-8253-71a9b459eaec', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('c67fdc7f-83b0-4c11-8e61-7bc474d8ce3c', 'f8c3551b-ce83-449e-a6c1-a640f89e8e68', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('d0c9b9a4-5871-488f-ad44-e1d809b01da1', 'f961c0e4-5a4b-4655-9e63-d8a9f273b5ea', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('dcb3eaa2-5720-4c15-9b59-3f0e10a468d7', 'edc21662-09f3-4f30-acb3-714a69cac870', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('f2fa3589-26b3-4673-9f03-5e1849761561', '243e0846-82f3-47e2-8e25-77e32ec08ef3', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('f704d76f-9c3e-4d2e-909b-b75dbc40a6d8', '2c470520-ac57-4c94-bc51-2e952fe1ab21', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('fd44820b-35d4-4617-abfe-872bf8e8c333', 'e107e808-3fe7-4ec8-b425-00b515a6abe5', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+INSERT INTO public.product_components (id, product_id, article_id, quantity) VALUES ('fd7b406e-ea32-4c5c-a1be-c905e68385de', '0ef25e78-4f76-4d3c-bbe5-3ae6afcb1c77', '0e520485-53a3-403a-8dc8-547417bb83e4', 1.000);
+
 -- Data for Name: restaurant_tables; Type: TABLE DATA; Schema: public; Owner: caisse_user
 INSERT INTO public.restaurant_tables (id, label, zone, seats, sort_order, is_active, created_at, updated_at) VALUES ('cb2c0d43-facf-4ddc-bda4-b99afa2ec289', 'Table 1', 'Salle', 4, 0, true, '2026-10-06 11:01:07.053157+00', '2026-10-06 11:01:07.053317+00');
 INSERT INTO public.restaurant_tables (id, label, zone, seats, sort_order, is_active, created_at, updated_at) VALUES ('47e6e141-b494-4813-8c9c-3c455c91a422', 'Table 2', 'Salle', 4, 0, true, '2026-10-06 11:01:46.981068+00', '2026-10-06 11:01:46.981078+00');
