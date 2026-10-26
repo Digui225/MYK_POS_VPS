@@ -222,6 +222,26 @@ class CatalogService:
         )
         created = self.repo.add_product(product)
 
+        # Rapprochement automatique avec la fiche technique de protéine si applicable
+        from caisse.domain.recipe_rules import match_protein_for_product
+        from caisse.models.stock import ProductComponent, StockArticle
+        protein_match = match_protein_for_product(created.name)
+        if protein_match:
+            art_name, qty = protein_match
+            article = (
+                self.db.query(StockArticle)
+                .filter(StockArticle.name == art_name)
+                .first()
+            )
+            if article:
+                comp = ProductComponent(
+                    product_id=created.id,
+                    article_id=article.id,
+                    quantity=qty,
+                )
+                self.db.add(comp)
+                self.db.flush()
+
         self.audit.log(
             action="PRODUCT_CREATED",
             entity="PRODUCT",

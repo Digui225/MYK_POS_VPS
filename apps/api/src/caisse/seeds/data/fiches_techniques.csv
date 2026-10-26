@@ -89,3 +89,78 @@ Tchep + Poulet,Poulet,0.25,Spécialité
 Yassa + Boeuf,Bœuf,0.2,Spécialité
 Yassa + Mouton,Mouton,0.2857,Spécialité
 Yassa + Poulet,Poulet,0.25,Spécialité
+Couscous + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Dah riz + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Feuille riz + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Foufou sauce claire + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Foutou + Pistache bœuf,Bœuf,0.2,Auto-rattachement protéine
+Foutou djougblé + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Foutou gouagouassou + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Foutou graine + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Kabato Dah + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Légumes riz + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Petit pois + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Riz djougblé + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Riz gouagouassou + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Riz graine + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Riz pistache + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Riz sauce claire + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Salade Fraîche + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Salade Panachée + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Tchep + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Yassa + Bœuf,Bœuf,0.2,Auto-rattachement protéine
+Dah riz + Mouton,Mouton,0.286,Auto-rattachement protéine
+Feuille riz + Mouton,Mouton,0.286,Auto-rattachement protéine
+Foutou + Pistache mouton,Mouton,0.286,Auto-rattachement protéine
+Foutou djougblé + Mouton,Mouton,0.286,Auto-rattachement protéine
+Foutou gouagouassou + Mouton,Mouton,0.286,Auto-rattachement protéine
+Foutou graine + Mouton,Mouton,0.286,Auto-rattachement protéine
+Foutou sauce claire + Mouton,Mouton,0.286,Auto-rattachement protéine
+Légumes riz + Mouton,Mouton,0.286,Auto-rattachement protéine
+Riz djougblé + Mouton,Mouton,0.286,Auto-rattachement protéine
+Riz gouagouassou + Mouton,Mouton,0.286,Auto-rattachement protéine
+Riz graine + Mouton,Mouton,0.286,Auto-rattachement protéine
+Riz pistache + Mouton,Mouton,0.286,Auto-rattachement protéine
+Riz sauce claire + Mouton,Mouton,0.286,Auto-rattachement protéine
+Salade Fraîche + Mouton,Mouton,0.286,Auto-rattachement protéine
+Dah riz + Poulet,Poulet,0.25,Auto-rattachement protéine
+Feuille riz + Poulet,Poulet,0.25,Auto-rattachement protéine
+Foufou sauce claire + Poulet,Poulet,0.25,Auto-rattachement protéine
+Foutou + Pistache poulet,Poulet,0.25,Auto-rattachement protéine
+Foutou djougblé + Poulet,Poulet,0.25,Auto-rattachement protéine
+Foutou gouagouassou + Poulet,Poulet,0.25,Auto-rattachement protéine
+Foutou graine + Poulet,Poulet,0.25,Auto-rattachement protéine
+Légumes riz + Poulet,Poulet,0.25,Auto-rattachement protéine
+Riz djougblé + Poulet,Poulet,0.25,Auto-rattachement protéine
+Riz gouagouassou + Poulet,Poulet,0.25,Auto-rattachement protéine
+Riz graine + Poulet,Poulet,0.25,Auto-rattachement protéine
+Riz pistache + Poulet,Poulet,0.25,Auto-rattachement protéine
+Riz sauce claire + Poulet,Poulet,0.25,Auto-rattachement protéine
+Salade Fraîche + Poulet,Poulet,0.25,Auto-rattachement protéine
+Petit pois + Sosso 3000,Sosso,1,Auto-rattachement protéine
+Petit pois + Sosso 3500,Sosso,1,Auto-rattachement protéine
+Petit pois + Sosso 4000,Sosso,1,Auto-rattachement protéine
+Petit pois + Sosso 4500,Sosso,1,Auto-rattachement protéine
+Petit pois + Sosso 5000,Sosso,1,Auto-rattachement protéine
+Petit pois + Sosso 6000,Sosso,1,Auto-rattachement protéine
+Salade Fraîche + Sosso 4000,Sosso,1,Auto-rattachement protéine
+Salade Fraîche + Sosso 5000,Sosso,1,Auto-rattachement protéine
+Salade Panachée + Sosso 4000,Sosso,1,Auto-rattachement protéine
+Salade Panachée + Sosso 5000,Sosso,1,Auto-rattachement protéine
+Sosso 6000,Sosso,1,Auto-rattachement protéine
+Sosso 6500,Sosso,1,Auto-rattachement protéine
+Sosso 7000,Sosso,1,Auto-rattachement protéine
+Tchep + Sosso 3000,Sosso,1,Auto-rattachement protéine
+Tchep + Sosso 3500,Sosso,1,Auto-rattachement protéine
+Tchep + Sosso 4000,Sosso,1,Auto-rattachement protéine
+Tchep + Sosso 4500,Sosso,1,Auto-rattachement protéine
+Tchep + Sosso 5000,Sosso,1,Auto-rattachement protéine
+Tchep + Sosso 5500,Sosso,1,Auto-rattachement protéine
+Tchep + Sosso 6000,Sosso,1,Auto-rattachement protéine
+Yassa + Sosso 3000,Sosso,1,Auto-rattachement protéine
+Yassa + Sosso 3500,Sosso,1,Auto-rattachement protéine
+Yassa + Sosso 4000,Sosso,1,Auto-rattachement protéine
+Yassa + Sosso 4500,Sosso,1,Auto-rattachement protéine
+Yassa + Sosso 5000,Sosso,1,Auto-rattachement protéine
+Yassa + Sosso 5500,Sosso,1,Auto-rattachement protéine
+Yassa + Sosso 6000,Sosso,1,Auto-rattachement protéine
