@@ -92,10 +92,9 @@ jobs:
             # Initialiser les données si la base est encore vide (seed démo)
             docker compose -f docker-compose.yml exec -T caisse-api python -m caisse.cli seed --demo || true
 
-            # Mettre à jour la configuration Nginx hôte (relais WebSocket et proxy) et recharger
-            if [ -f /etc/nginx/conf.d/caisse.conf ]; then
-              echo "Mise à jour de la configuration Nginx..."
-              cp caisse.conf /etc/nginx/conf.d/caisse.conf
-              nginx -t && systemctl reload nginx || true
-            fi
+            # Mettre à jour la configuration Nginx hôte (osispos.conf) et supprimer le doublon caisse.conf
+            echo "Mise à jour de la configuration Nginx..."
+            rm -f /etc/nginx/conf.d/caisse.conf
+            cp caisse.conf /etc/nginx/conf.d/osispos.conf
+            nginx -t && systemctl reload nginx || true
           EOF
