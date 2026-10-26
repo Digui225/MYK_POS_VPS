@@ -1,6 +1,5 @@
 -- ====================================================================
--- Caisse MYK - Importation des données réelles du restaurant
--- Nettoyage des 5 faux articles de démo et chargement du vrai catalogue
+-- Caisse MYK - Importation officielle du catalogue et stocks réels
 -- ====================================================================
 BEGIN;
 
@@ -18,16 +17,12 @@ TRUNCATE TABLE
     products,
     categories,
     restaurant_tables,
-    denominations,
-    establishment_settings,
-    superettes,
-    fournisseurs,
-    categories_depense,
+    cash_registers,
     customers,
-    cash_registers
+    settings
 CASCADE;
 
-\restrict VZrfm3vcIiQPSoT09cjknAVEDpxHQaFrqGL90c2IvxKGNccDnrVxPTUHSgbBxjK
+\restrict 9DkyVQeR3gXuCzvnO93wbaKRJOvS0VxMEkzrSJeY8bBQXvw1ZPPmfkfthG1OaMz
 
 -- Data for Name: cash_registers; Type: TABLE DATA; Schema: public; Owner: caisse_user
 INSERT INTO public.cash_registers (id, name, printer_config, is_active, created_at, updated_at) VALUES ('0192384a-3000-7000-8000-000000000001', 'Caisse Principale', NULL, true, '2026-10-03 16:12:32.729226+00', '2026-10-03 16:12:32.729234+00');
@@ -52,43 +47,9 @@ INSERT INTO public.categories (id, name, kind, sort_order, color, fiscal_group, 
 INSERT INTO public.categories (id, name, kind, sort_order, color, fiscal_group, is_active, created_at, updated_at) VALUES ('bc1e03a7-e276-4da7-8f57-34d6d901bdb7', 'Boissons chaudes et desserts', 'DRINK', 0, NULL, 'AUTRES', true, '2026-10-20 15:03:07.903966+00', '2026-10-20 15:03:07.903975+00');
 INSERT INTO public.categories (id, name, kind, sort_order, color, fiscal_group, is_active, created_at, updated_at) VALUES ('725977b4-b95d-4b97-8979-c9b03b716e54', 'Suppléments', 'FOOD', 0, NULL, 'PLATS', true, '2026-10-20 15:03:07.836677+00', '2026-10-23 11:54:26.713169+00');
 
--- Data for Name: categories_depense; Type: TABLE DATA; Schema: public; Owner: caisse_user
-INSERT INTO public.categories_depense (id, libelle, description) VALUES (7, 'Achats Marchandises', 'Achats de réapprovisionnement direct');
-INSERT INTO public.categories_depense (id, libelle, description) VALUES (8, 'Transport & Logistique', 'Frais de transport et livraison');
-INSERT INTO public.categories_depense (id, libelle, description) VALUES (9, 'Énergie & Carburant', 'Carburant groupe électrogène, électricité');
-INSERT INTO public.categories_depense (id, libelle, description) VALUES (10, 'Fournitures & Emballages', 'Sachets, rouleaux thermiques, fournitures de bureau');
-INSERT INTO public.categories_depense (id, libelle, description) VALUES (11, 'Maintenance & Entretien', 'Réparations matériels et locaux');
-INSERT INTO public.categories_depense (id, libelle, description) VALUES (12, 'Frais Généraux Divers', 'Autres menues dépenses d''exploitation');
-INSERT INTO public.categories_depense (id, libelle, description) VALUES (13, 'Frais Généraux', 'Factures eau, électricité, entretien');
-INSERT INTO public.categories_depense (id, libelle, description) VALUES (14, 'Alimentation & Pause', 'Collations et repas équipe');
-INSERT INTO public.categories_depense (id, libelle, description) VALUES (15, 'Divers & Menues Dépenses', 'Dépenses imprévues sous autorisation');
-
 -- Data for Name: customers; Type: TABLE DATA; Schema: public; Owner: caisse_user
 INSERT INTO public.customers (id, name, ncc, phone, email, address, is_active, created_at, updated_at, tax_regime) VALUES ('a6e273be-5851-421a-96f2-a5b56ee678d1', 'CONFEDERATION GENERALE DES ENTREPRISES', '1254632A', '0767639874', 'main.9235@gmail.com', 'Abidjan, plateau', true, '2026-10-03 16:59:11.864479+00', '2026-10-03 16:59:11.86449+00', 'B2B');
 INSERT INTO public.customers (id, name, ncc, phone, email, address, is_active, created_at, updated_at, tax_regime) VALUES ('c10971e6-af3a-444f-806d-419be5fc06c8', 'AGL GRP', '9506466A', '0123546987', 'agl.grp@live.com', 'Abidjan, treichville', true, '2026-10-05 10:40:41.897052+00', '2026-10-05 10:40:41.897063+00', 'B2B');
-
--- Data for Name: denominations; Type: TABLE DATA; Schema: public; Owner: caisse_user
-INSERT INTO public.denominations (id, valeur, type, actif) VALUES (1, 10000.00, 'billet', true);
-INSERT INTO public.denominations (id, valeur, type, actif) VALUES (2, 5000.00, 'billet', true);
-INSERT INTO public.denominations (id, valeur, type, actif) VALUES (3, 2000.00, 'billet', true);
-INSERT INTO public.denominations (id, valeur, type, actif) VALUES (4, 1000.00, 'billet', true);
-INSERT INTO public.denominations (id, valeur, type, actif) VALUES (5, 500.00, 'billet', true);
-INSERT INTO public.denominations (id, valeur, type, actif) VALUES (6, 250.00, 'piece', true);
-INSERT INTO public.denominations (id, valeur, type, actif) VALUES (7, 200.00, 'piece', true);
-INSERT INTO public.denominations (id, valeur, type, actif) VALUES (8, 100.00, 'piece', true);
-INSERT INTO public.denominations (id, valeur, type, actif) VALUES (9, 50.00, 'piece', true);
-INSERT INTO public.denominations (id, valeur, type, actif) VALUES (10, 25.00, 'piece', true);
-INSERT INTO public.denominations (id, valeur, type, actif) VALUES (11, 10.00, 'piece', true);
-INSERT INTO public.denominations (id, valeur, type, actif) VALUES (12, 5.00, 'piece', true);
-
--- Data for Name: establishment_settings; Type: TABLE DATA; Schema: public; Owner: caisse_user
-INSERT INTO public.establishment_settings (id, restaurant_name, ncc, rccm, address, phone, default_vat_rate, receipt_footer, print_width, screen_lock_timeout_seconds, created_at, updated_at) VALUES ('81240c51-28c2-4215-afe8-15f79b6d390c', 'Sylla Plus', '1234567A', 'CI-ABJ-2026-B-0000', 'Abidjan, Plateau', '+225 0102030405', 0, 'Merci de votre visite · à très bientôt !', 58, 120, '2026-10-03 16:16:26.66162+00', '2026-10-08 16:40:21.7769+00');
-
--- Data for Name: fournisseurs; Type: TABLE DATA; Schema: public; Owner: caisse_user
-INSERT INTO public.fournisseurs (id, nom, contact, telephone, actif) VALUES (1, 'COQUIVOIRE', 'M. Kouassi', '+225 0707070701', true);
-INSERT INTO public.fournisseurs (id, nom, contact, telephone, actif) VALUES (2, 'DKT INTERNATIONAL', 'Service Commercial', '+225 0505050502', true);
-INSERT INTO public.fournisseurs (id, nom, contact, telephone, actif) VALUES (3, 'SODIREP', 'Mme Bamba', '+225 0101010103', true);
-INSERT INTO public.fournisseurs (id, nom, contact, telephone, actif) VALUES (4, 'NESTLE CI', 'Distribution Abidjan', '+225 2727272704', true);
 
 -- Data for Name: products; Type: TABLE DATA; Schema: public; Owner: caisse_user
 INSERT INTO public.products (id, category_id, name, short_name, price_xof, vat_rate, track_stock, is_custom, is_active, sort_order, color, sku, created_at, updated_at) VALUES ('ac8fa3d4-8c39-4545-bc97-ecf4cd527d49', '06c1be01-2539-411a-9a12-89674460c795', 'Salade Panachée + Sosso', 'Salade Pan. + Sosso', 4000, 0.00, false, false, true, 3, 'cyan', 'SYL-034', '2026-10-06 10:44:50.780116+00', '2026-10-06 10:44:50.780123+00');
@@ -531,12 +492,6 @@ INSERT INTO public.settings (key, value, updated_by, updated_at) VALUES ('vat.de
 INSERT INTO public.stock_items (id, product_id, quantity, unit, alert_threshold, created_at, updated_at) VALUES ('215aec6f-6dbc-40d2-b43e-bbfe2920be7a', '26eb12b5-a751-40b0-a6a2-6935fe010159', 74, 'bouteille', 10, '2026-10-06 10:44:50.965236+00', '2026-10-19 14:44:26.383755+00');
 INSERT INTO public.stock_items (id, product_id, quantity, unit, alert_threshold, created_at, updated_at) VALUES ('45343ac2-b842-4fb8-8ce1-a24cb8144dff', '6d9aee30-24bf-4df9-a616-ada6c53c4043', 69, 'bouteille', 10, '2026-10-06 10:44:50.963206+00', '2026-10-19 14:53:52.281501+00');
 INSERT INTO public.stock_items (id, product_id, quantity, unit, alert_threshold, created_at, updated_at) VALUES ('4c856c6b-546f-464c-8649-8ebfeb0d7f04', 'cddb3bf8-70f8-4dfb-8bb7-1c1c80a9d3d8', 87, 'bouteille', 10, '2026-10-06 10:44:50.959558+00', '2026-10-15 16:41:08.959223+00');
-
--- Data for Name: superettes; Type: TABLE DATA; Schema: public; Owner: caisse_user
-INSERT INTO public.superettes (id, code, nom, adresse, ville, actif, created_at) VALUES (284, 'SUP-01', 'Superette Principale', 'Centre-ville, Av. de la Paix', 'Abidjan', true, '2026-09-01 15:05:58.315391+00');
-INSERT INTO public.superettes (id, code, nom, adresse, ville, actif, created_at) VALUES (377, 'SORBONNE', 'Yopougon Sorbonne', 'Rue des Princes, Yopougon', 'Abidjan', true, '2026-09-02 11:02:35.55668+00');
-INSERT INTO public.superettes (id, code, nom, adresse, ville, actif, created_at) VALUES (378, 'ANGRE', 'Cocody Angré 8ème Tranche', 'Boulevard Latrille', 'Abidjan', true, '2026-09-02 11:02:35.55668+00');
-INSERT INTO public.superettes (id, code, nom, adresse, ville, actif, created_at) VALUES (379, 'MARCORY', 'Marcory Résidentiel', 'Avenue CI', 'Abidjan', true, '2026-09-02 11:02:35.55668+00');
-\unrestrict VZrfm3vcIiQPSoT09cjknAVEDpxHQaFrqGL90c2IvxKGNccDnrVxPTUHSgbBxjK
+\unrestrict 9DkyVQeR3gXuCzvnO93wbaKRJOvS0VxMEkzrSJeY8bBQXvw1ZPPmfkfthG1OaMz
 
 COMMIT;
