@@ -282,7 +282,8 @@ def format_receipt_text(
         display_name = "Sylla Plus"
     elif display_name.upper().startswith("RESTAURANT "):
         display_name = display_name[11:].strip()
-    if display_name:
+    # Le logo graphique officiel contient déjà le nom "Sylla Plus". On n'affiche pas le texte en doublon.
+    if display_name and display_name.upper() not in ("SYLLA PLUS", "RESTAURANT MYK", "CHEZ SYLLA PLUS"):
         lines.append(center(display_name))
 
     addr = restaurant_info.get("address") or "Abidjan Plateau"

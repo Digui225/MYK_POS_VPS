@@ -72,7 +72,10 @@ def _load_logo_bytes() -> bytes | None:
     for p in candidates:
         if p.exists():
             try:
-                return p.read_bytes()
+                data = p.read_bytes()
+                if data.endswith(b"\x1b2\n"):
+                    data = data[:-1]
+                return data
             except Exception:
                 pass
     return None
@@ -175,11 +178,11 @@ class EscposDriver:
                 content = content.replace("[LOGO]\n", "").replace("[LOGO]", "")
 
             logo_bytes = _load_logo_bytes()
-            if logo_bytes and ("Sylla Plus" in content or "Ticket :" in content or has_logo_tag):
+            if logo_bytes and ("Sylla Plus" in content or "Ticket :" in content or "Abidjan Plateau" in content or has_logo_tag):
                 try:
                     printer._raw(b"\x1b\x61\x01")  # centrer
                     printer._raw(logo_bytes)
-                    printer._raw(b"\x1b\x61\x00\n")  # réaligner à gauche
+                    printer._raw(b"\x1b\x61\x00")  # réaligner à gauche sans saut de ligne superflu
                 except Exception as exc:
                     log.warning("échec d'envoi du logo raster : %s", exc)
 
