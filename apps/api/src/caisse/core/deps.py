@@ -45,7 +45,9 @@ def get_current_user(
     token = credentials.credentials
     payload = decode_token(token)
     user_id = payload.get("sub")
-    if not user_id:
+    # Seul un jeton d'accès ouvre l'API : ni le jeton de rafraîchissement (12 h) ni celui
+    # d'autorisation d'un responsable (override), signés avec la même clé.
+    if not user_id or payload.get("type") != "access":
         raise CaisseException(
             code="INVALID_TOKEN",
             title="Jeton invalide",

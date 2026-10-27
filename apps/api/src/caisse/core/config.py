@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     ]
     ENABLE_DOCS: bool | None = None
     MAX_REQUEST_BODY_SIZE: int = 2 * 1024 * 1024  # 2 Mo par défaut
+    # WebSocket sans jeton : refusé si vrai ; sinon accepté, sans le détail des événements.
+    # À passer à true quand le front envoie `?token=` à l'ouverture.
+    WS_REQUIRE_AUTH: bool = False
 
     # Outbox & Tâches d'arrière-plan
     ENABLE_OUTBOX_WORKER: bool = True
