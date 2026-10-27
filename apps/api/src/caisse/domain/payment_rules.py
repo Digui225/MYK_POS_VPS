@@ -299,11 +299,9 @@ def format_receipt_text(
 
     rccm = restaurant_info.get("rccm") or "CI-ABJ-2023-B-00000"
     ncc = restaurant_info.get("ncc") or "2000000 X"
-    if rccm and ncc:
-        lines.append(center(f"NCC: {ncc} . RCCM: {rccm}"))
-    elif ncc:
+    if ncc:
         lines.append(center(f"NCC: {ncc}"))
-    elif rccm:
+    if rccm:
         lines.append(center(f"RCCM: {rccm}"))
 
     if is_duplicate:
@@ -315,9 +313,7 @@ def format_receipt_text(
     # 2. Informations commande (Ticket, Table / Couverts, Caissier / Date)
     order_num = str(order_info.get("order_number", "-"))
     date_str = str(order_info.get("date_str", ""))
-    cashier = str(order_info.get("cashier_name", "Caisse")).strip()
-    if "Caissière Principale" in cashier or "Caissiere Principale" in cashier:
-        cashier = "Caisse"
+    cashier = str(order_info.get("cashier_name") or "Caisse").strip()
     table_label = str(order_info.get("table_label") or "Comptoir").strip()
     guests_count = order_info.get("guests_count")
 
@@ -330,7 +326,7 @@ def format_receipt_text(
     cashier_display = f"Caissier : {cashier}"
     if date_str:
         if len(cashier_display) + len(date_str) + 1 > width:
-            # Format court de l'année (ex: 27/10/26 09:57) pour tenir sur 32 colonnes
+            # Format court de l'année (ex: 27/10/26 11:11) pour tenir sur 32 colonnes
             short_date = date_str
             if len(date_str) >= 16 and date_str[6:8] == "20":
                 short_date = date_str[:6] + date_str[8:]
@@ -346,7 +342,7 @@ def format_receipt_text(
 
     lines.append(sep_line)
 
-    # 3. Détail des articles (sans en-tête DESIGNATION/MONTANT, épuré)
+    # 3. Détail des articles (sans en-tête DESIGNATION/MONTANT, nom complet préservé)
     for item in items:
         qty = item.get("quantity", 1)
         item_name = item.get("name", "Article")
@@ -355,12 +351,10 @@ def format_receipt_text(
         if len(prefix) + len(total_price) + 1 <= width:
             lines.append(row(prefix, total_price))
         else:
-            max_len = width - len(total_price) - 1
-            if max_len > len(f"{qty}x "):
-                lines.append(row(prefix[:max_len], total_price))
-            else:
-                lines.append(prefix)
-                lines.append(row("", total_price))
+            # Si le nom complet dépasse 32 colonnes avec le prix, on affiche le nom complet
+            # puis le montant aligné à droite sur la ligne suivante sans jamais tronquer
+            lines.append(prefix)
+            lines.append(total_price.rjust(width))
 
     lines.append("")
 
