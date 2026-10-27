@@ -45,8 +45,9 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_HOURS: int = 12
+    # PIN erronés consécutifs depuis un même poste (adresse IP) avant blocage de ses connexions
     PIN_MAX_FAILED_ATTEMPTS: int = 5
-    LOCKOUT_DURATION_MINUTES: int = 15
+    LOCKOUT_DURATION_MINUTES: int = 5
 
     # Fuseau horaire
     TZ: str = "Africa/Abidjan"

@@ -51,6 +51,50 @@ class InMemoryRateLimiter:
 rate_limiter = InMemoryRateLimiter()
 
 
+class LoginLockout:
+    """Blocage des connexions d'un poste après des PIN erronés consécutifs.
+
+    La connexion se fait par PIN seul, sans identifiant : un PIN faux ne désigne aucun compte,
+    le blocage porte donc sur l'adresse du poste. Un PIN juste remet le compteur à zéro ; un
+    échec plus vieux que la durée de blocage est oublié.
+    """
+
+    def __init__(self) -> None:
+        self._failures: dict[str, list[float]] = defaultdict(list)
+        self._locked_until: dict[str, float] = {}
+        self._lock = threading.Lock()
+
+    def retry_after(self, key: str) -> int:
+        """Secondes de blocage restantes (0 : connexion permise)."""
+        with self._lock:
+            remaining = self._locked_until.get(key, 0.0) - time.monotonic()
+            return max(1, int(remaining)) if remaining > 0 else 0
+
+    def record_failure(self, key: str, max_failures: int, lock_seconds: int) -> None:
+        now = time.monotonic()
+        with self._lock:
+            failures = [ts for ts in self._failures[key] if ts > now - lock_seconds]
+            failures.append(now)
+            if len(failures) >= max_failures:
+                self._locked_until[key] = now + lock_seconds
+                failures = []
+                logger.warning("Connexions bloquées %ss pour %s : %d PIN erronés", lock_seconds, key, max_failures)
+            self._failures[key] = failures
+
+    def clear(self, key: str) -> None:
+        with self._lock:
+            self._failures.pop(key, None)
+            self._locked_until.pop(key, None)
+
+    def reset(self) -> None:
+        with self._lock:
+            self._failures.clear()
+            self._locked_until.clear()
+
+
+login_lockout = LoginLockout()
+
+
 def require_rate_limit(
     max_requests: int = 10,
     window_seconds: int = 60,

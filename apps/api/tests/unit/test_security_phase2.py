@@ -40,8 +40,14 @@ def test_in_memory_rate_limiter_unit() -> None:
     assert allowed_after_reset is True
 
 
-def test_auth_login_rate_limiting_triggers_429(client: TestClient, caplog: pytest.LogCaptureFixture) -> None:
+def test_auth_login_rate_limiting_triggers_429(
+    client: TestClient, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Vérifie que l'endpoint /api/v1/auth/login déclenche un 429 après dépassement du quota."""
+    from caisse.core.config import get_settings
+
+    # Blocage après PIN erronés (test_login_lockout.py) écarté : seul le quota est testé ici
+    monkeypatch.setattr(get_settings(), "PIN_MAX_FAILED_ATTEMPTS", 100)
     rate_limiter.reset()
 
     # Effectuer 10 tentatives rapides (quota par défaut)

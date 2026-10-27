@@ -13,7 +13,9 @@ from caisse.schemas.auth import (
     RefreshTokenResponse,
     UserResponse,
 )
-from caisse.security_rate_limit import require_rate_limit
+from caisse.core.config import get_settings
+from caisse.core.errors import CaisseException
+from caisse.security_rate_limit import login_lockout, require_rate_limit
 from caisse.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentification"])
@@ -31,12 +33,32 @@ async def login(
     db: Session = Depends(get_db),
 ) -> LoginResponse:
     ip = get_client_ip(request)
+    key = ip or "unknown"
+    retry_after = login_lockout.retry_after(key)
+    if retry_after:
+        raise CaisseException(
+            code="PIN_LOCKOUT",
+            title="Connexions bloquées",
+            detail=f"Trop de codes PIN erronés depuis ce poste. Réessayez dans {retry_after} secondes.",
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            meta={"retry_after": retry_after},
+        )
     auth_service = AuthService(db)
-    return auth_service.login_with_pin(
-        pin=payload.pin,
-        device_id=payload.device_id,
-        ip=ip,
-    )
+    try:
+        response = auth_service.login_with_pin(
+            pin=payload.pin,
+            device_id=payload.device_id,
+            ip=ip,
+        )
+    except CaisseException as exc:
+        if exc.code == "INVALID_CREDENTIALS":
+            settings = get_settings()
+            login_lockout.record_failure(
+                key, settings.PIN_MAX_FAILED_ATTEMPTS, settings.LOCKOUT_DURATION_MINUTES * 60
+            )
+        raise
+    login_lockout.clear(key)
+    return response
 
 
 @router.post(

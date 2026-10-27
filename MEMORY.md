@@ -20,6 +20,7 @@ Notes de reprise : ce qui a été analysé et décidé. À tenir à jour à chaq
 | 27/10/2026 | **Production : VPS OVH `148.113.149.10`** (Debian 13), dédié à la caisse ; **`gestion.osispos.com`** (DNS ResellerClub). `162.215.172.50` abandonné (à démonter : sauvegarde, `docker compose down` sans `-v`, retrait de `caisse.conf`, port 8083, cron) |
 | 27/10/2026 | **Base de code = `aziz`**, pas `main` : le front, la prod et la base (migration `017`) l'utilisent ; aucune vraie vente en base, mais garder `main` coûtait ~3 semaines (front ou contrat à refaire) contre ~1,5-2 |
 | 27/10/2026 | Un seul circuit de déploiement : `deploy/vps/update.sh` (sauvegarde, santé, retour arrière), lancé par le workflow GitHub ou `deploy/vps/deploy.sh`. Anciens `redeploy.sh`/`server.sh` de `main` retirés (ils visaient `/opt/caisse`) |
+| 27/10/2026 | **Blocage après PIN erronés : 5 PIN faux consécutifs depuis un poste (son IP) bloquent ses connexions 5 min** (`PIN_MAX_FAILED_ATTEMPTS`, `LOCKOUT_DURATION_MINUTES`). Il n'existait pas (ces réglages n'étaient lus nulle part) : connexion par PIN seul, sans identifiant, donc blocage par poste et non par compte. Nginx transmet l'IP vue par lui (`X-Forwarded-For $remote_addr`), sinon un client contournait la limite avec un en-tête inventé |
 | 27/10/2026 | WebSocket : `?token=<access_token>` ; sans jeton, toléré (`WS_REQUIRE_AUTH=false`) mais seulement le type des événements. Passer `WS_REQUIRE_AUTH=true` quand le front envoie le jeton |
 
 ## Corrections faites le 27/10/2026 (revue de `aziz`)
@@ -31,7 +32,7 @@ Notes de reprise : ce qui a été analysé et décidé. À tenir à jour à chaq
 - `restore_real_data.sql` (`TRUNCATE` des ventes) : refuse de tourner s'il y a des paiements ou des FNE, sauf confirmation explicite.
 - Déploiement : sauvegarde avant migration, contrôle de santé, retour arrière, plus de `seed --demo` ni d'échec Nginx masqué ; HTTPS ; sauvegarde nocturne (timer systemd) ; `sw.js` jamais en cache.
 - `api.env.example` aux noms réellement lus par `core/config.py` (l'ancien, repris de `main`, avait des noms ignorés).
-- `api.env` du serveur corrigé le 27/10/2026 à 16 h 11 (sauvegarde `api.env.bak-20261027-161126`) : 10 noms de l'ancien backend, ignorés, mis en commentaire ; bons noms ajoutés avec les valeurs déjà en vigueur. Le blocage après PIN erronés est de **15 min** (défaut du code), pas les 30 s voulues par l'ancien `PIN_LOCK_SECONDS` : à trancher.
+- `api.env` du serveur corrigé le 27/10/2026 à 16 h 11 (sauvegarde `api.env.bak-20261027-161126`) : 10 noms de l'ancien backend, ignorés, mis en commentaire ; bons noms ajoutés avec les valeurs déjà en vigueur. Puis `LOCKOUT_DURATION_MINUTES=5`.
 
 ## Questions ouvertes
 
