@@ -5,7 +5,7 @@
 > le port 8000) ; code dans `/opt/Departement_Bi/OsisPos_Backend/code` (pas `/opt/caisse/backend`) ;
 > pare-feu `ufw` (pas firewalld) ; base sans port publié (pgAdmin : tunnel SSH vers l'IP du
 > conteneur, pas `127.0.0.1:5432`) ; agent Windows en tâche planifiée qui interroge l'API (pas de
-> NSSM ni de port 8090) ; pas de mode hors ligne ; accès cible `https://gestion.osispos.com`.
+> NSSM ni de port 8090) ; pas de mode hors ligne ; accès cible `https://caisse.osispos.com`.
 
 Ce document détaille l'architecture réelle déployée sur le serveur VPS de recette/production, l'inventaire exhaustif des technologies (frontend, backend, base de données, agent d'impression) ainsi que la cartographie exacte des ports et flux réseau.
 

@@ -1,6 +1,6 @@
 # Déploiement de production — OsisPos (Caisse MYK)
 
-VPS OVH `148.113.149.10` (Debian 13), **dédié à la caisse** · domaine `gestion.osispos.com`
+VPS OVH `148.113.149.10` (Debian 13), **dédié à la caisse** · domaine `caisse.osispos.com`
 (DNS chez ResellerClub) · déployé depuis la branche `main` de ce dépôt.
 
 ## Sur le serveur
@@ -51,13 +51,13 @@ Coupure pendant la bascule : quelques secondes (redémarrage de l'API et migrati
 
 ## 2. Domaine et HTTPS (une fois)
 
-1. **DNS** (ResellerClub → `osispos.com` → DNS Management → A Records) : `gestion` →
-   `148.113.149.10`, TTL par défaut. Dans « Host Name », taper `gestion` seulement. Vérifier :
+1. **DNS** (ResellerClub → `osispos.com` → DNS Management → A Records) : `caisse` →
+   `148.113.149.10`, TTL par défaut. Dans « Host Name », taper `caisse` seulement. Vérifier :
    ```bash
-   dig @ns1.nudns.com gestion.osispos.com +short   # 148.113.149.10
-   dig @1.1.1.1 gestion.osispos.com +short         # idem, après propagation
+   dig @ns1.nudns.com caisse.osispos.com +short   # 148.113.149.10
+   dig @1.1.1.1 caisse.osispos.com +short         # idem, après propagation
    ```
-2. Un déploiement (§1) : Nginx sert alors `http://gestion.osispos.com`.
+2. Un déploiement (§1) : Nginx sert alors `http://caisse.osispos.com`.
 3. Certificat, pare-feu 80/443, LLMNR coupé :
    ```bash
    ssh debian@148.113.149.10
@@ -72,10 +72,10 @@ Coupure pendant la bascule : quelques secondes (redémarrage de l'API et migrati
 
 ## 3. Postes du restaurant
 
-- **Navigateur** : `https://gestion.osispos.com` en favori. L'ancienne adresse
+- **Navigateur** : `https://caisse.osispos.com` en favori. L'ancienne adresse
   (`http://148.113.149.10:8083`) est un autre site pour le navigateur : connexion à refaire, et
   l'ancienne application installée (PWA) à désinstaller.
-- **Agent d'impression** (`C:\CaisseMYK\.env`) : `API_URL=https://gestion.osispos.com`, puis
+- **Agent d'impression** (`C:\CaisseMYK\.env`) : `API_URL=https://caisse.osispos.com`, puis
   redémarrer la tâche planifiée. Contrôle : `GET /api/v1/printing/status` → agent en ligne.
 - Nouveau jeton de terminal (perdu, nouveau poste) :
   ```bash

@@ -1,4 +1,4 @@
-# OsisPos — production sur le VPS 148.113.149.10 (gestion.osispos.com). Guide : deploy/vps/README.md
+# OsisPos — production sur le VPS 148.113.149.10 (caisse.osispos.com). Guide : deploy/vps/README.md
 # Ports sur 127.0.0.1 seulement : Docker contourne ufw, un port publié sur 0.0.0.0 serait ouvert à Internet.
 # Les secrets restent hors du dépôt, dans $CAISSE_ROOT (db.env, api.env), et survivent aux mises à jour du code.
 # Mise en place par deploy/vps/update.sh ; à la main :

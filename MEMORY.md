@@ -17,7 +17,7 @@ Notes de reprise : ce qui a été analysé et décidé. À tenir à jour à chaq
 | 20/10/2026 | Impression tirée par l'agent du terminal (`POST /print-agent/poll` toutes les 2 s), jeton de terminal ; tiroir avec le ticket |
 | 21/10/2026 | **Risque accepté** : coupure Internet au restaurant = pas de vente ni d'impression (pas de mode hors ligne) |
 | 22/10/2026 | Restaurant ouvert **du lundi au vendredi**. Inventaire hebdomadaire daté du vendredi |
-| 27/10/2026 | **Production : VPS OVH `148.113.149.10`** (Debian 13), dédié à la caisse ; **`gestion.osispos.com`** (DNS ResellerClub). `162.215.172.50` abandonné (à démonter : sauvegarde, `docker compose down` sans `-v`, retrait de `caisse.conf`, port 8083, cron) |
+| 27/10/2026 | **Production : VPS OVH `148.113.149.10`** (Debian 13), dédié à la caisse ; **`caisse.osispos.com`** (DNS ResellerClub). `162.215.172.50` abandonné (à démonter : sauvegarde, `docker compose down` sans `-v`, retrait de `caisse.conf`, port 8083, cron) |
 | 27/10/2026 | **Base de code = `aziz`**, pas `main` : le front, la prod et la base (migration `017`) l'utilisent ; aucune vraie vente en base, mais garder `main` coûtait ~3 semaines (front ou contrat à refaire) contre ~1,5-2 |
 | 27/10/2026 | Un seul circuit de déploiement : `deploy/vps/update.sh` (sauvegarde, santé, retour arrière), lancé par le workflow GitHub ou `deploy/vps/deploy.sh`. Anciens `redeploy.sh`/`server.sh` de `main` retirés (ils visaient `/opt/caisse`) |
 | 27/10/2026 | **Blocage après PIN erronés : 5 PIN faux consécutifs depuis un poste (son IP) bloquent ses connexions 5 min** (`PIN_MAX_FAILED_ATTEMPTS`, `LOCKOUT_DURATION_MINUTES`). Il n'existait pas (ces réglages n'étaient lus nulle part) : connexion par PIN seul, sans identifiant, donc blocage par poste et non par compte. Nginx transmet l'IP vue par lui (`X-Forwarded-For $remote_addr`), sinon un client contournait la limite avec un en-tête inventé |
@@ -46,7 +46,7 @@ Notes de reprise : ce qui a été analysé et décidé. À tenir à jour à chaq
 
 ## Production (`148.113.149.10`)
 
-**Déployé le 27/10/2026 à 16 h 35 : `prod-aziz` @ `053694a`** par `deploy/vps/deploy.sh` (sauvegarde `caisse-20261027-163508.dump`, ancien code dans `code.prev`). Vérifié : front et API sur `:8083`, `/health/ready` ok avec agent d'impression en ligne, WebSocket sans jeton accepté et jeton invalide refusé, `sw.js` sans cache, `osispos-backup.timer` actif. Reste : DNS `gestion`, puis `setup-server.sh` (HTTPS).
+**Déployé le 27/10/2026 à 16 h 35 : `prod-aziz` @ `053694a`** par `deploy/vps/deploy.sh` (sauvegarde `caisse-20261027-163508.dump`, ancien code dans `code.prev`). Vérifié : front et API sur `:8083`, `/health/ready` ok avec agent d'impression en ligne, WebSocket sans jeton accepté et jeton invalide refusé, `sw.js` sans cache, `osispos-backup.timer` actif. Reste : `setup-server.sh` (HTTPS) ; DNS `caisse` créé le 27/10, puis la bascule des postes.
 
 Guide : [`deploy/vps/README.md`](deploy/vps/README.md). État relevé le 27/10/2026 (avant ces changements) : code `aziz` @ `737addc` déployé par le workflow GitHub dans `/opt/Departement_Bi/OsisPos_Backend/code` ; `api.env` avec `CORS_ORIGINS=*`, `ALLOWED_HOSTS=*`, `ENABLE_DOCS=true`, `FNE_PROVIDER=mock` ; ufw : 22 et 8083 ; pas de certificat ni de cron de sauvegarde ; SSH par mot de passe actif ; comptes `root`, `debian`, `departement_ia_osis` (sudo, sans clé).
 

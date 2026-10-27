@@ -16,7 +16,7 @@ export CAISSE_ROOT="$ROOT"                    # lu par docker-compose.yml (env_f
 NEW="$ROOT/code.new"
 CUR="$ROOT/code"
 PREV="$ROOT/code.prev"
-DOMAIN=gestion.osispos.com
+DOMAIN=caisse.osispos.com
 NGINX_SNIPPET=/etc/nginx/snippets/osispos-locations.conf
 NGINX_CONF_DIR=/etc/nginx/conf.d
 

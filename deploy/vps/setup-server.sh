@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Côté serveur, en root, UNE fois (relançable sans risque) : HTTPS pour gestion.osispos.com,
-# pare-feu 80/443, LLMNR coupé. Prérequis : l'enregistrement DNS A gestion → IP du serveur, et
+# Côté serveur, en root, UNE fois (relançable sans risque) : HTTPS pour caisse.osispos.com,
+# pare-feu 80/443, LLMNR coupé. Prérequis : l'enregistrement DNS A caisse → IP du serveur, et
 # un premier passage de update.sh (qui sert le défi Let's Encrypt en HTTP).
 #   sudo bash /opt/Departement_Bi/OsisPos_Backend/code/deploy/vps/setup-server.sh adresse@mail
 # L'adresse reçoit les avis d'expiration de Let's Encrypt (renouvellement automatique sinon).
 set -euo pipefail
 
 ROOT="${CAISSE_ROOT:-/opt/Departement_Bi/OsisPos_Backend}"
-DOMAIN=gestion.osispos.com
+DOMAIN=caisse.osispos.com
 EMAIL="${1:-}"
 
 info() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
