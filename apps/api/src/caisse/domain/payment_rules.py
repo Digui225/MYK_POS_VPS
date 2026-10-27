@@ -170,8 +170,9 @@ def build_esc_pos_bytes(
             if not logo_already_printed and include_logo:
                 logo_bytes = get_esc_pos_logo_bytes()
                 if logo_bytes:
+                    raw.extend(b"\x1b\x61\x01")  # Centrage
                     raw.extend(logo_bytes)
-                    raw.extend(b"\n")
+                    raw.extend(b"\x1b\x61\x00\n")  # Retour alignement gauche
                     logo_already_printed = True
         elif stripped == "[NO_LOGO]":
             pass
@@ -273,15 +274,17 @@ def format_receipt_text(
             return f"{left_str} {right_str}"
         return f"{left_str}{' ' * spaces}{right_str}"
 
-    # 1. En-tête officiel restaurant
-    name = (restaurant_info.get("name") or "RESTAURANT SYLLA PLUS").strip().upper()
-    if name:
-        lines.append(center(name))
+    # 1. En-tête restaurant avec balise [LOGO]
+    lines.append("[LOGO]")
 
-    subtitle = restaurant_info.get("subtitle") or "Spécialités Africaines & Européennes"
-    if subtitle:
-        for chunk in textwrap.wrap(subtitle, width=width):
-            lines.append(center(chunk))
+    raw_name = restaurant_info.get("name") or "Sylla Plus"
+    display_name = raw_name.strip()
+    if display_name.upper() in ("RESTAURANT SYLLA PLUS", "CHEZ SYLLA PLUS"):
+        display_name = "Sylla Plus"
+    elif display_name.upper().startswith("RESTAURANT "):
+        display_name = display_name[11:].strip()
+    if display_name:
+        lines.append(center(display_name))
 
     addr = restaurant_info.get("address") or "Abidjan Plateau"
     if "Cocody" in addr or "Angré" in addr:
@@ -292,18 +295,16 @@ def format_receipt_text(
 
     phone = restaurant_info.get("phone") or "+225 07 00 00 00 00"
     if phone:
-        lines.append(center(f"Tél: {phone}"))
+        lines.append(center(f"Tel: {phone}"))
 
     rccm = restaurant_info.get("rccm") or "CI-ABJ-2023-B-00000"
     ncc = restaurant_info.get("ncc") or "2000000 X"
     if rccm and ncc:
-        lines.append(center(f"RCCM : {rccm} · CC : {ncc}"))
+        lines.append(center(f"NCC: {ncc} . RCCM: {rccm}"))
     elif ncc:
-        lines.append(center(f"NCC : {ncc}"))
-
-    welcome = welcome_message or restaurant_info.get("welcome_message") or '"Bienvenue chez Sylla Plus"'
-    if welcome:
-        lines.append(center(welcome))
+        lines.append(center(f"NCC: {ncc}"))
+    elif rccm:
+        lines.append(center(f"RCCM: {rccm}"))
 
     if is_duplicate:
         lines.append(sep_line)
@@ -311,66 +312,92 @@ def format_receipt_text(
 
     lines.append(sep_line)
 
-    # 2. Informations commande
+    # 2. Informations commande (Ticket, Table / Couverts, Caissier / Date)
     order_num = str(order_info.get("order_number", "-"))
-    date_str = order_info.get("date_str", "")
-    cashier = order_info.get("cashier_name", "KOUASSI A.")
-    table_label = str(order_info.get("table_label") or "Comptoir")
-    if table_label.upper().startswith("TABLE "):
-        table_label = table_label[6:]
+    date_str = str(order_info.get("date_str", ""))
+    cashier = str(order_info.get("cashier_name", "Caisse")).strip()
+    if "Caissière Principale" in cashier or "Caissiere Principale" in cashier:
+        cashier = "Caisse"
+    table_label = str(order_info.get("table_label") or "Comptoir").strip()
+    guests_count = order_info.get("guests_count")
 
-    lines.append(row("Ticket", order_num))
+    lines.append(row("Ticket :", order_num))
+
+    table_display = table_label if table_label.lower().startswith("table") else f"Table {table_label}"
+    guests_display = f"Couverts : {guests_count}" if guests_count else ""
+    lines.append(row(f"Table : {table_display}", guests_display))
+
+    cashier_display = f"Caissier : {cashier}"
     if date_str:
-        lines.append(row(f"Date: {date_str}", f"Caissier: {cashier}"))
+        if len(cashier_display) + len(date_str) + 1 > width:
+            # Format court de l'année (ex: 27/10/26 09:57) pour tenir sur 32 colonnes
+            short_date = date_str
+            if len(date_str) >= 16 and date_str[6:8] == "20":
+                short_date = date_str[:6] + date_str[8:]
+            if len(cashier_display) + len(short_date) + 1 <= width:
+                lines.append(row(cashier_display, short_date))
+            else:
+                lines.append(cashier_display)
+                lines.append(row("", date_str))
+        else:
+            lines.append(row(cashier_display, date_str))
     else:
-        lines.append(row(f"Table: {table_label}", f"Caissier: {cashier}"))
+        lines.append(cashier_display)
 
     lines.append(sep_line)
 
-    # 3. Détail des articles
-    lines.append(row("DESIGNATION", "MONTANT"))
-    lines.append(sep_line)
-
+    # 3. Détail des articles (sans en-tête DESIGNATION/MONTANT, épuré)
     for item in items:
         qty = item.get("quantity", 1)
         item_name = item.get("name", "Article")
-        total_price = f"{item.get('line_total_xof', 0):,} F".replace(",", " ")
-        lines.append(row(f"{qty} x {item_name}", total_price))
+        total_price = f"{item.get('line_total_xof', 0):,} FCFA".replace(",", " ")
+        prefix = f"{qty}x {item_name}"
+        if len(prefix) + len(total_price) + 1 <= width:
+            lines.append(row(prefix, total_price))
+        else:
+            max_len = width - len(total_price) - 1
+            if max_len > len(f"{qty}x "):
+                lines.append(row(prefix[:max_len], total_price))
+            else:
+                lines.append(prefix)
+                lines.append(row("", total_price))
 
-    lines.append(sep_line)
+    lines.append("")
 
-    # 4. Totaux & Taxes
-    lines.append(row("TOTAL A PAYER:", f"{totals.get('total_ttc_xof', 0):,} FCFA".replace(",", " ")))
+    # 4. Total TTC
+    total_val = f"{totals.get('total_ttc_xof', 0):,} FCFA".replace(",", " ")
+    lines.append(row("TOTAL TTC", total_val))
 
     vat_rate = totals.get("vat_rate", 0)
     vat_amt = totals.get("total_vat_xof", 0)
     if vat_amt > 0 and vat_rate > 0:
-        lines.append(row(f"Dont TVA ({vat_rate}%):", f"{vat_amt:,} FCFA".replace(",", " ")))
-
-    tendered = totals.get("tendered_xof")
-    if tendered:
-        lines.append(row("Espèces reçues:", f"{tendered:,} FCFA".replace(",", " ")))
-
-    change = totals.get("change_xof", 0)
-    if change > 0 or tendered:
-        lines.append(row("MONNAIE RENDUE:", f"{change:,} FCFA".replace(",", " ")))
+        lines.append(row(f"  dont TVA ({vat_rate}%):", f"{vat_amt:,} FCFA".replace(",", " ")))
 
     # 5. Règlements & Rendu
-    if payments:
-        lines.append(sep_line)
+    tendered = totals.get("tendered_xof")
+    change = totals.get("change_xof", 0)
+    if tendered and change > 0:
+        lines.append(row("Especes recues :", f"{tendered:,} FCFA".replace(",", " ")))
+        lines.append(row("Monnaie rendue :", f"{change:,} FCFA".replace(",", " ")))
+    elif payments:
         for p in payments:
             method = p.get("method", "PAIEMENT")
             provider = p.get("provider")
             method_label = get_payment_method_display_label(method, provider)
-            amount_str = f"{p.get('amount_xof', 0):,} F".replace(",", " ")
-            lines.append(row(method_label, amount_str))
+            method_label = method_label.replace("Paiement Espèces", "Reglement Especes").replace("Paiement Especes", "Reglement Especes")
+            amount_str = f"{p.get('amount_xof', 0):,} FCFA".replace(",", " ")
+            if len(method_label) + len(amount_str) + 1 <= width:
+                lines.append(row(method_label, amount_str))
+            else:
+                lines.append(method_label)
+                lines.append(amount_str.rjust(width))
 
-    # 6. Bloc fiscal DGI / FNE (uniquement si facture normalisée demandée ou présente)
+    # 6. Bloc fiscal DGI / FNE
     fne_number = (fne_info or {}).get("fne_number") or order_info.get("fne_number")
     fne_qr_url = (fne_info or {}).get("qr_url") or order_info.get("fne_qr_url")
     if fne_number or fne_qr_url:
         lines.append(sep_line)
-        lines.append(center("FACTURE NORMALISÉE DGI"))
+        lines.append(center("FACTURE NORMALISEE DGI"))
         if fne_number:
             lines.append(center(f"FNE ID : {fne_number}"))
         sig = (fne_info or {}).get("signature") or order_info.get("signature") or "DGI-CI-847291048"
@@ -381,13 +408,12 @@ def format_receipt_text(
 
     # 7. Pied de ticket
     lines.append(sep_line)
-    footer = restaurant_info.get("footer") or "Merci de votre visite · À très bientôt !"
-    for part in footer.split("·"):
-        part_clean = part.strip()
-        if part_clean:
-            for chunk in textwrap.wrap(part_clean, width=width):
-                lines.append(center(chunk))
-    lines.append(center("Logiciel Caisse MYK v1.0 · Osis Group"))
+    footer = restaurant_info.get("footer") or "Merci de votre visite et a tres bientot !"
+    footer_clean = footer.replace("·", "").replace("À", "A").replace("à", "a").strip()
+    if not footer_clean or "tres bientot" in footer_clean.lower():
+        footer_clean = "Merci de votre visite et a tres bientot !"
+    for chunk in textwrap.wrap(footer_clean, width=width):
+        lines.append(center(chunk))
 
     return "\n".join(lines)
 

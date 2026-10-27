@@ -31,6 +31,53 @@ class Status:
     width: int
 
 
+import unicodedata
+
+
+def sanitize_french_text(text: str) -> str:
+    """Remplace les accents et caractères typographiques par leurs équivalents ASCII 7 bits
+    pour éviter tout décodage fantôme en idéogrammes chinois (GBK/GB2312) sur imprimantes thermiques."""
+    replacements = {
+        "·": ".",
+        "’": "'",
+        "‘": "'",
+        "“": '"',
+        "”": '"',
+        "«": '"',
+        "»": '"',
+        "–": "-",
+        "—": "-",
+        "°": "o",
+        "€": "EUR",
+        "œ": "oe",
+        "Œ": "OE",
+        "æ": "ae",
+        "Æ": "AE",
+    }
+    for k, v in replacements.items():
+        text = text.replace(k, v)
+
+    nfd = unicodedata.normalize("NFD", text)
+    ascii_text = "".join(c for c in nfd if unicodedata.category(c) != "Mn")
+    return ascii_text.encode("ascii", errors="replace").decode("ascii")
+
+
+def _load_logo_bytes() -> bytes | None:
+    """Charge les octets de la séquence raster ESC/POS monochrome du logo Sylla Plus."""
+    from pathlib import Path
+    candidates = [
+        Path(__file__).resolve().parent / "assets" / "sylla_logo_escpos.bin",
+        Path(__file__).resolve().parent.parent.parent / "api" / "src" / "caisse" / "assets" / "sylla_logo_escpos.bin",
+    ]
+    for p in candidates:
+        if p.exists():
+            try:
+                return p.read_bytes()
+            except Exception:
+                pass
+    return None
+
+
 class EscposDriver:
     def __init__(self, settings: AgentSettings) -> None:
         self.settings = settings
@@ -68,13 +115,25 @@ class EscposDriver:
             printer.close()
 
     def _setup(self, printer: Escpos) -> None:
-        # 1. Annuler le mode caractères chinois (FS .) actif par défaut sur les Xprinter
+        # 1. Reset initialisation
+        try:
+            printer._raw(b"\x1b\x40")
+        except Exception:
+            pass
+
+        # 2. Annuler le mode caractères chinois (FS .) actif par défaut sur les Xprinter / POS-58
         try:
             printer._raw(b"\x1c\x2e")
         except Exception:
             pass
 
-        # 2. Configurer la page de codes occidentale
+        # 3. Sélectionner la table de caractères standard PC437
+        try:
+            printer._raw(b"\x1b\x74\x00")
+        except Exception:
+            pass
+
+        # 4. Configurer la page de codes occidentale
         try:
             printer.charcode(self.settings.printer_codepage)
         except Exception:
@@ -110,13 +169,30 @@ class EscposDriver:
                 printer._raw(self.settings.drawer_pulse_bytes)
             self._setup(printer)
 
+            # Injection du Logo raster si balise [LOGO] présente
+            if "[LOGO]" in content:
+                logo_bytes = _load_logo_bytes()
+                parts = content.split("[LOGO]", 1)
+                before_logo = parts[0]
+                content = parts[1]
+                if before_logo.strip():
+                    cleaned_before = sanitize_french_text(before_logo)
+                    printer.text(cleaned_before if cleaned_before.endswith("\n") else cleaned_before + "\n")
+                if logo_bytes:
+                    try:
+                        printer._raw(b"\x1b\x61\x01")  # centrer
+                        printer._raw(logo_bytes)
+                        printer._raw(b"\x1b\x61\x00\n")  # réaligner à gauche
+                    except Exception as exc:
+                        log.warning("échec d'envoi du logo raster : %s", exc)
+
             # Découpage si QR code FNE présent au milieu du ticket
             qr_match = re.search(r"\[QR_CODE:\s*([^\]]+)\]", content)
             if qr_match:
                 extracted_qr = qr_match.group(1).strip()
                 parts = re.split(r"\[QR_CODE:\s*[^\]]+\]", content, maxsplit=1)
-                before_qr = parts[0]
-                after_qr = parts[1] if len(parts) > 1 else ""
+                before_qr = sanitize_french_text(parts[0])
+                after_qr = sanitize_french_text(parts[1] if len(parts) > 1 else "")
 
                 printer.text(before_qr if before_qr.endswith("\n") else before_qr + "\n")
                 try:
@@ -126,7 +202,8 @@ class EscposDriver:
                 if after_qr.strip():
                     printer.text(after_qr if after_qr.endswith("\n") else after_qr + "\n")
             else:
-                printer.text(content if content.endswith("\n") else content + "\n")
+                cleaned_content = sanitize_french_text(content)
+                printer.text(cleaned_content if cleaned_content.endswith("\n") else cleaned_content + "\n")
                 if qr:
                     try:
                         printer.qr(qr, size=4, center=True)
