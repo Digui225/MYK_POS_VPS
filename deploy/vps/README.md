@@ -61,7 +61,7 @@ Coupure pendant la bascule : quelques secondes (redémarrage de l'API et migrati
 3. Certificat, pare-feu 80/443, LLMNR coupé :
    ```bash
    ssh debian@148.113.149.10
-   sudo bash /opt/Departement_Bi/OsisPos_Backend/code/deploy/vps/setup-server.sh adresse@mail
+   sudo bash /opt/Departement_Bi/OsisPos_Backend/code/deploy/vps/setup-server.sh [adresse@mail]
    ```
    Renouvellement automatique (`certbot.timer`) ; l'adresse reçoit les avis d'expiration.
 4. `api.env` (§4) : `CORS_ORIGINS` et `ALLOWED_HOSTS` avec le domaine.

@@ -2,8 +2,10 @@
 # Côté serveur, en root, UNE fois (relançable sans risque) : HTTPS pour caisse.osispos.com,
 # pare-feu 80/443, LLMNR coupé. Prérequis : l'enregistrement DNS A caisse → IP du serveur, et
 # un premier passage de update.sh (qui sert le défi Let's Encrypt en HTTP).
-#   sudo bash /opt/Departement_Bi/OsisPos_Backend/code/deploy/vps/setup-server.sh adresse@mail
+#   sudo bash /opt/Departement_Bi/OsisPos_Backend/code/deploy/vps/setup-server.sh [adresse@mail]
 # L'adresse reçoit les avis d'expiration de Let's Encrypt (renouvellement automatique sinon).
+# Sans adresse : compte sans mail, à compléter plus tard avec
+#   sudo certbot update_account --email adresse@mail --no-eff-email
 set -euo pipefail
 
 ROOT="${CAISSE_ROOT:-/opt/Departement_Bi/OsisPos_Backend}"
@@ -15,7 +17,6 @@ ok() { printf '    \033[32mOK\033[0m %s\n' "$*"; }
 die() { printf '\n\033[31mERREUR : %s\033[0m\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" = 0 ] || die "à lancer en root (sudo)"
-[ -n "$EMAIL" ] || die "usage : setup-server.sh adresse@mail"
 [ -f /etc/nginx/conf.d/osispos-domain.conf ] || die "lancer d'abord une mise à jour (update.sh) : Nginx ne sert pas encore $DOMAIN"
 
 info "DNS"
@@ -31,8 +32,14 @@ ok "80 et 443 ouverts ($(ufw status | grep -c ALLOW) règles)"
 info "Certificat Let's Encrypt"
 command -v certbot >/dev/null || { apt-get update -q && apt-get install -y -q certbot; }
 mkdir -p /var/www/certbot
+if [ -n "$EMAIL" ]; then
+    account=(--email "$EMAIL" --no-eff-email)
+else
+    account=(--register-unsafely-without-email)
+    echo "    sans adresse mail : à ajouter plus tard (certbot update_account, voir l'en-tête)"
+fi
 certbot certonly --webroot -w /var/www/certbot -d "$DOMAIN" \
-    --email "$EMAIL" --agree-tos --non-interactive --keep-until-expiring
+    "${account[@]}" --agree-tos --non-interactive --keep-until-expiring
 mkdir -p /etc/letsencrypt/renewal-hooks/deploy
 cat > /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh <<'EOF'
 #!/bin/sh
