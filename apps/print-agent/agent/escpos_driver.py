@@ -76,9 +76,25 @@ def _load_logo_bytes() -> bytes | None:
                 if data.endswith(b"\x1b2\n"):
                     data = data[:-1]
                 return data
-            except Exception:
-                pass
     return None
+
+
+def _build_escpos_qr(data: str, size: int = 4) -> bytes:
+    """Génère la séquence ESC/POS native GS ( k pour imprimer un QR Code 2D parfaitement centré."""
+    data_bytes = data.encode("ascii", errors="replace")
+    data_len = len(data_bytes) + 3
+    pL = data_len & 0xFF
+    pH = (data_len >> 8) & 0xFF
+
+    res = bytearray()
+    res.extend(b"\x1b\x61\x01")                                   # 1. Centrage ESC/POS
+    res.extend(b"\x1d\x28\x6b\x04\x00\x31\x41\x32\x00")          # 2. Modèle 2
+    res.extend(b"\x1d\x28\x6b\x03\x00\x31\x43" + bytes([size]))  # 3. Taille module (dots)
+    res.extend(b"\x1d\x28\x6b\x03\x00\x31\x45\x31")              # 4. Correction d'erreur Niveau M
+    res.extend(b"\x1d\x28\x6b" + bytes([pL, pH]) + b"\x31\x50\x30" + data_bytes)  # 5. Données
+    res.extend(b"\x1d\x28\x6b\x03\x00\x31\x51\x30")              # 6. Impression du symbole centré
+    res.extend(b"\x1b\x61\x00\n")                                 # 7. Retour alignement gauche
+    return bytes(res)
 
 
 class EscposDriver:
@@ -189,6 +205,14 @@ class EscposDriver:
                 # Le logo contient déjà "Sylla Plus" en grand : supprimer la ligne texte en doublon
                 content = re.sub(r"^\s*(?:RESTAURANT\s+)?SYLLA\s+PLUS\s*\n?", "", content, flags=re.MULTILINE | re.IGNORECASE)
 
+            # Équilibrage du pied de ticket si besoin
+            content = re.sub(
+                r"Merci de votre visite et a tres\s*\n\s*bientot\s*!",
+                "     Merci de votre visite      \n      et a tres bientot !       ",
+                content,
+                flags=re.IGNORECASE,
+            )
+
             # Découpage si QR code FNE présent au milieu du ticket
             qr_match = re.search(r"\[QR_CODE:\s*([^\]]+)\]", content)
             if qr_match:
@@ -199,9 +223,18 @@ class EscposDriver:
 
                 printer.text(before_qr if before_qr.endswith("\n") else before_qr + "\n")
                 try:
-                    printer.qr(extracted_qr, size=4, center=True)
+                    # Séquence native ESC/POS centrée matériellement
+                    printer._raw(_build_escpos_qr(extracted_qr, size=4))
                 except Exception as exc:
-                    log.error("échec d'impression du QR code : %s", exc)
+                    log.warning("échec QR natif, repli python-escpos : %s", exc)
+                    try:
+                        printer._raw(b"\x1b\x61\x01")
+                        printer.qr(extracted_qr, size=4, center=True, native=True)
+                        printer._raw(b"\x1b\x61\x00\n")
+                    except Exception as exc2:
+                        log.error("échec d'impression du QR code : %s", exc2)
+                        printer._raw(b"\x1b\x61\x00\n")
+
                 if after_qr.strip():
                     printer.text(after_qr if after_qr.endswith("\n") else after_qr + "\n")
             else:
@@ -209,9 +242,16 @@ class EscposDriver:
                 printer.text(cleaned_content if cleaned_content.endswith("\n") else cleaned_content + "\n")
                 if qr:
                     try:
-                        printer.qr(qr, size=4, center=True)
+                        printer._raw(_build_escpos_qr(qr, size=4))
                     except Exception as exc:
-                        log.error("échec d'impression du QR code : %s", exc)
+                        log.warning("échec QR natif, repli python-escpos : %s", exc)
+                        try:
+                            printer._raw(b"\x1b\x61\x01")
+                            printer.qr(qr, size=4, center=True, native=True)
+                            printer._raw(b"\x1b\x61\x00\n")
+                        except Exception as exc2:
+                            log.error("échec d'impression du QR code : %s", exc2)
+                            printer._raw(b"\x1b\x61\x00\n")
 
             if cut:
                 printer.cut()
