@@ -186,6 +186,9 @@ class EscposDriver:
                 except Exception as exc:
                     log.warning("échec d'envoi du logo raster : %s", exc)
 
+                # Le logo contient déjà "Sylla Plus" en grand : supprimer la ligne texte en doublon
+                content = re.sub(r"^\s*(?:RESTAURANT\s+)?SYLLA\s+PLUS\s*\n?", "", content, flags=re.MULTILINE | re.IGNORECASE)
+
             # Découpage si QR code FNE présent au milieu du ticket
             qr_match = re.search(r"\[QR_CODE:\s*([^\]]+)\]", content)
             if qr_match:
