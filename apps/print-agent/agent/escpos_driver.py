@@ -76,6 +76,8 @@ def _load_logo_bytes() -> bytes | None:
                 if data.endswith(b"\x1b2\n"):
                     data = data[:-1]
                 return data
+            except Exception:
+                pass
     return None
 
 
