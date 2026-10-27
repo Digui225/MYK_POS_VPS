@@ -169,22 +169,19 @@ class EscposDriver:
                 printer._raw(self.settings.drawer_pulse_bytes)
             self._setup(printer)
 
-            # Injection du Logo raster si balise [LOGO] présente
-            if "[LOGO]" in content:
-                logo_bytes = _load_logo_bytes()
-                parts = content.split("[LOGO]", 1)
-                before_logo = parts[0]
-                content = parts[1]
-                if before_logo.strip():
-                    cleaned_before = sanitize_french_text(before_logo)
-                    printer.text(cleaned_before if cleaned_before.endswith("\n") else cleaned_before + "\n")
-                if logo_bytes:
-                    try:
-                        printer._raw(b"\x1b\x61\x01")  # centrer
-                        printer._raw(logo_bytes)
-                        printer._raw(b"\x1b\x61\x00\n")  # réaligner à gauche
-                    except Exception as exc:
-                        log.warning("échec d'envoi du logo raster : %s", exc)
+            # Injection du Logo raster au début du ticket
+            has_logo_tag = "[LOGO]" in content
+            if has_logo_tag:
+                content = content.replace("[LOGO]\n", "").replace("[LOGO]", "")
+
+            logo_bytes = _load_logo_bytes()
+            if logo_bytes and ("Sylla Plus" in content or "Ticket :" in content or has_logo_tag):
+                try:
+                    printer._raw(b"\x1b\x61\x01")  # centrer
+                    printer._raw(logo_bytes)
+                    printer._raw(b"\x1b\x61\x00\n")  # réaligner à gauche
+                except Exception as exc:
+                    log.warning("échec d'envoi du logo raster : %s", exc)
 
             # Découpage si QR code FNE présent au milieu du ticket
             qr_match = re.search(r"\[QR_CODE:\s*([^\]]+)\]", content)

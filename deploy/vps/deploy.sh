@@ -4,7 +4,7 @@
 #
 #   deploy/vps/deploy.sh [--host root@IP] [--yes] [commit|branche]
 #
-# Par défaut : branche main, VPS de recette root@162.215.172.50. Refuse si la caisse est déjà
+# Par défaut : branche main, VPS de recette root@148.113.149.10. Refuse si la caisse est déjà
 # installée (utiliser redeploy.sh). Relançable après un échec : ce qui est fait est conservé.
 source "$(dirname "$0")/lib.sh"
 parse_args "$@"

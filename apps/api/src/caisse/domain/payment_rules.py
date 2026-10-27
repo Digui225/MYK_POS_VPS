@@ -274,8 +274,7 @@ def format_receipt_text(
             return f"{left_str} {right_str}"
         return f"{left_str}{' ' * spaces}{right_str}"
 
-    # 1. En-tête restaurant avec balise [LOGO]
-    lines.append("[LOGO]")
+    # 1. En-tête restaurant
 
     raw_name = restaurant_info.get("name") or "Sylla Plus"
     display_name = raw_name.strip()
@@ -345,16 +344,50 @@ def format_receipt_text(
     # 3. Détail des articles (sans en-tête DESIGNATION/MONTANT, nom complet préservé)
     for item in items:
         qty = item.get("quantity", 1)
-        item_name = item.get("name", "Article")
+        raw_name = str(item.get("name", "Article"))
+        clean_name = raw_name.replace("œ", "oe").replace("Œ", "OE").replace("æ", "ae").replace("Æ", "AE")
         total_price = f"{item.get('line_total_xof', 0):,} FCFA".replace(",", " ")
-        prefix = f"{qty}x {item_name}"
+        prefix = f"{qty}x {clean_name}"
         if len(prefix) + len(total_price) + 1 <= width:
             lines.append(row(prefix, total_price))
         else:
-            # Si le nom complet dépasse 32 colonnes avec le prix, on affiche le nom complet
-            # puis le montant aligné à droite sur la ligne suivante sans jamais tronquer
-            lines.append(prefix)
-            lines.append(total_price.rjust(width))
+            # Recherche d'un point de coupure propre (ex: après ' + ' ou sur le dernier mot)
+            split_idx = -1
+            if " + " in prefix:
+                plus_pos = prefix.find(" + ") + 3
+                if plus_pos <= width:
+                    split_idx = plus_pos
+
+            if split_idx == -1:
+                space_candidates = [i for i, c in enumerate(prefix) if c == " " and i >= len(f"{qty}x ")]
+                valid_spaces = [i for i in space_candidates if i < width]
+                if valid_spaces:
+                    best_space = None
+                    for sp in reversed(valid_spaces):
+                        remainder_len = len(prefix[sp + 1:])
+                        if remainder_len + len(total_price) + 3 <= width:
+                            best_space = sp
+                            break
+                    split_idx = (best_space + 1) if best_space is not None else (valid_spaces[-1] + 1)
+                else:
+                    split_idx = min(len(prefix), width - 1)
+
+            part1 = prefix[:split_idx].rstrip()
+            part2 = prefix[split_idx:].lstrip()
+
+            if part1:
+                lines.append(part1)
+
+            indented_part2 = f"  {part2}" if part2 else ""
+            if len(indented_part2) + len(total_price) + 1 <= width:
+                lines.append(row(indented_part2, total_price))
+            else:
+                max_p2 = width - len(total_price) - 1
+                if max_p2 > 2:
+                    lines.append(row(indented_part2[:max_p2], total_price))
+                else:
+                    lines.append(indented_part2)
+                    lines.append(total_price.rjust(width))
 
     lines.append("")
 
@@ -404,10 +437,13 @@ def format_receipt_text(
     lines.append(sep_line)
     footer = restaurant_info.get("footer") or "Merci de votre visite et a tres bientot !"
     footer_clean = footer.replace("·", "").replace("À", "A").replace("à", "a").strip()
-    if not footer_clean or "tres bientot" in footer_clean.lower():
-        footer_clean = "Merci de votre visite et a tres bientot !"
-    for chunk in textwrap.wrap(footer_clean, width=width):
-        lines.append(center(chunk))
+    footer_lower = footer_clean.lower()
+    if "visite" in footer_lower and "bientot" in footer_lower:
+        lines.append(center("Merci de votre visite"))
+        lines.append(center("et a tres bientot !"))
+    else:
+        for chunk in textwrap.wrap(footer_clean, width=width):
+            lines.append(center(chunk))
 
     return "\n".join(lines)
 
@@ -444,7 +480,6 @@ def format_z_report_text(
         return f"{v:,} F".replace(",", " ")
 
     # 1. En-tête restaurant
-    lines.append("[LOGO]")
     name = (restaurant_info.get("name") or "").strip().upper()
     if name and name not in ("SYLLA PLUS", "RESTAURANT MYK", "CHEZ SYLLA PLUS"):
         lines.append(center(name))

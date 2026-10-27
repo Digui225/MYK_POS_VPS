@@ -173,5 +173,53 @@ def test_format_z_report_text():
     assert "TOTAL VENTES TTC" in txt
     assert "93 300 F" in txt
     assert "ECART DE CAISSE" in txt
+    assert "[LOGO]" not in txt
+
+
+def test_format_receipt_text_long_items_and_clean_layout():
+    text = format_receipt_text(
+        restaurant_info={
+            "name": "Sylla Plus",
+            "address": "Abidjan Plateau",
+            "phone": "0748735573",
+            "ncc": "1304777N",
+            "rccm": "CI-ABJ-2023-B-00000",
+            "footer": "Merci de votre visite et a tres bientot !",
+        },
+        order_info={
+            "order_number": "2026-10-27-0001",
+            "cashier_name": "Prisca",
+            "table_label": "T1",
+            "date_str": "27/10/26 11:45",
+        },
+        items=[
+            {"name": "Sauce Claire + Bœuf", "quantity": 1, "line_total_xof": 3500},
+            {"name": "Foutou djougble + Bœuf", "quantity": 1, "line_total_xof": 3500},
+            {"name": "Coca", "quantity": 1, "line_total_xof": 1000},
+        ],
+        payments=[{"method": "CASH", "amount_xof": 8000}],
+        totals={"total_ttc_xof": 8000, "total_vat_xof": 0},
+    )
+
+    # 1. Pas de [LOGO] en texte brut
+    assert "[LOGO]" not in text
+
+    # 2. Correction de la ligature œ en oe
+    assert "Bœuf" not in text
+    assert "Boeuf" in text
+
+    # 3. Wrapping propre des articles longs (la protéine + le prix sont sur la même 2e ligne)
+    assert "1x Sauce Claire +" in text
+    assert "  Boeuf               3 500 FCFA" in text
+    assert "1x Foutou djougble +" in text
+
+    # 4. Article court sur une seule ligne
+    assert "1x Coca               1 000 FCFA" in text
+
+    # 5. Pied de ticket équilibré
+    assert "Merci de votre visite" in text
+    assert "et a tres bientot !" in text
+    assert "visite et a tres\n" not in text
+
 
 

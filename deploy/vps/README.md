@@ -1,6 +1,6 @@
 # Déploiement de recette sur le VPS partagé — MYK_POS_VPS
 
-VPS `162.215.172.50` (CentOS 7, partagé avec ~20 projets) · branche `main` de ce dépôt ·
+VPS `148.113.149.10` (CentOS 7, partagé avec ~20 projets) · branche `main` de ce dépôt ·
 **environnement de RECETTE** : données fictives, HTTP sans chiffrement, FNE simulée.
 
 Ce guide remplace, pour ce dépôt, `projet_caisse_MYK/05-DEPLOIEMENT-VPS.md` (écrit pour
@@ -12,7 +12,7 @@ guide-là déjà faites** (inventaire, dossiers `/opt/caisse/{backend,front-dist
 | | Guide 05 (`Caisse_MYK_backend`) | Ici |
 |---|---|---|
 | Code déployé | dossier `caisse-backend`, branche `digui_remote` | `MYK_POS_VPS`, branche `main` |
-| Impression | aucune sur le VPS (`PRINT_AGENT_URL` injoignable) | l'agent du terminal du restaurant vient chercher les tickets sur `http://162.215.172.50:8083` |
+| Impression | aucune sur le VPS (`PRINT_AGENT_URL` injoignable) | l'agent du terminal du restaurant vient chercher les tickets sur `http://148.113.149.10:8083` |
 | Nouveauté | — | création du **terminal d'impression** (jeton de l'agent) et installation de l'agent sur le Windows de la caisse |
 | Largeur des tickets | 48 (80 mm) | `PRINTER_WIDTH=32` (Xprinter 58 mm) |
 | SELinux | §7.1 à faire si `Enforcing` | **désactivé** sur ce VPS : rien à faire |
@@ -23,7 +23,7 @@ guide-là déjà faites** (inventaire, dossiers `/opt/caisse/{backend,front-dist
   `systemctl restart nginx` (toujours `nginx -t && systemctl reload nginx`).
 - Ne toucher à aucun autre projet. Ports caisse : **8083** (Nginx, seul port public) et
   **8011** (API, `127.0.0.1` seulement) ; la base n'a aucun port sur l'hôte.
-- Travailler dans `tmux` et se connecter avec `ssh -o ServerAliveInterval=30 root@162.215.172.50`
+- Travailler dans `tmux` et se connecter avec `ssh -o ServerAliveInterval=30 root@148.113.149.10`
   (coupures SSH constatées).
 - Une modification de `deploy/vps/` se fait **dans le dépôt**, est commitée, puis redéployée.
 
@@ -75,9 +75,9 @@ remplace par ce dépôt. Seul le contenu commité part (`git archive`), sans `.e
 cd ~/Projets_thio_isaac/MYK_POS_VPS
 git status                                   # rien en attente sur main
 
-ssh root@162.215.172.50 "rm -rf /opt/caisse/backend && mkdir -p /opt/caisse/backend"
-git archive --format=tar main | ssh root@162.215.172.50 "tar -x -C /opt/caisse/backend"
-git rev-parse --short main | ssh root@162.215.172.50 "cat > /opt/caisse/backend/VERSION"
+ssh root@148.113.149.10 "rm -rf /opt/caisse/backend && mkdir -p /opt/caisse/backend"
+git archive --format=tar main | ssh root@148.113.149.10 "tar -x -C /opt/caisse/backend"
+git rev-parse --short main | ssh root@148.113.149.10 "cat > /opt/caisse/backend/VERSION"
 ```
 
 ## 2. Secrets : `db.env` et `api.env`
@@ -165,11 +165,11 @@ curl -s http://127.0.0.1:8011/health/ready     # "database":"ok" ; agent_online:
 docker ps --format 'table {{.Names}}\t{{.Status}}'   # les autres projets toujours Up
 
 # Depuis ta machine
-curl -s http://162.215.172.50:8083/api/v1/health                               # {"status":"ok"}
-curl -s --max-time 5 http://162.215.172.50:8011/health || echo "OK : 8011 fermé depuis l'extérieur"
+curl -s http://148.113.149.10:8083/api/v1/health                               # {"status":"ok"}
+curl -s --max-time 5 http://148.113.149.10:8011/health || echo "OK : 8011 fermé depuis l'extérieur"
 ```
 
-Swagger : `http://162.215.172.50:8083/docs`, **Authorize** avec le `access_token` de
+Swagger : `http://148.113.149.10:8083/docs`, **Authorize** avec le `access_token` de
 `POST /api/v1/auth/login` `{"pin": "…", "device_id": "poste-test"}`.
 
 ## 7. Agent d'impression sur le terminal Windows
@@ -186,7 +186,7 @@ Sur le terminal : Python 3.12 **pour tous les utilisateurs**, dézipper dans `C:
 dans PowerShell administrateur `windows\install.ps1` (deux passages). Dans `.env` :
 
 ```
-API_URL=http://162.215.172.50:8083
+API_URL=http://148.113.149.10:8083
 TERMINAL_TOKEN=pt_…              # celui du §4
 PRINTER_NAME=…                   # nom affiché par le premier passage d'install.ps1
 ```
@@ -225,9 +225,9 @@ Avec le script : `deploy/vps/redeploy.sh` (voir plus haut). À la main :
 ```bash
 # Sur ta machine
 cd ~/Projets_thio_isaac/MYK_POS_VPS && git status
-ssh root@162.215.172.50 "rm -rf /opt/caisse/backend && mkdir -p /opt/caisse/backend"
-git archive --format=tar main | ssh root@162.215.172.50 "tar -x -C /opt/caisse/backend"
-git rev-parse --short main | ssh root@162.215.172.50 "cat > /opt/caisse/backend/VERSION"
+ssh root@148.113.149.10 "rm -rf /opt/caisse/backend && mkdir -p /opt/caisse/backend"
+git archive --format=tar main | ssh root@148.113.149.10 "tar -x -C /opt/caisse/backend"
+git rev-parse --short main | ssh root@148.113.149.10 "cat > /opt/caisse/backend/VERSION"
 
 # Sur le VPS
 bash /opt/caisse/backend/deploy/vps/backup.sh
@@ -246,7 +246,7 @@ Le reste (secrets, CORS, 502, SELinux…) : guide 05, §13.
 
 | Symptôme | Cause probable | Solution |
 |---|---|---|
-| `agent_online: false` | Agent arrêté, mauvais `API_URL`, terminal sans Internet | `logs\agent.log` sur le terminal ; depuis le terminal, ouvrir `http://162.215.172.50:8083/api/v1/health` dans Chrome |
+| `agent_online: false` | Agent arrêté, mauvais `API_URL`, terminal sans Internet | `logs\agent.log` sur le terminal ; depuis le terminal, ouvrir `http://148.113.149.10:8083/api/v1/health` dans Chrome |
 | Journal de l'agent : « jeton de terminal refusé » | Jeton mal copié ou révoqué | Recréer un terminal (§4), mettre à jour `.env`, redémarrer la tâche |
 | Tickets restés `QUEUED`, agent en ligne | L'agent rapporte l'imprimante hors ligne (`printer_online: false`) | Windows : décocher « Utiliser l'imprimante hors connexion », papier, capot |
 | Tickets `FAILED` « toujours dans la file Windows » | Imprimante éteinte, câble USB, mauvais `PRINTER_NAME` | Vérifier dans Paramètres > Imprimantes, puis rejouer depuis la caisse |

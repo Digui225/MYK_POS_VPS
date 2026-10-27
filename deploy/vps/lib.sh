@@ -1,7 +1,7 @@
 # Commun à deploy.sh et redeploy.sh, côté poste de développement (sourcé, pas exécuté).
 set -euo pipefail
 
-HOST="${CAISSE_HOST:-root@162.215.172.50}"
+HOST="${CAISSE_HOST:-root@148.113.149.10}"
 REMOTE_ROOT="${CAISSE_ROOT:-/opt/caisse}"
 REPO="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 REF=main

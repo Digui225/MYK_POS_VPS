@@ -1,4 +1,4 @@
-# Caisse MYK — recette sur le VPS partagé (162.215.172.50). Guide : deploy/vps/README.md
+# Caisse MYK — recette sur le VPS partagé (148.113.149.10). Guide : deploy/vps/README.md
 # Projet isolé des autres applis du VPS : propre base, propre réseau, propre volume, ports sur 127.0.0.1
 # (Docker contourne firewalld : un port publié sur 0.0.0.0 serait ouvert à Internet).
 # Les secrets restent hors du dépôt, dans /opt/caisse (db.env, api.env), et survivent aux mises à jour du code.
