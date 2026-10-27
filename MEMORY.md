@@ -31,6 +31,7 @@ Notes de reprise : ce qui a été analysé et décidé. À tenir à jour à chaq
 - `restore_real_data.sql` (`TRUNCATE` des ventes) : refuse de tourner s'il y a des paiements ou des FNE, sauf confirmation explicite.
 - Déploiement : sauvegarde avant migration, contrôle de santé, retour arrière, plus de `seed --demo` ni d'échec Nginx masqué ; HTTPS ; sauvegarde nocturne (timer systemd) ; `sw.js` jamais en cache.
 - `api.env.example` aux noms réellement lus par `core/config.py` (l'ancien, repris de `main`, avait des noms ignorés).
+- `api.env` du serveur corrigé le 27/10/2026 à 16 h 11 (sauvegarde `api.env.bak-20261027-161126`) : 10 noms de l'ancien backend, ignorés, mis en commentaire ; bons noms ajoutés avec les valeurs déjà en vigueur. Le blocage après PIN erronés est de **15 min** (défaut du code), pas les 30 s voulues par l'ancien `PIN_LOCK_SECONDS` : à trancher.
 
 ## Questions ouvertes
 
