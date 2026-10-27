@@ -1,17 +1,24 @@
 name: Deploy Backend (CI/CD)
 
+# Tout push sur main part en PRODUCTION (148.113.149.10) si les tests passent.
+# Mise en place côté serveur : deploy/vps/update.sh (sauvegarde, santé, retour arrière).
 on:
   push:
     branches:
       - main
   workflow_dispatch:
 
+# Jamais deux déploiements en même temps ; un déploiement commencé va jusqu'au bout.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
   test:
     name:  Tests Backend
     runs-on: ubuntu-latest
 
-    # Service PostgreSQL requis par la suite de tests
+    # Service PostgreSQL requis par la suite de tests (adresse par défaut de tests/conftest.py)
     services:
       postgres:
         image: postgres:16-alpine
@@ -42,9 +49,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e "./apps/api[dev]"
 
-      - name:  Lancer les tests unitaires
+      - name:  Lancer tous les tests (unitaires, intégration, e2e)
+        working-directory: apps/api
         run: |
-          pytest apps/api/tests/unit -q
+          pytest -q
 
   deploy:
     name:  Déploiement VPS
@@ -54,7 +62,7 @@ jobs:
       - name:  Récupérer le code
         uses: actions/checkout@v4
 
-      - name:  Déployer sur le VPS
+      - name:  Déposer le code et le mettre en service
         env:
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           RAW_HOST: ${{ secrets.VPS_HOST }}
@@ -63,38 +71,20 @@ jobs:
           # Nettoyage automatique de l'IP (supprime espaces, retours à la ligne ou :port)
           HOST=$(echo "$RAW_HOST" | sed 's/:.*//' | tr -d '[:space:]')
           USER=$(echo "$RAW_USER" | tr -d '[:space:]')
+          SUDO=""; [ "$USER" = root ] || SUDO="sudo"
+          ROOT=/opt/Departement_Bi/OsisPos_Backend
 
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
+          SSH="ssh -i $HOME/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new $USER@$HOST"
 
-          # Envoyer le code source compressé vers le VPS
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new "$USER@$HOST" "mkdir -p /opt/Departement_Bi/OsisPos_Backend/code"
-          tar -czf - --exclude='.git' --exclude='__pycache__' --exclude='.venv' . | ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new "$USER@$HOST" "tar -xzf - -C /opt/Departement_Bi/OsisPos_Backend/code"
+          # Code dans code.new : la version en service n'est pas touchée avant la bascule
+          echo "${GITHUB_SHA::7}" > VERSION
+          $SSH "$SUDO rm -rf $ROOT/code.new && $SUDO mkdir -p $ROOT/code.new"
+          tar -czf - --exclude='.git' --exclude='__pycache__' --exclude='.venv' . \
+            | $SSH "$SUDO tar -xzf - --no-same-owner -C $ROOT/code.new"
 
-          # Démarrer Docker Compose et exécuter les migrations
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new "$USER@$HOST" "bash -s" << 'EOF'
-            set -e
-            export CAISSE_ROOT=/opt/Departement_Bi/OsisPos_Backend
-            cd /opt/Departement_Bi/OsisPos_Backend/code/deploy/vps
-
-            # Rebuild et relance des conteneurs
-            docker compose -f docker-compose.yml up -d --build
-
-            # Attendre que les conteneurs soient prêts
-            echo "Attente du démarrage de l'API..."
-            sleep 5
-
-            # Appliquer les migrations de la base
-            docker compose -f docker-compose.yml exec -T caisse-api alembic upgrade head
-
-            # Initialiser les données si la base est encore vide (seed démo)
-            docker compose -f docker-compose.yml exec -T caisse-api python -m caisse.cli seed --demo || true
-
-            # Mettre à jour la configuration Nginx hôte (osispos.conf) et supprimer le doublon caisse.conf
-            echo "Mise à jour de la configuration Nginx..."
-            rm -f /etc/nginx/conf.d/caisse.conf
-            cp caisse.conf /etc/nginx/conf.d/osispos.conf
-            nginx -t && systemctl reload nginx || true
-          EOF
+          # Sauvegarde, image, bascule, santé (retour arrière sinon), Nginx, sauvegarde nocturne
+          $SSH "$SUDO bash $ROOT/code.new/deploy/vps/update.sh"

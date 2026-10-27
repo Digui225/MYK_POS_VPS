@@ -1,7 +1,20 @@
 -- ====================================================================
 -- Caisse MYK - Importation officielle du catalogue et stocks réels
 -- ====================================================================
+-- EFFACE les commandes, paiements et sessions : réservé à une base de démonstration. JAMAIS
+-- après la première vraie vente (données comptables et fiscales).
+-- S'il y a des paiements ou des FNE, refuse de tourner sans, dans la même session psql :
+--   SET osispos.confirm_reset = 'donnees-de-test';
 BEGIN;
+
+DO $$
+BEGIN
+    IF (EXISTS (SELECT 1 FROM payments) OR EXISTS (SELECT 1 FROM fne_documents))
+       AND coalesce(current_setting('osispos.confirm_reset', true), '') <> 'donnees-de-test' THEN
+        RAISE EXCEPTION 'restore_real_data.sql : % paiement(s), % FNE en base. Seulement si ce sont des données de test : SET osispos.confirm_reset = ''donnees-de-test''; puis relancer',
+            (SELECT count(*) FROM payments), (SELECT count(*) FROM fne_documents);
+    END IF;
+END $$;
 
 TRUNCATE TABLE 
     order_items,
