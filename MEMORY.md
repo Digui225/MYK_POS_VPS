@@ -29,7 +29,7 @@ Notes de reprise : ce qui a été analysé et décidé. À tenir à jour à chaq
 - `get_current_user` acceptait le jeton de rafraîchissement (12 h) et le jeton d'override comme jeton d'accès.
 - Renvoi FNE de fond de l'API : reprenait aussi les `PENDING` (en cours d'envoi par l'encaissement) → risque de **deux factures DGI** ; et bloquait la boucle d'événements pendant les appels HTTP.
 - `restore_real_data.sql` (`TRUNCATE` des ventes) : refuse de tourner s'il y a des paiements ou des FNE, sauf confirmation explicite.
-- Déploiement : sauvegarde avant migration, contrôle de santé, retour arrière, plus de `seed --demo` ni d'échec Nginx masqué ; HTTPS ; sauvegarde nocturne ; `sw.js` jamais en cache.
+- Déploiement : sauvegarde avant migration, contrôle de santé, retour arrière, plus de `seed --demo` ni d'échec Nginx masqué ; HTTPS ; sauvegarde nocturne (timer systemd) ; `sw.js` jamais en cache.
 - `api.env.example` aux noms réellement lus par `core/config.py` (l'ancien, repris de `main`, avait des noms ignorés).
 
 ## Questions ouvertes

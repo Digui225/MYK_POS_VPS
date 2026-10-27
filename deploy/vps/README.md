@@ -44,7 +44,7 @@ deploy/vps/deploy.sh            # HEAD ; ou un commit : deploy/vps/deploy.sh 317
    tourne alors sur le nouveau schéma, à vérifier ;
 6. installe Nginx (HTTPS si le certificat existe), `nginx -t` puis `reload` ; ancienne
    configuration remise si le test échoue ;
-7. installe la sauvegarde nocturne (`/etc/cron.d/osispos-backup`).
+7. installe la sauvegarde nocturne (`osispos-backup.timer` systemd ; `systemctl list-timers`).
 
 Coupure pendant la bascule : quelques secondes (redémarrage de l'API et migrations). Déployer
 **hors service** (le restaurant est fermé le week-end).

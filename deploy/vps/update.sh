@@ -85,8 +85,10 @@ fi
 ok "API en bonne santé : $(version_of "$CUR")"
 
 info "Nginx"
-mkdir -p /var/www/certbot "$ROOT/nginx.prev" /etc/nginx/snippets
-cp -a "$NGINX_SNIPPET" "$NGINX_CONF_DIR"/osispos*.conf "$ROOT/nginx.prev/" 2>/dev/null || true
+rm -rf "$ROOT/nginx.prev"
+mkdir -p /var/www/certbot "$ROOT/nginx.prev/conf.d" "$ROOT/nginx.prev/snippets" /etc/nginx/snippets
+cp -a "$NGINX_CONF_DIR"/osispos*.conf "$ROOT/nginx.prev/conf.d/" 2>/dev/null || true
+cp -a "$NGINX_SNIPPET" "$ROOT/nginx.prev/snippets/" 2>/dev/null || true
 src="$CUR/deploy/vps/nginx"
 cp "$src/osispos-locations.conf" "$NGINX_SNIPPET"
 cp "$src/osispos.conf" "$NGINX_CONF_DIR/osispos.conf"
@@ -104,16 +106,38 @@ if nginx_test=$(nginx -t 2>&1); then
 else
     echo "$nginx_test" | sed 's/^/    | /'
     rm -f "$NGINX_CONF_DIR"/osispos*.conf
-    cp -a "$ROOT/nginx.prev/"osispos*.conf "$NGINX_CONF_DIR/" 2>/dev/null || true
-    cp -a "$ROOT/nginx.prev/osispos-locations.conf" "$NGINX_SNIPPET" 2>/dev/null || true
+    cp -a "$ROOT/nginx.prev/conf.d/." "$NGINX_CONF_DIR/"
+    cp -a "$ROOT/nginx.prev/snippets/." /etc/nginx/snippets/
     die "nginx -t en échec : ancienne configuration remise (l'API, elle, est à jour)"
 fi
 
 info "Sauvegarde nocturne"
-cat > /etc/cron.d/osispos-backup <<EOF
-# OsisPos : dump de la base chaque nuit (deploy/vps/backup.sh), géré par update.sh
-0 2 * * * root CAISSE_ROOT=$ROOT bash $CUR/deploy/vps/backup.sh >> $ROOT/backups/backup.log 2>&1
+# Timer systemd plutôt que cron : présent sur toute Debian, rattrape une nuit manquée (Persistent)
+cat > /etc/systemd/system/osispos-backup.service <<EOF
+# OsisPos : dump de la base (deploy/vps/backup.sh), géré par update.sh
+[Unit]
+Description=OsisPos - sauvegarde de la base caisse
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+Environment=CAISSE_ROOT=$ROOT
+ExecStart=/bin/sh -c 'bash $CUR/deploy/vps/backup.sh >> $ROOT/backups/backup.log 2>&1'
 EOF
-ok "/etc/cron.d/osispos-backup (2 h, conservation 14 jours)"
+cat > /etc/systemd/system/osispos-backup.timer <<EOF
+[Unit]
+Description=OsisPos - sauvegarde nocturne de la base caisse
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+systemctl daemon-reload
+systemctl enable --now osispos-backup.timer >/dev/null 2>&1
+ok "osispos-backup.timer (2 h, conservation 14 jours) : systemctl list-timers osispos-backup.timer"
 
 info "Terminé : $(version_of "$CUR") en service (précédente : $(version_of "$PREV"), dans code.prev)"
