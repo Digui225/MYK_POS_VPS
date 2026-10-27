@@ -45,6 +45,8 @@ Notes de reprise : ce qui a été analysé et décidé. À tenir à jour à chaq
 
 ## Production (`148.113.149.10`)
 
+**Déployé le 27/10/2026 à 16 h 35 : `prod-aziz` @ `053694a`** par `deploy/vps/deploy.sh` (sauvegarde `caisse-20261027-163508.dump`, ancien code dans `code.prev`). Vérifié : front et API sur `:8083`, `/health/ready` ok avec agent d'impression en ligne, WebSocket sans jeton accepté et jeton invalide refusé, `sw.js` sans cache, `osispos-backup.timer` actif. Reste : DNS `gestion`, puis `setup-server.sh` (HTTPS).
+
 Guide : [`deploy/vps/README.md`](deploy/vps/README.md). État relevé le 27/10/2026 (avant ces changements) : code `aziz` @ `737addc` déployé par le workflow GitHub dans `/opt/Departement_Bi/OsisPos_Backend/code` ; `api.env` avec `CORS_ORIGINS=*`, `ALLOWED_HOSTS=*`, `ENABLE_DOCS=true`, `FNE_PROVIDER=mock` ; ufw : 22 et 8083 ; pas de certificat ni de cron de sauvegarde ; SSH par mot de passe actif ; comptes `root`, `debian`, `departement_ia_osis` (sudo, sans clé).
 
 **Réseau du bureau (Wi-Fi OSIS GROUP)** : une plage d'adresses Cloudflare (104.16.x–104.23.x : `cdn.jsdelivr.net`, `unpkg.com`, `registry.npmjs.org`, Docker Hub) ne répond pas au-delà de la connexion TCP. Passer par PyPI, `fastly.jsdelivr.net` ou `registry.npmmirror.com`.
