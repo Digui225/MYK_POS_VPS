@@ -98,7 +98,9 @@ def get_fne_provider() -> Any:
     settings = get_settings()
     if settings.fne_provider == "api":
         return HttpFneProvider(settings.fne_api_base_url, settings.fne_api_key)
-    return MockFneProvider()
+    if settings.fne_provider == "mock":
+        return MockFneProvider()
+    return None  # manual : aucun envoi, le document attend une saisie manuelle (MANUAL)
 
 
 class RequestContext:

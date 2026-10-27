@@ -131,6 +131,26 @@ def get_for_order(db: Session, order_id: str) -> FneDocument:
     return doc
 
 
+def receipt_fne_info(doc: FneDocument | None) -> dict[str, Any] | None:
+    """Bloc fiscal du ticket de caisse : seulement pour une FNE de vente CERTIFIÉE, avec ce que la
+    DGI a renvoyé (numéro `reference`, lien de vérification `token` pour le QR). Une FNE en file,
+    incertaine ou refusée n'y figure pas : un ticket ne doit jamais paraître certifié à tort.
+    Le QR n'est imprimé que si le lien est une adresse web (certification manuelle sans lien :
+    numéro seul)."""
+    if doc is None or doc.type != FneDocumentType.FNE or doc.status != FneStatus.CERTIFIED:
+        return None
+    number = (doc.external_number or "").strip()
+    if not number:
+        return None
+    token = (doc.qr_payload or "").strip()
+    return {
+        "fne_number": number,
+        "qr_url": token if token.startswith(("https://", "http://")) else None,
+        # Certifiée par le simulateur (FNE_PROVIDER=mock) : numéro au format réel, sans valeur
+        "simulated": token.startswith("mock://"),
+    }
+
+
 def get_duplicate(db: Session, document_id: str) -> FneDocument:
     doc = get_document(db, document_id)
     if doc.status != FneStatus.CERTIFIED:

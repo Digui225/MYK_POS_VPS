@@ -32,13 +32,14 @@ Notes de reprise : ce qui a été analysé et décidé. À tenir à jour à chaq
 - `restore_real_data.sql` (`TRUNCATE` des ventes) : refuse de tourner s'il y a des paiements ou des FNE, sauf confirmation explicite.
 - Déploiement : sauvegarde avant migration, contrôle de santé, retour arrière, plus de `seed --demo` ni d'échec Nginx masqué ; HTTPS ; sauvegarde nocturne (timer systemd) ; `sw.js` jamais en cache.
 - `api.env.example` aux noms réellement lus par `core/config.py` (l'ancien, repris de `main`, avait des noms ignorés).
+- Ticket : numéro « FNE-<commande> », QR vers une adresse devinée et « Signature DGI : DGI-CI-847291048 » codée en dur s'imprimaient même pour une FNE en file ou refusée → bloc fiscal seulement pour une FNE de vente certifiée, avec le numéro et le lien (`token`) renvoyés par la DGI ; FNE simulée marquée « SANS VALEUR FISCALE ». `FNE_PROVIDER=manual` utilisait le simulateur → aucun envoi.
 - `api.env` du serveur corrigé le 27/10/2026 à 16 h 11 (sauvegarde `api.env.bak-20261027-161126`) : 10 noms de l'ancien backend, ignorés, mis en commentaire ; bons noms ajoutés avec les valeurs déjà en vigueur. Puis `LOCKOUT_DURATION_MINUTES=5`.
 
 ## Questions ouvertes
 
 - [ ] **Front** : ouvrir le WebSocket avec `?token=<access_token>` (fonction `OB()` du bundle), puis `WS_REQUIRE_AUTH=true`.
 - [ ] **Avant la première vraie vente** : vider les données de test (14 commandes au 27/10), `ENABLE_DOCS=false`, comptes réels (PIN), copie des sauvegardes hors du serveur, SSH par clé seulement (README §7).
-- [ ] **FNE production** : clé reçue, passage à planifier (`FNE_PROVIDER=api`, vente de contrôle).
+- [ ] **FNE production** (27/10/2026) : clé reçue ; URL `https://www.services.fne.dgi.gouv.ci/ws` ; établissement `RESTAURANT CHEZ SYLLA PLUS` ; stickers disponibles. Points de vente de l'espace FNE : « point de vente 1 » (Application FNE) et « Service Facturation » (TPE, avec n° de série) : **lequel pour la caisse, ou un nouveau ?** Reste : essais contre l'environnement de test DGI avec ce code (B2C espèces, mobile money, B2B avec NCC, avoir), puis bascule (FNE de test vidées d'abord, vente de contrôle).
 - [ ] À examiner : `python-jose` (non maintenu, alertes de sécurité) → `PyJWT` ; `Base.metadata.create_all` au démarrage (contourne Alembic) ; routes `async` qui font des appels base synchrones (bloquent la boucle) ; `/reports/yield` de `main` contre `/reports/protein-yields` d'ici (même besoin ?) ; docs `00`/`01`/`04` décrivent encore l'architecture locale (PMS hôtelier, `infra_shared`).
 - [ ] Terminal : **Windows 10 sans mises à jour depuis le 14/10/2025** → Windows 11 si compatible, ou ESU.
 - [ ] Imprimante : **Xprinter 58 mm** (modèle exact, coupe-papier ?), tiroir sur l'imprimante (RJ11) ?

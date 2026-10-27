@@ -420,17 +420,18 @@ def format_receipt_text(
                 lines.append(method_label)
                 lines.append(amount_str.rjust(width))
 
-    # 6. Bloc fiscal DGI / FNE
-    fne_number = (fne_info or {}).get("fne_number") or order_info.get("fne_number")
-    fne_qr_url = (fne_info or {}).get("qr_url") or order_info.get("fne_qr_url")
-    if fne_number or fne_qr_url:
+    # 6. Bloc fiscal DGI / FNE : uniquement ce que la DGI a renvoyé pour une FNE certifiée
+    # (fne_service.receipt_fne_info) ; aucune valeur par défaut, aucun numéro ni lien construit ici.
+    fne_number = (fne_info or {}).get("fne_number")
+    fne_qr_url = (fne_info or {}).get("qr_url")
+    if fne_number:
         lines.append(sep_line)
-        lines.append(center("FACTURE NORMALISEE DGI"))
-        if fne_number:
-            lines.append(center(f"FNE ID : {fne_number}"))
-        sig = (fne_info or {}).get("signature") or order_info.get("signature") or "DGI-CI-847291048"
-        if sig:
-            lines.append(center(f"Signature DGI : {sig}"))
+        if (fne_info or {}).get("simulated"):
+            lines.append(center("SIMULATION FNE"))
+            lines.append(center("SANS VALEUR FISCALE"))
+        else:
+            lines.append(center("FACTURE NORMALISEE DGI"))
+        lines.append(center(f"FNE ID : {fne_number}"))
         if fne_qr_url:
             lines.append(f"[QR_CODE: {fne_qr_url}]")
 

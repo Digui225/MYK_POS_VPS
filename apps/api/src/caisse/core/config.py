@@ -85,12 +85,6 @@ class Settings(BaseSettings):
         return self.FNE_API_KEY
 
     @property
-    def fne_verification_base_url(self) -> str:
-        if "54.247.95.108" in self.FNE_API_BASE_URL:
-            return "http://54.247.95.108/fr/verification"
-        return "https://fne.dgi.gouv.ci/verify"
-
-    @property
     def docs_enabled(self) -> bool:
         if self.ENABLE_DOCS is not None:
             return self.ENABLE_DOCS
