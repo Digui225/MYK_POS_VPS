@@ -13,6 +13,8 @@ class EstablishmentSettingsResponse(BaseSchema):
     receipt_footer: str = "Merci de votre visite et à très bientôt !"
     print_width: int = 48
     screen_lock_timeout_seconds: int = 120
+    fne_point_of_sale: str = "point de vente 1"
+    fne_establishment: str = "RESTAURANT CHEZ SYLLA PLUS"
 
 
 class UpdateEstablishmentSettingsRequest(BaseModel):
@@ -24,6 +26,8 @@ class UpdateEstablishmentSettingsRequest(BaseModel):
     default_vat_rate: float | None = Field(None, ge=0, le=100)
     receipt_footer: str | None = Field(None, max_length=255)
     print_width: int | None = Field(None, description="Largeur papier thermique en mm (58 ou 80) ou colonnes (32 ou 42)")
+    fne_point_of_sale: str | None = Field(None, min_length=1, max_length=100)
+    fne_establishment: str | None = Field(None, min_length=1, max_length=100)
 
 
 class CashRegisterResponse(BaseSchema):

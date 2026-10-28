@@ -1,12 +1,14 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
+from caisse.core.config import get_settings
 from caisse.database import get_db
 from caisse.deps import get_current_user, require_role
 from caisse.errors import CaisseException
 from caisse.models.cash_session import CashRegister, CashSession
 from caisse.models.settings import EstablishmentSetting
 from caisse.models.user import User
+from caisse.repositories import settings as settings_repo
 from caisse.schemas.settings import (
     CashRegisterResponse,
     CreateCashRegisterRequest,
@@ -44,14 +46,23 @@ async def get_establishment_settings(
     _current_user: User = Depends(get_current_user),
 ) -> EstablishmentSettingsResponse:
     setting = _get_or_create_settings(db)
-    return EstablishmentSettingsResponse.model_validate(setting)
+    settings_cfg = get_settings()
+    pos = str(settings_repo.get_value(db, "fne.point_of_sale", settings_cfg.FNE_POINT_OF_SALE) or "").strip()
+    if pos == "CAISSE-1" and "services.fne.dgi.gouv.ci" in settings_cfg.FNE_API_BASE_URL:
+        pos = "point de vente 1"
+    estab = str(settings_repo.get_value(db, "fne.establishment", settings_cfg.FNE_ESTABLISHMENT) or "").strip()
+
+    resp = EstablishmentSettingsResponse.model_validate(setting)
+    resp.fne_point_of_sale = pos
+    resp.fne_establishment = estab
+    return resp
 
 
 @router.put("", response_model=EstablishmentSettingsResponse, summary="Mettre à jour les paramètres de l'établissement (Admin)")
 async def update_establishment_settings(
     payload: UpdateEstablishmentSettingsRequest,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_role("ADMIN")),
+    admin: User = Depends(require_role("ADMIN")),
 ) -> EstablishmentSettingsResponse:
     setting = _get_or_create_settings(db)
 
@@ -72,9 +83,22 @@ async def update_establishment_settings(
     if payload.print_width is not None:
         setting.print_width = payload.print_width
 
+    if payload.fne_point_of_sale is not None:
+        settings_repo.set_value(db, "fne.point_of_sale", payload.fne_point_of_sale.strip(), user_id=admin.id)
+    if payload.fne_establishment is not None:
+        settings_repo.set_value(db, "fne.establishment", payload.fne_establishment.strip(), user_id=admin.id)
+
     db.commit()
     db.refresh(setting)
-    return EstablishmentSettingsResponse.model_validate(setting)
+
+    settings_cfg = get_settings()
+    pos = str(settings_repo.get_value(db, "fne.point_of_sale", settings_cfg.FNE_POINT_OF_SALE) or "").strip()
+    estab = str(settings_repo.get_value(db, "fne.establishment", settings_cfg.FNE_ESTABLISHMENT) or "").strip()
+
+    resp = EstablishmentSettingsResponse.model_validate(setting)
+    resp.fne_point_of_sale = pos
+    resp.fne_establishment = estab
+    return resp
 
 
 # ==========================================

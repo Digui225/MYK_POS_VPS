@@ -10310,6 +10310,16 @@
             "type": "integer",
             "title": "Screen Lock Timeout Seconds",
             "default": 120
+          },
+          "fne_point_of_sale": {
+            "type": "string",
+            "title": "Fne Point Of Sale",
+            "default": "point de vente 1"
+          },
+          "fne_establishment": {
+            "type": "string",
+            "title": "Fne Establishment",
+            "default": "RESTAURANT CHEZ SYLLA PLUS"
           }
         },
         "type": "object",
@@ -15963,6 +15973,32 @@
             ],
             "title": "Print Width",
             "description": "Largeur papier thermique en mm (58 ou 80) ou colonnes (32 ou 42)"
+          },
+          "fne_point_of_sale": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fne Point Of Sale"
+          },
+          "fne_establishment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fne Establishment"
           }
         },
         "type": "object",

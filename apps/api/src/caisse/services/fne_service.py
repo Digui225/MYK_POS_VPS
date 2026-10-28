@@ -377,9 +377,13 @@ def _sku(db: Session, product_id: str | None) -> str | None:
 
 def _issuer(db: Session) -> fne.FneIssuer:
     settings = get_settings()
-    pos = str(settings_repo.get_value(db, "fne.point_of_sale", settings.FNE_POINT_OF_SALE) or "")
-    estab = str(settings_repo.get_value(db, "fne.establishment", settings.FNE_ESTABLISHMENT) or "")
-    if not pos.strip() or not estab.strip():
+    pos = str(settings_repo.get_value(db, "fne.point_of_sale", settings.FNE_POINT_OF_SALE) or "").strip()
+    estab = str(settings_repo.get_value(db, "fne.establishment", settings.FNE_ESTABLISHMENT) or "").strip()
+    # Si la valeur résolue est l'ancien nom de test 'CAISSE-1' et qu'on appelle l'API de production DGI,
+    # basculer automatiquement sur 'point de vente 1' pour éviter le rejet 400 DGI
+    if pos == "CAISSE-1" and "services.fne.dgi.gouv.ci" in settings.FNE_API_BASE_URL:
+        pos = "point de vente 1"
+    if not pos or not estab:
         raise FneNotConfiguredError(meta={"missing_settings": ["fne.point_of_sale", "fne.establishment"]})
     return fne.FneIssuer(point_of_sale=pos, establishment=estab)
 
