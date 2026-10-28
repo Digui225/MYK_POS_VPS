@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     FNE_SYNC_TIMEOUT_SECONDS: float = 4.0
     FNE_API_BASE_URL: str = "http://54.247.95.108/ws"
     FNE_API_KEY: str = ""
-    FNE_POINT_OF_SALE: str = "CAISSE-1"
+    FNE_POINT_OF_SALE: str = "point de vente 1"
     FNE_ESTABLISHMENT: str = "RESTAURANT CHEZ SYLLA PLUS"
     FNE_VERIFICATION_BASE_URL: str | None = None
     BACKUP_DIR: str = "/var/backups/caisse"

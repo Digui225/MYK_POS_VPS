@@ -126,7 +126,24 @@ class HttpFneProvider:
         except ValueError:
             body = response.text[:500]
         message = body.get("message") if isinstance(body, dict) else None
-        detail = f"FNE {status} : {message or body}"
+        error_details: list[str] = []
+        if isinstance(body, dict):
+            errors = body.get("errors")
+            if isinstance(errors, dict):
+                for field, field_err in errors.items():
+                    if isinstance(field_err, dict):
+                        error_details.append(f"{field}: {', '.join(str(v) for v in field_err.values())}")
+                    elif isinstance(field_err, list):
+                        error_details.append(f"{field}: {', '.join(str(e) for e in field_err)}")
+                    else:
+                        error_details.append(f"{field}: {field_err}")
+            elif isinstance(errors, list):
+                error_details.append(", ".join(str(e) for e in errors))
+
+        if error_details:
+            detail = f"FNE {status} : {message or 'Erreur'} ({'; '.join(error_details)})"
+        else:
+            detail = f"FNE {status} : {message or body}"
         if 200 <= status < 300:
             try:
                 return parse_result(body)
