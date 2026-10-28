@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     FNE_API_KEY: str = ""
     FNE_POINT_OF_SALE: str = "CAISSE-1"
     FNE_ESTABLISHMENT: str = "RESTAURANT CHEZ SYLLA PLUS"
+    FNE_VERIFICATION_BASE_URL: str | None = None
     BACKUP_DIR: str = "/var/backups/caisse"
 
     @property
@@ -82,9 +83,11 @@ class Settings(BaseSettings):
 
     @property
     def fne_verification_base_url(self) -> str:
+        if self.FNE_VERIFICATION_BASE_URL:
+            return self.FNE_VERIFICATION_BASE_URL.rstrip("/")
         if "54.247.95.108" in self.FNE_API_BASE_URL:
             return "http://54.247.95.108/fr/verification"
-        return "https://fne.dgi.gouv.ci/verify"
+        return "https://www.services.fne.dgi.gouv.ci/fr/verification"
 
     @property
     def docs_enabled(self) -> bool:
