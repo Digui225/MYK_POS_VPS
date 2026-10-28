@@ -140,3 +140,28 @@ def test_dispatch_pending_fne_retries(db_session: Session, monkeypatch: pytest.M
     assert fne_doc.status == FneStatus.CERTIFIED
 
 
+def test_dispatch_leaves_pending_fne_to_the_payment(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Un document PENDING est envoyé par l'encaissement qui l'a créé : le renvoi de fond ne
+    doit pas l'envoyer une seconde fois (deux factures DGI pour une vente)."""
+    from caisse.models.user import User
+    from caisse.models.fne import FneDocument
+    from caisse.domain.enums import FneDocumentType, FneStatus
+    from caisse.config import get_settings
+
+    db_session.add(User(id="user-admin-3", full_name="Admin", role="ADMIN", pin_hash="dummy"))
+    fne_doc = FneDocument(
+        id="fne-doc-03",
+        type=FneDocumentType.FNE,
+        status=FneStatus.PENDING,
+        payload={"invoice": {"items": []}},
+    )
+    db_session.add(fne_doc)
+    db_session.commit()
+    monkeypatch.setattr(get_settings(), "FNE_PROVIDER", "mock")
+
+    dispatch_pending_outbox_events(db_session)
+
+    assert fne_doc.status == FneStatus.PENDING
+    assert fne_doc.attempts == 0
+
+

@@ -194,16 +194,8 @@ class PaymentService:
                     )
                     if fne_doc:
                         fne_status = str(getattr(fne_doc.status, "value", fne_doc.status))
-                        v_base = get_settings().fne_verification_base_url
-                        qr_payload = (
-                            fne_doc.qr_payload
-                            or (fne_doc.payload.get("request", {}).get("qr_code") if isinstance(fne_doc.payload, dict) else None)
-                            or f"{v_base}/{fne_doc.external_number or order.order_number}"
-                        )
-                        fne_info = {
-                            "fne_number": fne_doc.external_number or f"FNE-{order.order_number}",
-                            "qr_url": qr_payload,
-                        }
+                        # Bloc fiscal du ticket : FNE certifiée seulement, jamais de numéro inventé
+                        fne_info = fne_service.receipt_fne_info(fne_doc)
                 except Exception as exc:
                     logger.warning(
                         "Erreur lors de l'émission FNE pour la commande %s : %s",
@@ -212,11 +204,6 @@ class PaymentService:
                         exc_info=True,
                     )
                     fne_status = "QUEUED"
-                    v_base = get_settings().fne_verification_base_url
-                    fne_info = {
-                        "fne_number": f"FNE-{order.order_number}",
-                        "qr_url": f"{v_base}/{order.order_number}",
-                    }
 
             # Génération du ticket de caisse définitif
             job = self.printing_service.create_receipt_job(

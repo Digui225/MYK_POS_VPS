@@ -34,8 +34,9 @@ def disable_hardware_printing_in_tests(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture(autouse=True)
 def reset_rate_limiter_in_tests() -> None:
-    from caisse.security_rate_limit import rate_limiter
+    from caisse.security_rate_limit import login_lockout, rate_limiter
     rate_limiter.reset()
+    login_lockout.reset()
 
 
 @pytest.fixture(scope="function")

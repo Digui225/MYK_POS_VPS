@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     ]
     ENABLE_DOCS: bool | None = None
     MAX_REQUEST_BODY_SIZE: int = 2 * 1024 * 1024  # 2 Mo par défaut
+    # WebSocket sans jeton : refusé si vrai ; sinon accepté, sans le détail des événements.
+    # À passer à true quand le front envoie `?token=` à l'ouverture.
+    WS_REQUIRE_AUTH: bool = False
 
     # Outbox & Tâches d'arrière-plan
     ENABLE_OUTBOX_WORKER: bool = True
@@ -42,8 +45,9 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_HOURS: int = 12
+    # PIN erronés consécutifs depuis un même poste (adresse IP) avant blocage de ses connexions
     PIN_MAX_FAILED_ATTEMPTS: int = 5
-    LOCKOUT_DURATION_MINUTES: int = 15
+    LOCKOUT_DURATION_MINUTES: int = 5
 
     # Fuseau horaire
     TZ: str = "Africa/Abidjan"

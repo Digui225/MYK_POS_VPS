@@ -149,22 +149,11 @@ class PrintingService:
         user_id: str,
         device_id: str | None = None,
     ) -> PrintJob:
-        from caisse.models.fne import FneDocument
-        fne_doc = self.db.query(FneDocument).filter(FneDocument.order_id == order.id).first()
-        fne_info = None
-        if fne_doc and (fne_doc.external_number or getattr(fne_doc, "invoice_number", None) or fne_doc.qr_payload or getattr(fne_doc, "qr_url", None)):
-            from caisse.config import get_settings
-            v_base = get_settings().fne_verification_base_url
-            qr = fne_doc.qr_payload or getattr(fne_doc, "qr_url", None)
-            if qr and not str(qr).startswith("http"):
-                qr = f"{v_base}/{qr}"
-            elif not qr:
-                qr = f"{v_base}/{fne_doc.external_number or order.order_number}"
+        from caisse.repositories import fne as fne_repo
+        from caisse.services import fne_service
 
-            fne_info = {
-                "fne_number": fne_doc.external_number or getattr(fne_doc, "invoice_number", None) or f"FNE-{order.order_number}",
-                "qr_url": qr,
-            }
+        # FNE de vente de la commande (pas un avoir) ; bloc fiscal seulement si elle est certifiée
+        fne_info = fne_service.receipt_fne_info(fne_repo.sale_for_order(self.db, str(order.id)))
 
         payments = order.payments or []
         job = self.create_receipt_job(

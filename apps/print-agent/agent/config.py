@@ -23,7 +23,7 @@ class AgentSettings(BaseSettings):
     printer_name: str = ""  # win32 : nom de l'imprimante dans Windows (python -m agent --list)
     spool_timeout_seconds: float = 15.0  # win32 : délai pour que le ticket quitte la file
 
-    # adresse de la caisse en ligne, sans /api/v1 (ex. https://gestion.example.ci)
+    # adresse de la caisse en ligne, sans /api/v1 (ex. https://caisse.osispos.com)
     api_url: str = "http://localhost:8001"
     terminal_token: str = ""  # créé par POST /api/v1/printing/terminals ou la CLI
     poll_interval_seconds: float = 2.0

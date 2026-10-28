@@ -145,10 +145,12 @@ def dispatch_pending_outbox_events(db: Session, limit: int = 50) -> dict[str, in
     if provider:
         admin_user = db.query(User).filter(User.role.in_(["ADMIN", "RESPONSABLE"])).first() or db.query(User).first()
         if admin_user:
+            # QUEUED seulement : un document PENDING vient d'être créé par un encaissement qui
+            # l'envoie lui-même ; le renvoyer ici ferait deux factures DGI pour une vente.
             pending_docs = (
                 db.query(FneDocument)
                 .filter(
-                    FneDocument.status.in_([FneStatus.QUEUED, FneStatus.PENDING]),
+                    FneDocument.status == FneStatus.QUEUED,
                     FneDocument.is_uncertain == False,
                     FneDocument.next_retry_at.is_(None) | (FneDocument.next_retry_at <= now),
                 )

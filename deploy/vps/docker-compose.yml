@@ -1,9 +1,8 @@
-# Caisse MYK — recette sur le VPS partagé (148.113.149.10). Guide : deploy/vps/README.md
-# Projet isolé des autres applis du VPS : propre base, propre réseau, propre volume, ports sur 127.0.0.1
-# (Docker contourne firewalld : un port publié sur 0.0.0.0 serait ouvert à Internet).
-# Les secrets restent hors du dépôt, dans /opt/caisse (db.env, api.env), et survivent aux mises à jour du code.
-# CAISSE_ROOT (défaut /opt/caisse) : autre emplacement, pour tester les scripts de déploiement ailleurs.
-#   cd /opt/caisse/backend/deploy/vps && docker compose up -d
+# OsisPos — production sur le VPS 148.113.149.10 (caisse.osispos.com). Guide : deploy/vps/README.md
+# Ports sur 127.0.0.1 seulement : Docker contourne ufw, un port publié sur 0.0.0.0 serait ouvert à Internet.
+# Les secrets restent hors du dépôt, dans $CAISSE_ROOT (db.env, api.env), et survivent aux mises à jour du code.
+# Mise en place par deploy/vps/update.sh ; à la main :
+#   cd /opt/Departement_Bi/OsisPos_Backend/code/deploy/vps && docker compose up -d
 name: caisse
 
 services:
@@ -11,7 +10,7 @@ services:
     image: postgres:16-alpine
     container_name: caisse-db
     restart: always
-    env_file: ${CAISSE_ROOT:-/opt/caisse}/db.env        # POSTGRES_PASSWORD
+    env_file: ${CAISSE_ROOT:-/opt/Departement_Bi/OsisPos_Backend}/db.env        # POSTGRES_PASSWORD
     environment:
       POSTGRES_USER: caisse
       POSTGRES_DB: caisse
@@ -33,7 +32,7 @@ services:
     image: caisse-api:latest
     container_name: caisse-api
     restart: always
-    env_file: ${CAISSE_ROOT:-/opt/caisse}/api.env       # DATABASE_URL, JWT_SECRET, CORS_ORIGINS…
+    env_file: ${CAISSE_ROOT:-/opt/Departement_Bi/OsisPos_Backend}/api.env       # DATABASE_URL, JWT_SECRET, CORS_ORIGINS…
     environment:
       # Nginx est devant : faire confiance à X-Forwarded-For pour la vraie IP du client (sans quoi
       # la limite de connexions par IP serait partagée par tous). Sans risque : 8011 n'est
@@ -52,13 +51,13 @@ services:
     networks: [caisse_net]
 
   # Renvoi automatique des FNE en file (FNE injoignable, 502/503, 401) ; jamais les incertaines.
-  # Même image que l'API (reconstruite par redeploy.sh) ; inactif si FNE_PROVIDER=manual.
+  # Même image que l'API (reconstruite par update.sh) ; inactif si FNE_PROVIDER=manual.
   caisse-fne-worker:
     image: caisse-api:latest
     pull_policy: never                  # image construite par le service caisse-api, jamais téléchargée
     container_name: caisse-fne-worker
     restart: always
-    env_file: ${CAISSE_ROOT:-/opt/caisse}/api.env
+    env_file: ${CAISSE_ROOT:-/opt/Departement_Bi/OsisPos_Backend}/api.env
     entrypoint: ["python", "-m", "caisse.cli", "fne-worker"]
     command: []
     depends_on:

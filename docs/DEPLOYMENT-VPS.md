@@ -1,5 +1,12 @@
 # Guide de Déploiement sur Serveur VPS (Caisse MYK)
 
+> **Document dépassé (27/10/2026).** La référence est [`deploy/vps/README.md`](../deploy/vps/README.md).
+> Corrections vérifiées sur le serveur : VPS **dédié** à la caisse (aucun PMS hôtelier, rien sur
+> le port 8000) ; code dans `/opt/Departement_Bi/OsisPos_Backend/code` (pas `/opt/caisse/backend`) ;
+> pare-feu `ufw` (pas firewalld) ; base sans port publié (pgAdmin : tunnel SSH vers l'IP du
+> conteneur, pas `127.0.0.1:5432`) ; agent Windows en tâche planifiée qui interroge l'API (pas de
+> NSSM ni de port 8090) ; pas de mode hors ligne ; accès cible `https://caisse.osispos.com`.
+
 Ce document détaille la procédure pas-à-pas pour déployer l'intégralité de la solution (Base de données PostgreSQL, API FastAPI et Frontend React / PWA sous Nginx) sur un serveur VPS distant.
 
 ---

@@ -45,7 +45,9 @@ def get_current_user(
     token = credentials.credentials
     payload = decode_token(token)
     user_id = payload.get("sub")
-    if not user_id:
+    # Seul un jeton d'accès ouvre l'API : ni le jeton de rafraîchissement (12 h) ni celui
+    # d'autorisation d'un responsable (override), signés avec la même clé.
+    if not user_id or payload.get("type") != "access":
         raise CaisseException(
             code="INVALID_TOKEN",
             title="Jeton invalide",
@@ -96,7 +98,9 @@ def get_fne_provider() -> Any:
     settings = get_settings()
     if settings.fne_provider == "api":
         return HttpFneProvider(settings.fne_api_base_url, settings.fne_api_key)
-    return MockFneProvider()
+    if settings.fne_provider == "mock":
+        return MockFneProvider()
+    return None  # manual : aucun envoi, le document attend une saisie manuelle (MANUAL)
 
 
 class RequestContext:
