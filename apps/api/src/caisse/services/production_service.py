@@ -38,6 +38,9 @@ from caisse.schemas.production import (
     MarketPurchaseItemOut,
     MarketPurchaseListCreate,
     MarketPurchaseListOut,
+    MarketPurchaseListUpdate,
+    MarketProteinAnalysisOut,
+    ProteinComparisonRow,
     WeeklyDayData,
     WeeklyMatrixReportOut,
     WeeklyProductRow,
@@ -166,6 +169,234 @@ def create_market_purchase(
     db.commit()
     db.refresh(purchase)
     return _format_purchase_out(purchase)
+
+
+def update_market_purchase(
+    db: Session,
+    purchase_id: str,
+    user: User,
+    payload: MarketPurchaseListUpdate,
+) -> MarketPurchaseListOut:
+    """Met à jour les articles et quantités d'un bon d'achat en attente (DRAFT).
+    Permet au Patron/Responsable d'ajuster les quantités avant départ au marché."""
+    purchase = (
+        db.query(MarketPurchaseList)
+        .filter(MarketPurchaseList.id == purchase_id)
+        .first()
+    )
+    if not purchase:
+        raise CaisseException(
+            code="PURCHASE_NOT_FOUND",
+            title="Bon d'achat introuvable",
+            detail=f"Bon d'achat {purchase_id} introuvable",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    if purchase.status != "DRAFT":
+        raise CaisseException(
+            code="PURCHASE_ALREADY_COMPLETED",
+            title="Modification impossible",
+            detail="Seul un bon d'achat en attente (DRAFT) peut être modifié.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Vider les anciens items pour recréer la liste mise à jour
+    db.query(MarketPurchaseItem).filter(
+        MarketPurchaseItem.purchase_list_id == purchase.id
+    ).delete(synchronize_session="fetch")
+
+    total_budget = 0
+    for item_in in payload.items:
+        art = None
+        if item_in.article_id:
+            art = db.query(StockArticle).filter(StockArticle.id == item_in.article_id).first()
+
+        if not art and item_in.custom_article_name:
+            art_name = item_in.custom_article_name.strip()
+            existing_art = (
+                db.query(StockArticle)
+                .filter(func.lower(StockArticle.name) == art_name.lower())
+                .first()
+            )
+            if existing_art:
+                art = existing_art
+            else:
+                cat_str = (item_in.category or "EPICERIE").upper()
+                try:
+                    cat_enum = StockArticleCategory(cat_str)
+                except ValueError:
+                    cat_enum = StockArticleCategory.EPICERIE
+
+                unit_str = (item_in.unit or "kg").strip()
+                art = StockArticle(
+                    name=art_name,
+                    category=cat_enum,
+                    unit=unit_str,
+                    out_mode=StockOutMode.INVENTORY,
+                    quantity=Decimal(0),
+                    avg_cost_xof=Decimal(item_in.unit_price_xof),
+                    is_active=True,
+                    note="Créé automatiquement par l'Économe (Bon d'achat marché)",
+                )
+                db.add(art)
+                db.flush()
+
+        if not art:
+            continue
+
+        line_total = calculate_item_total(
+            Decimal(str(item_in.quantity)), item_in.unit_price_xof
+        )
+        total_budget += line_total
+        item = MarketPurchaseItem(
+            purchase_list_id=purchase.id,
+            article_id=art.id,
+            quantity=Decimal(str(item_in.quantity)),
+            unit_price_xof=item_in.unit_price_xof,
+            total_price_xof=line_total,
+        )
+        db.add(item)
+
+    purchase.total_budget_xof = total_budget
+    if payload.notes is not None:
+        purchase.notes = payload.notes
+
+    from caisse.domain.market_budget_rules import get_market_budget_limits, validate_market_budget
+    total_limit, econome_limit, _ = get_market_budget_limits(db)
+    validate_market_budget(
+        total_budget,
+        role=user.role,
+        total_limit=total_limit,
+        econome_limit=econome_limit,
+    )
+
+    db.commit()
+    db.refresh(purchase)
+    return _format_purchase_out(purchase)
+
+
+def get_market_purchase_protein_analysis(
+    db: Session, purchase_id: str
+) -> MarketProteinAnalysisOut:
+    """Analyse comparative des 9 protéines principales du bon d'achat
+    croisées avec la matrice hebdomadaire de ventes et le stock en cuisine."""
+    purchase = (
+        db.query(MarketPurchaseList)
+        .filter(MarketPurchaseList.id == purchase_id)
+        .first()
+    )
+    if not purchase:
+        raise CaisseException(
+            code="PURCHASE_NOT_FOUND",
+            title="Bon d'achat introuvable",
+            detail=f"Bon d'achat {purchase_id} introuvable",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    # 1. Période de référence : Clôture du Vendredi soir (Semaine ouvrée Lundi - Vendredi)
+    b_date = purchase.business_date
+    if b_date.weekday() < 4:
+        # Si le bon est préparé/daté en tout début de semaine suivante, référence = semaine écoulée
+        prev_monday = (b_date - timedelta(days=b_date.weekday())) - timedelta(days=7)
+        week_start = prev_monday
+        week_end = prev_monday + timedelta(days=4)
+    else:
+        # Semaine en cours clôturée ce vendredi soir
+        week_start = b_date - timedelta(days=b_date.weekday())
+        week_end = week_start + timedelta(days=4)
+
+    # 2. Matrice hebdomadaire de la période (Lundi au Vendredi soir)
+    matrix = get_weekly_matrix(db, week_start, week_end)
+    matrix_products_map = {p.article_id: p for p in matrix.rows}
+
+    # 3. Récupération des 9 protéines en base
+    protein_articles = (
+        db.query(StockArticle)
+        .filter(StockArticle.category == StockArticleCategory.PROTEINE)
+        .order_by(StockArticle.name)
+        .all()
+    )
+
+    # 4. Articles figurant sur le bon d'achat
+    purchase_items_map = {item.article_id: item for item in purchase.items}
+
+    rows: list[ProteinComparisonRow] = []
+    tot_req_cost = 0
+    tot_rec_cost = 0
+
+    for art in protein_articles:
+        art_id = str(art.id)
+        p_item = purchase_items_map.get(art_id)
+        requested_qty = float(p_item.quantity) if p_item else 0.0
+        unit_price = p_item.unit_price_xof if p_item else int(art.avg_cost_xof)
+        line_total = int(round(requested_qty * unit_price))
+
+        current_stock = float(art.quantity)
+        m_prod = matrix_products_map.get(art_id)
+        weekly_purchased = m_prod.weekly_purchased_qty if m_prod else 0.0
+        weekly_prepared = m_prod.total_prepared_qty if m_prod else 0.0
+        weekly_sold_dishes = m_prod.total_sold_dishes if m_prod else 0
+
+        # Stock théorique calculé par la Matrice de contrôle (Achats semaine - Sorties cuisine)
+        # S'il n'y a pas eu d'achats enregistrés cette semaine, repli sur le stock physique
+        theo_remaining = max(0.0, round(weekly_purchased - weekly_prepared, 2))
+        if weekly_purchased > 0:
+            estimated_remaining = theo_remaining
+        else:
+            estimated_remaining = max(0.0, round(current_stock, 2))
+
+
+        # Quantité conseillée : Demande - Reste en cuisine (au minimum 0)
+        # Si rien n'est demandé par l'économe, la recommandation reste 0
+        if requested_qty > 0:
+            recommended_qty = max(0.0, round(requested_qty - estimated_remaining, 2))
+        else:
+            recommended_qty = 0.0
+
+        recommended_total = int(round(recommended_qty * unit_price))
+        savings = max(0, line_total - recommended_total)
+
+        tot_req_cost += line_total
+        tot_rec_cost += recommended_total
+
+        # Statut d'alerte
+        if estimated_remaining <= 0.1:
+            status_alert = "EXHAUSTED"  # Stock épuisé, réapprovisionnement nécessaire
+        elif estimated_remaining < requested_qty:
+            status_alert = "PARTIAL"    # Stock partiel, réduction suggérée
+        else:
+            status_alert = "SURPLUS"    # Stock suffisant, achat déconseillé
+
+        rows.append(
+            ProteinComparisonRow(
+                article_id=art_id,
+                article_name=art.name,
+                unit=art.unit,
+                requested_quantity=requested_qty,
+                unit_price_xof=unit_price,
+                line_total_xof=line_total,
+                current_stock_quantity=current_stock,
+                weekly_purchased_quantity=weekly_purchased,
+                weekly_prepared_quantity=weekly_prepared,
+                weekly_sold_dishes=weekly_sold_dishes,
+                estimated_remaining_quantity=estimated_remaining,
+                recommended_quantity=recommended_qty,
+                recommended_total_xof=recommended_total,
+                potential_savings_xof=savings,
+                status_alert=status_alert,
+            )
+        )
+
+    return MarketProteinAnalysisOut(
+        purchase_id=str(purchase.id),
+        business_date=purchase.business_date,
+        week_start=week_start,
+        week_end=week_end,
+        proteins=rows,
+        total_requested_proteins_cost_xof=tot_req_cost,
+        total_recommended_proteins_cost_xof=tot_rec_cost,
+        total_potential_savings_xof=max(0, tot_req_cost - tot_rec_cost),
+    )
+
 
 
 
@@ -347,6 +578,122 @@ def save_daily_preparation(
         notes=prep.notes,
         created_at=prep.created_at,
     )
+
+
+AUTO_VALIDATED_NOTE = "Auto-validé à la clôture de caisse"
+
+
+def auto_validate_daily_preparations_from_sales(
+    db: Session,
+    business_date: date,
+    user_id: str,
+) -> list[DailyPreparation]:
+    """Valide automatiquement les sorties de matières premières en cuisine à partir
+    des ventes constatées en caisse pour la journée comptable (Option A).
+
+    Règles de sécurité :
+    - Ne s'applique qu'aux articles de catégorie PROTEINE.
+    - Si une sortie a déjà été saisie manuellement par un utilisateur, elle n'est PAS écrasée.
+    - Si une sortie a déjà été auto-validée plus tôt dans la journée (ex: clôture service midi),
+      elle est mise à jour avec le cumul des ventes du jour (service midi + soir).
+    - Si aucun plat associé n'a été vendu, aucune sortie n'est créée.
+    """
+    if isinstance(business_date, str):
+        business_date = date.fromisoformat(business_date)
+
+    # 1. Articles catégorie PROTEINE
+    articles = (
+        db.query(StockArticle)
+        .filter(StockArticle.category == StockArticleCategory.PROTEINE)
+        .all()
+    )
+    if not articles:
+        return []
+
+    # 2. Fiches techniques associées
+    components = (
+        db.query(ProductComponent)
+        .join(StockArticle, StockArticle.id == ProductComponent.article_id)
+        .filter(StockArticle.category == StockArticleCategory.PROTEINE)
+        .all()
+    )
+    article_components: dict[str, list[ProductComponent]] = {}
+    for c in components:
+        article_components.setdefault(str(c.article_id), []).append(c)
+
+    # 3. Ventes cumulées de la journée pour tous les plats associés
+    sales_rows = db.execute(
+        select(
+            OrderItem.product_id,
+            func.sum(OrderItem.quantity),
+        )
+        .join(Order, Order.id == OrderItem.order_id)
+        .join(CashSession, CashSession.id == Order.cash_session_id)
+        .where(
+            Order.status == OrderStatus.PAID,
+            CashSession.business_date == business_date,
+            OrderItem.removed_at.is_(None),
+        )
+        .group_by(OrderItem.product_id)
+    ).all()
+    sales_by_prod: dict[str, int] = {str(pid): int(q or 0) for pid, q in sales_rows}
+
+    # 4. Sorties déjà enregistrées pour cette journée
+    existing_preps = {
+        str(p.article_id): p
+        for p in db.query(DailyPreparation)
+        .filter(DailyPreparation.business_date == business_date)
+        .all()
+    }
+
+    validated_preps: list[DailyPreparation] = []
+
+    for a in articles:
+        comps = article_components.get(str(a.id), [])
+        if not comps:
+            continue
+
+        standard_portion = float(comps[0].quantity) if comps else 1.0
+        default_yield = round(1.0 / standard_portion, 2) if standard_portion > 0 else 1.0
+        if default_yield <= 0:
+            continue
+
+        day_sold = sum(sales_by_prod.get(str(c.product_id), 0) for c in comps)
+        if day_sold <= 0:
+            continue
+
+        suggested_q = round(day_sold / default_yield, 2)
+        if suggested_q <= 0:
+            continue
+
+        prep_qty = Decimal(str(suggested_q))
+        yield_portions = Decimal(str(default_yield))
+        theo_dishes = calculate_theoretical_dishes(prep_qty, yield_portions)
+
+        prep = existing_preps.get(str(a.id))
+        if prep:
+            # Ne mettre à jour QUE si la sortie précédente était déjà une auto-validation
+            if prep.notes == AUTO_VALIDATED_NOTE:
+                prep.prepared_quantity = prep_qty
+                prep.yield_portions_per_unit = yield_portions
+                prep.theoretical_dishes = theo_dishes
+                prep.user_id = user_id
+                validated_preps.append(prep)
+        else:
+            # Création automatique de la sortie cuisine
+            new_prep = DailyPreparation(
+                business_date=business_date,
+                article_id=str(a.id),
+                prepared_quantity=prep_qty,
+                yield_portions_per_unit=yield_portions,
+                theoretical_dishes=theo_dishes,
+                user_id=user_id,
+                notes=AUTO_VALIDATED_NOTE,
+            )
+            db.add(new_prep)
+            validated_preps.append(new_prep)
+
+    return validated_preps
 
 
 def get_weekly_matrix(
@@ -576,6 +923,7 @@ def get_weekly_matrix(
                     actual_revenue_xof=day_actual_rev,
                     revenue_variance_xof=day_rev_variance,
                     financial_impact_xof=impact,
+                    notes=prep.notes if prep else None,
                 )
             )
 

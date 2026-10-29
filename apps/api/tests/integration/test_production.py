@@ -292,3 +292,427 @@ def test_market_purchase_auto_creates_new_stock_article(client: TestClient, db_s
     assert gingembre_art.quantity == Decimal("3.5")
     assert gingembre_art.avg_cost_xof == Decimal("1500")
 
+
+def test_update_market_purchase_and_protein_analysis(client: TestClient, db_session: Session) -> None:
+    """Vérifie l'ajustement d'un bon d'achat par le Patron (PUT) et l'analyse des écarts protéines."""
+    resp_login = client.post(
+        "/api/v1/auth/login",
+        json={"pin": "654321", "device_id": "pos-terminal-01"},
+    )
+    assert resp_login.status_code == 200
+    token = resp_login.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}", "X-Device-Id": "pos-terminal-01"}
+
+    # Créer les 9 protéines en base si besoin pour le test
+    from caisse.domain.enums import StockArticleCategory, StockOutMode
+    beef_art = db_session.query(StockArticle).filter(StockArticle.name == "Bœuf").first()
+    if not beef_art:
+        beef_art = StockArticle(
+            name="Bœuf",
+            category=StockArticleCategory.PROTEINE,
+            unit="kg",
+            out_mode=StockOutMode.RECIPE,
+            quantity=Decimal("3.0"),  # 3 kg déjà en réserve
+            avg_cost_xof=Decimal("4000"),
+            is_active=True,
+        )
+        db_session.add(beef_art)
+        db_session.commit()
+        db_session.refresh(beef_art)
+
+    # 1. L'économe soumet un bon demandant 10 kg de bœuf (40 000 FCFA)
+    create_res = client.post(
+        "/api/v1/production/market-purchases",
+        headers=headers,
+        json={
+            "business_date": "2026-10-29",
+            "notes": "Demande initiale",
+            "items": [
+                {
+                    "article_id": str(beef_art.id),
+                    "quantity": 10.0,
+                    "unit_price_xof": 4000,
+                }
+            ],
+        },
+    )
+    assert create_res.status_code == 201
+    purchase = create_res.json()
+    purchase_id = purchase["id"]
+    assert purchase["total_budget_xof"] == 40000
+
+    # 2. Le Patron consulte l'analyse des 9 protéines
+    analysis_res = client.get(
+        f"/api/v1/production/market-purchases/{purchase_id}/protein-analysis",
+        headers=headers,
+    )
+    assert analysis_res.status_code == 200
+    analysis = analysis_res.json()
+    assert analysis["purchase_id"] == purchase_id
+    assert len(analysis["proteins"]) >= 1
+
+    beef_analysis = next(p for p in analysis["proteins"] if p["article_name"] == "Bœuf")
+    assert beef_analysis["requested_quantity"] == 10.0
+    assert beef_analysis["unit_price_xof"] == 4000
+    assert beef_analysis["current_stock_quantity"] >= 0
+    # Recommandation = Demande (10) - Reste en cuisine/stock
+    assert beef_analysis["recommended_quantity"] <= 10.0
+
+    # 3. Le Patron ajuste la quantité à 7 kg (28 000 FCFA)
+    update_res = client.put(
+        f"/api/v1/production/market-purchases/{purchase_id}",
+        headers=headers,
+        json={
+            "notes": "Ajusté par le Patron (3kg restant en cuisine)",
+            "items": [
+                {
+                    "article_id": str(beef_art.id),
+                    "quantity": 7.0,
+                    "unit_price_xof": 4000,
+                }
+            ],
+        },
+    )
+    assert update_res.status_code == 200
+    updated_data = update_res.json()
+    assert updated_data["total_budget_xof"] == 28000
+    assert updated_data["notes"] == "Ajusté par le Patron (3kg restant en cuisine)"
+    assert updated_data["items"][0]["quantity"] == 7.0
+
+    # 4. Le Patron valide la réception
+    complete_res = client.post(
+        f"/api/v1/production/market-purchases/{purchase_id}/complete",
+        headers=headers,
+    )
+    assert complete_res.status_code == 200
+    assert complete_res.json()["status"] == "COMPLETED"
+
+    # 5. Tentative de modifier un bon déjà COMPLETED -> Doit être rejetée (400)
+    failed_update = client.put(
+        f"/api/v1/production/market-purchases/{purchase_id}",
+        headers=headers,
+        json={
+            "items": [
+                {
+                    "article_id": str(beef_art.id),
+                    "quantity": 5.0,
+                    "unit_price_xof": 4000,
+                }
+            ],
+        },
+    )
+    assert failed_update.status_code == 400
+    assert "PURCHASE_ALREADY_COMPLETED" in failed_update.text
+
+
+def test_update_market_purchase_budget_limits_and_not_found(client: TestClient, db_session: Session) -> None:
+    """Vérifie le respect du plafond budgétaire lors d'un PUT et les erreurs 404."""
+    resp_login = client.post(
+        "/api/v1/auth/login",
+        json={"pin": "654321", "device_id": "pos-terminal-01"},
+    )
+    assert resp_login.status_code == 200
+    headers = {"Authorization": f"Bearer {resp_login.json()['access_token']}", "X-Device-Id": "pos-terminal-01"}
+
+    from caisse.domain.enums import StockArticleCategory, StockOutMode
+    art = db_session.query(StockArticle).filter(StockArticle.name == "Poulet").first()
+    if not art:
+        art = StockArticle(
+            name="Poulet",
+            category=StockArticleCategory.PROTEINE,
+            unit="pièce",
+            out_mode=StockOutMode.RECIPE,
+            quantity=Decimal("10.0"),
+            avg_cost_xof=Decimal("3000"),
+            is_active=True,
+        )
+        db_session.add(art)
+        db_session.commit()
+        db_session.refresh(art)
+
+    # 1. Création d'un bon valide
+    create_res = client.post(
+        "/api/v1/production/market-purchases",
+        headers=headers,
+        json={
+            "business_date": "2026-10-29",
+            "notes": "Test plafond",
+            "items": [{"article_id": str(art.id), "quantity": 10.0, "unit_price_xof": 3000}],
+        },
+    )
+    assert create_res.status_code == 201
+    pid = create_res.json()["id"]
+
+    # 2. Mise à jour dépassant le plafond total de 300 000 FCFA (ex: 150 poulets * 3000 = 450 000 FCFA)
+    over_res = client.put(
+        f"/api/v1/production/market-purchases/{pid}",
+        headers=headers,
+        json={
+            "items": [{"article_id": str(art.id), "quantity": 150.0, "unit_price_xof": 3000}],
+        },
+    )
+    assert over_res.status_code == 422
+    assert "MARKET_BUDGET_EXCEEDED" in over_res.text
+
+    # 3. Modification d'un bon inexistant -> 404
+    fake_res = client.put(
+        "/api/v1/production/market-purchases/00000000-0000-0000-0000-000000000000",
+        headers=headers,
+        json={"items": [{"article_id": str(art.id), "quantity": 1.0, "unit_price_xof": 3000}]},
+    )
+    assert fake_res.status_code == 404
+
+
+
+def test_auto_validate_preparations_on_session_close(client: TestClient, db_session: Session) -> None:
+    """Test de l'Option A : la fermeture de la caisse valide automatiquement les sorties de cuisine
+    suggérées pour les articles protéines d'après les ventes constatées, sans écraser les saisies manuelles."""
+    # 1. Login responsable & caissier
+    resp_token = client.post(
+        "/api/v1/auth/login",
+        json={"pin": "654321", "device_id": "test-device"},
+    ).json()["access_token"]
+    resp_headers = {"Authorization": f"Bearer {resp_token}", "X-Device-Id": "test-device"}
+
+    caissier_token = client.post(
+        "/api/v1/auth/login",
+        json={"pin": "123456", "device_id": "test-device"},
+    ).json()["access_token"]
+    caissier_headers = {"Authorization": f"Bearer {caissier_token}", "X-Device-Id": "test-device"}
+
+    # 2. Création d'une catégorie et produit
+    cat_res = client.post(
+        "/api/v1/catalog/categories",
+        headers=resp_headers,
+        json={"name": "Volailles Test", "kind": "FOOD"},
+    )
+    cat_id = cat_res.json()["id"]
+
+    prod_res = client.post(
+        "/api/v1/catalog/products",
+        headers=resp_headers,
+        json={"category_id": cat_id, "name": "Pintade Braisée Test", "short_name": "PINTADE TEST", "price_xof": 5000},
+    )
+    prod_id = prod_res.json()["id"]
+
+    # 3. Création article protéine en base avec fiche technique (1 pintade = 4 plats, portion = 0.25)
+    from datetime import date
+    from decimal import Decimal
+    from caisse.domain.enums import StockArticleCategory, StockOutMode
+    from caisse.models.production import DailyPreparation
+    from caisse.models.stock import ProductComponent, StockArticle
+
+    test_date = date.fromisoformat("2026-10-30")
+    b_date_str = "2026-10-30"
+
+    pintade_art = StockArticle(
+        name="Pintade Fermière Test",
+        category=StockArticleCategory.PROTEINE,
+        unit="pièce",
+        out_mode=StockOutMode.RECIPE,
+        quantity=Decimal("20.0"),
+        alert_threshold=Decimal("2.0"),
+        avg_cost_xof=4000,
+    )
+    db_session.add(pintade_art)
+    db_session.commit()
+    db_session.refresh(pintade_art)
+
+    comp = ProductComponent(
+        product_id=prod_id,
+        article_id=pintade_art.id,
+        quantity=Decimal("0.25"),
+    )
+    db_session.add(comp)
+    db_session.commit()
+
+    # 4. Ouvrir une session de caisse
+    open_sess = client.post(
+        "/api/v1/cash-sessions",
+        headers={**caissier_headers, "Idempotency-Key": "sess-autoval-01"},
+        json={
+            "cash_register_id": "reg-01",
+            "opening_float_xof": 20000,
+            "business_date": b_date_str,
+        },
+    )
+    assert open_sess.status_code == 201
+    session_id = open_sess.json()["id"]
+
+    # 5. Passer une commande de 8 plats de Pintade Braisée et l'encaisser
+    order_res = client.post(
+        "/api/v1/orders",
+        headers=caissier_headers,
+        json={"table_id": "tbl-01", "guests_count": 4},
+    )
+    assert order_res.status_code == 201
+    order_id = order_res.json()["id"]
+
+    add_item = client.post(
+        f"/api/v1/orders/{order_id}/items",
+        headers=caissier_headers,
+        json={"product_id": prod_id, "quantity": 8},
+    )
+    assert add_item.status_code == 200
+
+    pay_res = client.post(
+        f"/api/v1/orders/{order_id}/payments",
+        headers={**caissier_headers, "Idempotency-Key": "pay-autoval-01"},
+        json={"method": "CASH", "amount_xof": 40000, "tendered_xof": 40000},
+    )
+    assert pay_res.status_code == 201
+
+    # 6. Vérifier avant clôture : pas encore de DailyPreparation pour pintade
+    prep_before = (
+        db_session.query(DailyPreparation)
+        .filter(
+            DailyPreparation.business_date == test_date,
+            DailyPreparation.article_id == pintade_art.id,
+        )
+        .first()
+    )
+    assert prep_before is None
+
+    # 7. Clôturer la session de caisse (Option A se déclenche ici)
+    close_res = client.post(
+        f"/api/v1/cash-sessions/{session_id}/close",
+        headers={**caissier_headers, "Idempotency-Key": "close-autoval-01"},
+        json={"counted_breakdown": {"10000": 6}},  # 20 000 ouverture + 40 000 vente = 60 000
+    )
+    assert close_res.status_code == 200, close_res.text
+
+    # 8. Vérifier qu'une DailyPreparation a été créée automatiquement
+    db_session.expire_all()
+    prep_after = (
+        db_session.query(DailyPreparation)
+        .filter(
+            DailyPreparation.business_date == test_date,
+            DailyPreparation.article_id == pintade_art.id,
+        )
+        .first()
+    )
+    assert prep_after is not None
+    # 8 plats vendus / 4 plats par pintade = 2.0 pintades sorties
+    assert float(prep_after.prepared_quantity) == 2.0
+    assert float(prep_after.yield_portions_per_unit) == 4.0
+    assert prep_after.theoretical_dishes == 8
+    assert "Auto-validé à la clôture de caisse" in (prep_after.notes or "")
+
+    # 9. Vérifier dans la matrice hebdomadaire
+    matrix_res = client.get(
+        f"/api/v1/production/weekly-matrix?date_from={b_date_str}&date_to={b_date_str}",
+        headers=resp_headers,
+    )
+    assert matrix_res.status_code == 200
+    matrix_data = matrix_res.json()
+    pintade_row = next((r for r in matrix_data["rows"] if r["article_id"] == pintade_art.id), None)
+    assert pintade_row is not None
+    day_data = pintade_row["days"][0]
+    assert day_data["prepared_quantity"] == 2.0
+    assert day_data["sold_dishes"] == 8
+    assert day_data["theoretical_dishes"] == 8
+    assert day_data["variance_dishes"] == 0
+    assert "Auto-validé" in (day_data["notes"] or "")
+
+    # 10. Protection de la saisie manuelle :
+    # Création manuelle d'une sortie pour un autre article
+    canard_art = StockArticle(
+        name="Canard Test",
+        category=StockArticleCategory.PROTEINE,
+        unit="pièce",
+        out_mode=StockOutMode.RECIPE,
+        quantity=Decimal("15.0"),
+        alert_threshold=Decimal("2.0"),
+        avg_cost_xof=5000,
+    )
+    db_session.add(canard_art)
+    db_session.commit()
+    db_session.refresh(canard_art)
+
+    canard_prod_res = client.post(
+        "/api/v1/catalog/products",
+        headers=resp_headers,
+        json={"category_id": cat_id, "name": "Canard Laqué Test", "short_name": "CANARD TEST", "price_xof": 6000},
+    )
+    canard_prod_id = canard_prod_res.json()["id"]
+
+    db_session.add(
+        ProductComponent(
+            product_id=canard_prod_id,
+            article_id=canard_art.id,
+            quantity=Decimal("0.25"),  # 4 plats/canard
+        )
+    )
+    manual_prep = DailyPreparation(
+        business_date=test_date,
+        article_id=str(canard_art.id),
+        prepared_quantity=Decimal("5.0"),
+        yield_portions_per_unit=Decimal("4.0"),
+        theoretical_dishes=20,
+        user_id=pintade_art.id,  # any valid user/id string
+        notes="Sortie manuelle du matin par le chef",
+    )
+    # récupérer user_id du caissier
+    from caisse.models.user import User
+    c_user = db_session.query(User).filter(User.pin_hash.isnot(None)).first()
+    assert c_user is not None
+    manual_prep.user_id = c_user.id
+    db_session.add(manual_prep)
+    db_session.commit()
+
+    # 11. Ouvrir une session 2 le même jour, vendre 4 pintades et 4 canards
+    open_sess_2 = client.post(
+        "/api/v1/cash-sessions",
+        headers={**caissier_headers, "Idempotency-Key": "sess-autoval-02"},
+        json={
+            "cash_register_id": "reg-01",
+            "opening_float_xof": 15000,
+            "business_date": b_date_str,
+        },
+    )
+    assert open_sess_2.status_code == 201
+    session_2_id = open_sess_2.json()["id"]
+
+    order_2_res = client.post(
+        "/api/v1/orders",
+        headers=caissier_headers,
+        json={"table_id": "tbl-01", "guests_count": 2},
+    )
+    o2_id = order_2_res.json()["id"]
+
+    client.post(f"/api/v1/orders/{o2_id}/items", headers=caissier_headers, json={"product_id": prod_id, "quantity": 4})
+    client.post(f"/api/v1/orders/{o2_id}/items", headers=caissier_headers, json={"product_id": canard_prod_id, "quantity": 4})
+
+    # total = 4 * 5000 + 4 * 6000 = 44 000
+    pay_res_2 = client.post(
+        f"/api/v1/orders/{o2_id}/payments",
+        headers={**caissier_headers, "Idempotency-Key": "pay-autoval-02"},
+        json={"method": "CASH", "amount_xof": 44000, "tendered_xof": 44000},
+    )
+    assert pay_res_2.status_code == 201
+
+    # Clôture session 2 (15 000 fond + 44 000 = 59 000)
+    close_2 = client.post(
+        f"/api/v1/cash-sessions/{session_2_id}/close",
+        headers={**caissier_headers, "Idempotency-Key": "close-autoval-02"},
+        json={"counted_breakdown": {"10000": 5, "5000": 1, "2000": 2}},
+    )
+    assert close_2.status_code == 200
+
+    db_session.expire_all()
+    # A) Pintade : était auto-validée à 2.0 (8 plats). Avec +4 plats (total 12 plats) -> passe à 3.0 (12 / 4)
+    pintade_prep_2 = db_session.query(DailyPreparation).filter(DailyPreparation.article_id == pintade_art.id, DailyPreparation.business_date == test_date).first()
+    assert pintade_prep_2 is not None
+    assert float(pintade_prep_2.prepared_quantity) == 3.0
+    assert pintade_prep_2.theoretical_dishes == 12
+
+    # B) Canard : saisie manuelle de 5.0 (20 plats) avec notes "Sortie manuelle...". NE DOIT PAS être écrasée par 4/4 = 1.0 !
+    canard_prep_2 = db_session.query(DailyPreparation).filter(DailyPreparation.article_id == canard_art.id, DailyPreparation.business_date == test_date).first()
+    assert canard_prep_2 is not None
+    assert float(canard_prep_2.prepared_quantity) == 5.0
+    assert canard_prep_2.theoretical_dishes == 20
+    assert canard_prep_2.notes == "Sortie manuelle du matin par le chef"
+
+
+
+

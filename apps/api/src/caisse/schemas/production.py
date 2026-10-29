@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from caisse.schemas.common import BaseSchema
 
@@ -16,6 +16,16 @@ class MarketPurchaseItemCreate(BaseModel):
     quantity: float = Field(..., gt=0, description="Quantité demandée au marché")
     unit_price_xof: int = Field(..., ge=0, description="Prix d'achat unitaire estimé/négocié")
 
+    @field_validator("unit_price_xof", mode="before")
+    @classmethod
+    def round_unit_price(cls, v: object) -> object:
+        if v is not None:
+            try:
+                return round(float(v))  # type: ignore[arg-type]
+            except (ValueError, TypeError):
+                pass
+        return v
+
 
 class MarketPurchaseItemOut(BaseSchema):
     id: str
@@ -29,6 +39,11 @@ class MarketPurchaseItemOut(BaseSchema):
 
 class MarketPurchaseListCreate(BaseModel):
     business_date: date = Field(..., description="Date des achats")
+    notes: str | None = Field(None, max_length=255)
+    items: list[MarketPurchaseItemCreate] = Field(..., min_length=1)
+
+
+class MarketPurchaseListUpdate(BaseModel):
     notes: str | None = Field(None, max_length=255)
     items: list[MarketPurchaseItemCreate] = Field(..., min_length=1)
 
@@ -106,6 +121,7 @@ class WeeklyDayData(BaseSchema):
     actual_revenue_xof: int = 0
     revenue_variance_xof: int = 0
     financial_impact_xof: int
+    notes: str | None = None
 
 
 class WeeklyProductRow(BaseSchema):
@@ -142,3 +158,36 @@ class WeeklyMatrixReportOut(BaseSchema):
     total_variance_impact_xof: int
     gross_margin_estimate_xof: int
     rows: list[WeeklyProductRow]
+
+
+# Comparatif & Écarts des 9 Protéines Marché vs Ventes Hebdomadaires
+
+
+class ProteinComparisonRow(BaseSchema):
+    article_id: str
+    article_name: str
+    unit: str
+    requested_quantity: float
+    unit_price_xof: int
+    line_total_xof: int
+    current_stock_quantity: float
+    weekly_purchased_quantity: float
+    weekly_prepared_quantity: float
+    weekly_sold_dishes: int
+    estimated_remaining_quantity: float
+    recommended_quantity: float
+    recommended_total_xof: int
+    potential_savings_xof: int
+    status_alert: str  # EXHAUSTED, PARTIAL, SURPLUS
+
+
+class MarketProteinAnalysisOut(BaseSchema):
+    purchase_id: str
+    business_date: date
+    week_start: date
+    week_end: date
+    proteins: list[ProteinComparisonRow]
+    total_requested_proteins_cost_xof: int
+    total_recommended_proteins_cost_xof: int
+    total_potential_savings_xof: int
+

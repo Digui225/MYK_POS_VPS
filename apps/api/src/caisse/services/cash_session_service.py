@@ -1,9 +1,12 @@
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from caisse import idempotency
 from caisse.domain.session_rules import (
@@ -379,6 +382,24 @@ class CashSessionService:
         session.closing_breakdown = counted_breakdown
         session.totals_snapshot = totals_snapshot
         session.notes = notes
+
+        # Auto-validation des sorties de cuisine pour les articles protéines
+        try:
+            from caisse.services.production_service import (
+                auto_validate_daily_preparations_from_sales,
+            )
+
+            auto_validate_daily_preparations_from_sales(
+                db=self.db,
+                business_date=session.business_date,
+                user_id=user_id,
+            )
+        except Exception as e:
+            logger.error(
+                "Erreur lors de l'auto-validation des sorties de cuisine à la clôture: %s",
+                e,
+                exc_info=True,
+            )
 
         self.audit.log(
             action="SESSION_CLOSED",

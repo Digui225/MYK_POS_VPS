@@ -2,14 +2,14 @@
   "openapi": "3.1.0",
   "info": {
     "title": "OsisPos API",
-    "description": "API Backend de Caisse Restaurant (OsisPos) - Point de Vente & Facturation Normalis\u00e9e",
+    "description": "API Backend de Caisse Restaurant (OsisPos) - Point de Vente & Facturation Normalisée",
     "version": "1.0.0"
   },
   "paths": {
     "/health": {
       "get": {
         "tags": [
-          "Syst\u00e8me"
+          "Système"
         ],
         "summary": "Health Check",
         "operationId": "health_check_health_get",
@@ -30,7 +30,7 @@
     "/health/ready": {
       "get": {
         "tags": [
-          "Syst\u00e8me"
+          "Système"
         ],
         "summary": "Health Ready",
         "operationId": "health_ready_health_ready_get",
@@ -135,7 +135,7 @@
         "tags": [
           "Authentification"
         ],
-        "summary": "D\u00e9connexion",
+        "summary": "Déconnexion",
         "operationId": "logout_api_v1_auth_logout_post",
         "responses": {
           "200": {
@@ -165,7 +165,7 @@
         "tags": [
           "Authentification"
         ],
-        "summary": "Utilisateur connect\u00e9",
+        "summary": "Utilisateur connecté",
         "operationId": "get_current_user_info_api_v1_auth_me_get",
         "responses": {
           "200": {
@@ -279,7 +279,7 @@
         "tags": [
           "Utilisateurs"
         ],
-        "summary": "Cr\u00e9er un utilisateur (Admin)",
+        "summary": "Créer un utilisateur (Admin)",
         "operationId": "create_user_api_v1_users_post",
         "requestBody": {
           "content": {
@@ -382,7 +382,7 @@
         "tags": [
           "Utilisateurs"
         ],
-        "summary": "R\u00e9initialiser le code PIN (Admin)",
+        "summary": "Réinitialiser le code PIN (Admin)",
         "operationId": "reset_user_pin_api_v1_users__user_id__pin_post",
         "security": [
           {
@@ -443,7 +443,7 @@
         "tags": [
           "Catalogue"
         ],
-        "summary": "Lister les cat\u00e9gories actives (alias)",
+        "summary": "Lister les catégories actives (alias)",
         "operationId": "list_categories_api_v1_catalog_categories_get",
         "security": [
           {
@@ -471,7 +471,7 @@
         "tags": [
           "Catalogue"
         ],
-        "summary": "Cr\u00e9er une cat\u00e9gorie (alias)",
+        "summary": "Créer une catégorie (alias)",
         "operationId": "create_category_api_v1_catalog_categories_post",
         "security": [
           {
@@ -535,7 +535,7 @@
         "tags": [
           "Catalogue"
         ],
-        "summary": "Lister les cat\u00e9gories actives",
+        "summary": "Lister les catégories actives",
         "operationId": "list_categories_api_v1_categories_get",
         "security": [
           {
@@ -563,7 +563,7 @@
         "tags": [
           "Catalogue"
         ],
-        "summary": "Cr\u00e9er une cat\u00e9gorie (Responsable/Admin)",
+        "summary": "Créer une catégorie (Responsable/Admin)",
         "operationId": "create_category_api_v1_categories_post",
         "security": [
           {
@@ -627,7 +627,7 @@
         "tags": [
           "Catalogue"
         ],
-        "summary": "Modifier une cat\u00e9gorie (alias)",
+        "summary": "Modifier une catégorie (alias)",
         "operationId": "update_category_api_v1_catalog_categories__id__put",
         "security": [
           {
@@ -698,7 +698,7 @@
         "tags": [
           "Catalogue"
         ],
-        "summary": "Modifier une cat\u00e9gorie (alias)",
+        "summary": "Modifier une catégorie (alias)",
         "operationId": "update_category_api_v1_catalog_categories__id__patch",
         "security": [
           {
@@ -771,7 +771,7 @@
         "tags": [
           "Catalogue"
         ],
-        "summary": "Modifier une cat\u00e9gorie (Responsable/Admin)",
+        "summary": "Modifier une catégorie (Responsable/Admin)",
         "operationId": "update_category_api_v1_categories__id__put",
         "security": [
           {
@@ -842,7 +842,7 @@
         "tags": [
           "Catalogue"
         ],
-        "summary": "Modifier une cat\u00e9gorie (Responsable/Admin)",
+        "summary": "Modifier une catégorie (Responsable/Admin)",
         "operationId": "update_category_api_v1_categories__id__patch",
         "security": [
           {
@@ -971,7 +971,7 @@
         "tags": [
           "Catalogue"
         ],
-        "summary": "Cr\u00e9er un produit (alias)",
+        "summary": "Créer un produit (alias)",
         "operationId": "create_product_api_v1_catalog_products_post",
         "security": [
           {
@@ -1091,7 +1091,7 @@
         "tags": [
           "Catalogue"
         ],
-        "summary": "Cr\u00e9er un produit (Responsable/Admin)",
+        "summary": "Créer un produit (Responsable/Admin)",
         "operationId": "create_product_api_v1_products_post",
         "security": [
           {
@@ -1155,7 +1155,7 @@
         "tags": [
           "Catalogue"
         ],
-        "summary": "D\u00e9tail d'un produit (alias)",
+        "summary": "Détail d'un produit (alias)",
         "operationId": "get_product_api_v1_catalog_products__id__get",
         "security": [
           {
@@ -1202,7 +1202,7 @@
         "tags": [
           "Catalogue"
         ],
-        "summary": "D\u00e9tail d'un produit",
+        "summary": "Détail d'un produit",
         "operationId": "get_product_api_v1_products__id__get",
         "security": [
           {
@@ -1322,7 +1322,7 @@
         "tags": [
           "Catalogue"
         ],
-        "summary": "Modifier le prix d'un produit (trac\u00e9, Responsable/Admin)",
+        "summary": "Modifier le prix d'un produit (tracé, Responsable/Admin)",
         "operationId": "update_product_price_api_v1_products__id__price_patch",
         "security": [
           {
@@ -1395,7 +1395,7 @@
         "tags": [
           "Tables & Salle"
         ],
-        "summary": "Lister les tables configur\u00e9es",
+        "summary": "Lister les tables configurées",
         "operationId": "list_tables_api_v1_tables_get",
         "security": [
           {
@@ -1409,11 +1409,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Inclure les tables d\u00e9sactiv\u00e9es",
+              "description": "Inclure les tables désactivées",
               "default": false,
               "title": "Include Inactive"
             },
-            "description": "Inclure les tables d\u00e9sactiv\u00e9es"
+            "description": "Inclure les tables désactivées"
           }
         ],
         "responses": {
@@ -1447,7 +1447,7 @@
         "tags": [
           "Tables & Salle"
         ],
-        "summary": "Cr\u00e9er une table (Admin/Responsable)",
+        "summary": "Créer une table (Admin/Responsable)",
         "operationId": "create_table_api_v1_tables_post",
         "security": [
           {
@@ -1548,7 +1548,7 @@
         "tags": [
           "Tables & Salle"
         ],
-        "summary": "D\u00e9sactiver ou supprimer une table (Admin/Responsable)",
+        "summary": "Désactiver ou supprimer une table (Admin/Responsable)",
         "operationId": "delete_table_api_v1_tables__table_id__delete",
         "security": [
           {
@@ -1599,7 +1599,7 @@
         "tags": [
           "Tables & Salle"
         ],
-        "summary": "Vue agr\u00e9g\u00e9e temps r\u00e9el de la salle",
+        "summary": "Vue agrégée temps réel de la salle",
         "operationId": "get_table_board_api_v1_tables_board_get",
         "responses": {
           "200": {
@@ -1625,7 +1625,7 @@
         "tags": [
           "Commandes"
         ],
-        "summary": "Cr\u00e9er une commande",
+        "summary": "Créer une commande",
         "operationId": "create_order_api_v1_orders_post",
         "security": [
           {
@@ -1757,10 +1757,10 @@
                   "type": "null"
                 }
               ],
-              "description": "`next_cursor` de la page pr\u00e9c\u00e9dente ; absent : 1re page",
+              "description": "`next_cursor` de la page précédente ; absent : 1re page",
               "title": "Cursor"
             },
-            "description": "`next_cursor` de la page pr\u00e9c\u00e9dente ; absent : 1re page"
+            "description": "`next_cursor` de la page précédente ; absent : 1re page"
           },
           {
             "name": "limit",
@@ -1770,11 +1770,11 @@
               "type": "integer",
               "maximum": 500,
               "minimum": 1,
-              "description": "Nombre maximum d'\u00e9l\u00e9ments par page",
+              "description": "Nombre maximum d'éléments par page",
               "default": 100,
               "title": "Limit"
             },
-            "description": "Nombre maximum d'\u00e9l\u00e9ments par page"
+            "description": "Nombre maximum d'éléments par page"
           }
         ],
         "responses": {
@@ -1806,7 +1806,7 @@
         "tags": [
           "Commandes"
         ],
-        "summary": "D\u00e9tail d'une commande",
+        "summary": "Détail d'une commande",
         "operationId": "get_order_api_v1_orders__id__get",
         "security": [
           {
@@ -1884,10 +1884,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)",
+              "description": "Clé unique générée par le front (optionnelle)",
               "title": "Idempotency-Key"
             },
-            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)"
+            "description": "Clé unique générée par le front (optionnelle)"
           },
           {
             "name": "X-Device-Id",
@@ -1945,7 +1945,7 @@
         "tags": [
           "Commandes"
         ],
-        "summary": "Retirer une ligne (trac\u00e9)",
+        "summary": "Retirer une ligne (tracé)",
         "operationId": "remove_order_item_api_v1_orders__id__items__item_id__delete",
         "security": [
           {
@@ -2027,7 +2027,7 @@
         "tags": [
           "Commandes"
         ],
-        "summary": "Annuler une commande (trac\u00e9)",
+        "summary": "Annuler une commande (tracé)",
         "operationId": "cancel_order_api_v1_orders__id__cancel_post",
         "security": [
           {
@@ -2058,10 +2058,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)",
+              "description": "Clé unique générée par le front (optionnelle)",
               "title": "Idempotency-Key"
             },
-            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)"
+            "description": "Clé unique générée par le front (optionnelle)"
           },
           {
             "name": "X-Device-Id",
@@ -2150,10 +2150,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
+              "description": "Clé unique générée par le front",
               "title": "Idempotency-Key"
             },
-            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
+            "description": "Clé unique générée par le front"
           },
           {
             "name": "X-Device-Id",
@@ -2209,7 +2209,7 @@
         "tags": [
           "Encaissement & Paiements"
         ],
-        "summary": "Lister les r\u00e8glements d'une commande",
+        "summary": "Lister les règlements d'une commande",
         "operationId": "list_order_payments_api_v1_orders__id__payments_get",
         "security": [
           {
@@ -2261,7 +2261,7 @@
           "Sessions de caisse"
         ],
         "summary": "Historique des sessions de caisse",
-        "description": "Sessions cl\u00f4tur\u00e9es, les plus r\u00e9centes en premier, par pages de `limit` : `next_cursor` donne la suivante.",
+        "description": "Sessions clôturées, les plus récentes en premier, par pages de `limit` : `next_cursor` donne la suivante.",
         "operationId": "list_sessions_history_api_v1_cash_sessions_get",
         "security": [
           {
@@ -2282,10 +2282,10 @@
                   "type": "null"
                 }
               ],
-              "description": "`next_cursor` de la page pr\u00e9c\u00e9dente ; absent : 1re page",
+              "description": "`next_cursor` de la page précédente ; absent : 1re page",
               "title": "Cursor"
             },
-            "description": "`next_cursor` de la page pr\u00e9c\u00e9dente ; absent : 1re page"
+            "description": "`next_cursor` de la page précédente ; absent : 1re page"
           },
           {
             "name": "limit",
@@ -2295,11 +2295,11 @@
               "type": "integer",
               "maximum": 500,
               "minimum": 1,
-              "description": "Nombre maximum d'\u00e9l\u00e9ments par page",
+              "description": "Nombre maximum d'éléments par page",
               "default": 100,
               "title": "Limit"
             },
-            "description": "Nombre maximum d'\u00e9l\u00e9ments par page"
+            "description": "Nombre maximum d'éléments par page"
           }
         ],
         "responses": {
@@ -2351,10 +2351,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
+              "description": "Clé unique générée par le front",
               "title": "Idempotency-Key"
             },
-            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
+            "description": "Clé unique générée par le front"
           },
           {
             "name": "X-Device-Id",
@@ -2438,7 +2438,7 @@
         "tags": [
           "Sessions de caisse"
         ],
-        "summary": "Consulter le Rapport X (interm\u00e9diaire)",
+        "summary": "Consulter le Rapport X (intermédiaire)",
         "operationId": "get_x_report_api_v1_cash_sessions__id__x_report_get",
         "security": [
           {
@@ -2485,7 +2485,7 @@
         "tags": [
           "Sessions de caisse"
         ],
-        "summary": "Cl\u00f4turer la session et g\u00e9n\u00e9rer le Rapport Z",
+        "summary": "Clôturer la session et générer le Rapport Z",
         "operationId": "close_session_api_v1_cash_sessions__id__close_post",
         "security": [
           {
@@ -2516,10 +2516,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
+              "description": "Clé unique générée par le front",
               "title": "Idempotency-Key"
             },
-            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
+            "description": "Clé unique générée par le front"
           },
           {
             "name": "X-Device-Id",
@@ -2577,7 +2577,7 @@
         "tags": [
           "Sessions de caisse"
         ],
-        "summary": "Consulter le Rapport Z d\u00e9finitif fig\u00e9",
+        "summary": "Consulter le Rapport Z définitif figé",
         "operationId": "get_z_report_api_v1_cash_sessions__id__z_report_get",
         "security": [
           {
@@ -2689,7 +2689,7 @@
         "tags": [
           "Sessions de caisse"
         ],
-        "summary": "Entr\u00e9e / Sortie de tiroir",
+        "summary": "Entrée / Sortie de tiroir",
         "operationId": "create_cash_movement_api_v1_cash_sessions__id__movements_post",
         "security": [
           {
@@ -2763,7 +2763,7 @@
           "Stock"
         ],
         "summary": "Lister les articles",
-        "description": "Articles par famille puis par nom, avec quantit\u00e9, co\u00fbt moyen, valeur et alerte\n(`is_low` : stock n\u00e9gatif ou au plus \u00e9gal au seuil).",
+        "description": "Articles par famille puis par nom, avec quantité, coût moyen, valeur et alerte\n(`is_low` : stock négatif ou au plus égal au seuil).",
         "operationId": "list_articles_api_v1_stock_articles_get",
         "security": [
           {
@@ -2821,11 +2821,11 @@
                   "type": "null"
                 }
               ],
-              "description": "true (d\u00e9faut) : utilis\u00e9s ; false : d\u00e9sactiv\u00e9s",
+              "description": "true (défaut) : utilisés ; false : désactivés",
               "default": true,
               "title": "Is Active"
             },
-            "description": "true (d\u00e9faut) : utilis\u00e9s ; false : d\u00e9sactiv\u00e9s"
+            "description": "true (défaut) : utilisés ; false : désactivés"
           },
           {
             "name": "low_only",
@@ -2867,8 +2867,8 @@
         "tags": [
           "Stock"
         ],
-        "summary": "Cr\u00e9er un article",
-        "description": "L'article est cr\u00e9\u00e9 \u00e0 0 : le stock de d\u00e9part se saisit par un inventaire\n(`POST /stock/counts`) ou une entr\u00e9e (`POST /stock/receipts`).\n\nErreurs : `409 STOCK_ARTICLE_NAME_EXISTS` (`meta.article_id`), `422 VALIDATION_ERROR`.",
+        "summary": "Créer un article",
+        "description": "L'article est créé à 0 : le stock de départ se saisit par un inventaire\n(`POST /stock/counts`) ou une entrée (`POST /stock/receipts`).\n\nErreurs : `409 STOCK_ARTICLE_NAME_EXISTS` (`meta.article_id`), `422 VALIDATION_ERROR`.",
         "operationId": "create_article_api_v1_stock_articles_post",
         "security": [
           {
@@ -2948,7 +2948,7 @@
         "tags": [
           "Stock"
         ],
-        "summary": "D\u00e9tail d'un article",
+        "summary": "Détail d'un article",
         "description": "Erreurs : `404 NOT_FOUND`.",
         "operationId": "get_article_api_v1_stock_articles__article_id__get",
         "security": [
@@ -2997,7 +2997,7 @@
           "Stock"
         ],
         "summary": "Modifier un article",
-        "description": "Seuls les champs envoy\u00e9s changent ; `alert_threshold: null` retire l'alerte.",
+        "description": "Seuls les champs envoyés changent ; `alert_threshold: null` retire l'alerte.",
         "operationId": "update_article_api_v1_stock_articles__article_id__patch",
         "security": [
           {
@@ -3088,8 +3088,8 @@
         "tags": [
           "Stock"
         ],
-        "summary": "Entr\u00e9e de stock (achat)",
-        "description": "Une ligne par article re\u00e7u, avec le montant pay\u00e9 (`total_cost_xof`) ou le prix d'une unit\u00e9 (`unit_cost_xof`).",
+        "summary": "Entrée de stock (achat)",
+        "description": "Une ligne par article reçu, avec le montant payé (`total_cost_xof`) ou le prix d'une unité (`unit_cost_xof`).",
         "operationId": "receive_api_v1_stock_receipts_post",
         "security": [
           {
@@ -3143,10 +3143,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
+              "description": "Clé unique générée par le front",
               "title": "Idempotency-Key"
             },
-            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
+            "description": "Clé unique générée par le front"
           }
         ],
         "requestBody": {
@@ -3188,8 +3188,8 @@
         "tags": [
           "Stock"
         ],
-        "summary": "D\u00e9clarer une perte",
-        "description": "Avari\u00e9, cass\u00e9, repas du personnel\u2026 Motif obligatoire ; valoris\u00e9 au co\u00fbt moyen.",
+        "summary": "Déclarer une perte",
+        "description": "Avarié, cassé, repas du personnel… Motif obligatoire ; valorisé au coût moyen.",
         "operationId": "declare_loss_api_v1_stock_losses_post",
         "security": [
           {
@@ -3243,10 +3243,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
+              "description": "Clé unique générée par le front",
               "title": "Idempotency-Key"
             },
-            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
+            "description": "Clé unique générée par le front"
           }
         ],
         "requestBody": {
@@ -3289,7 +3289,7 @@
           "Stock"
         ],
         "summary": "Saisir un inventaire",
-        "description": "Quantit\u00e9s r\u00e9ellement pr\u00e9sentes : le stock de chaque article devient la quantit\u00e9 compt\u00e9e.",
+        "description": "Quantités réellement présentes : le stock de chaque article devient la quantité comptée.",
         "operationId": "count_api_v1_stock_counts_post",
         "security": [
           {
@@ -3343,10 +3343,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
+              "description": "Clé unique générée par le front",
               "title": "Idempotency-Key"
             },
-            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
+            "description": "Clé unique générée par le front"
           }
         ],
         "requestBody": {
@@ -3389,7 +3389,7 @@
           "Stock"
         ],
         "summary": "Journal des mouvements",
-        "description": "Du plus r\u00e9cent au plus ancien, par pages de `limit` : `next_cursor` donne la suivante.",
+        "description": "Du plus récent au plus ancien, par pages de `limit` : `next_cursor` donne la suivante.",
         "operationId": "list_movements_api_v1_stock_movements_get",
         "security": [
           {
@@ -3447,10 +3447,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Journ\u00e9e de d\u00e9but (incluse)",
+              "description": "Journée de début (incluse)",
               "title": "Date From"
             },
-            "description": "Journ\u00e9e de d\u00e9but (incluse)"
+            "description": "Journée de début (incluse)"
           },
           {
             "name": "date_to",
@@ -3466,10 +3466,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Journ\u00e9e de fin (incluse)",
+              "description": "Journée de fin (incluse)",
               "title": "Date To"
             },
-            "description": "Journ\u00e9e de fin (incluse)"
+            "description": "Journée de fin (incluse)"
           },
           {
             "name": "cursor",
@@ -3484,10 +3484,10 @@
                   "type": "null"
                 }
               ],
-              "description": "`next_cursor` de la page pr\u00e9c\u00e9dente ; absent : 1re page",
+              "description": "`next_cursor` de la page précédente ; absent : 1re page",
               "title": "Cursor"
             },
-            "description": "`next_cursor` de la page pr\u00e9c\u00e9dente ; absent : 1re page"
+            "description": "`next_cursor` de la page précédente ; absent : 1re page"
           },
           {
             "name": "limit",
@@ -3497,11 +3497,11 @@
               "type": "integer",
               "maximum": 500,
               "minimum": 1,
-              "description": "Nombre maximum d'\u00e9l\u00e9ments par page",
+              "description": "Nombre maximum d'éléments par page",
               "default": 100,
               "title": "Limit"
             },
-            "description": "Nombre maximum d'\u00e9l\u00e9ments par page"
+            "description": "Nombre maximum d'éléments par page"
           }
         ],
         "responses": {
@@ -3534,7 +3534,7 @@
           "Stock"
         ],
         "summary": "Fiche technique d'un plat",
-        "description": "Articles consomm\u00e9s par une portion, co\u00fbt mati\u00e8re au co\u00fbt moyen actuel et marge.",
+        "description": "Articles consommés par une portion, coût matière au coût moyen actuel et marge.",
         "operationId": "get_components_api_v1_products__product_id__components_get",
         "security": [
           {
@@ -3582,7 +3582,7 @@
           "Stock"
         ],
         "summary": "Remplacer la fiche technique d'un plat",
-        "description": "Fiche compl\u00e8te ; `components: []` : le plat ne d\u00e9stocke plus.",
+        "description": "Fiche complète ; `components: []` : le plat ne déstocke plus.",
         "operationId": "set_components_api_v1_products__product_id__components_put",
         "security": [
           {
@@ -3673,7 +3673,7 @@
         "tags": [
           "Stock"
         ],
-        "summary": "Lister l'\u00e9tat des stocks (r\u00e9trocompatibilit\u00e9)",
+        "summary": "Lister l'état des stocks (rétrocompatibilité)",
         "operationId": "list_stock_legacy_api_v1_stock_get",
         "responses": {
           "200": {
@@ -3724,10 +3724,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Date d'exploitation (YYYY-MM-DD), d\u00e9faut aujourd'hui",
+              "description": "Date d'exploitation (YYYY-MM-DD), défaut aujourd'hui",
               "title": "Date"
             },
-            "description": "Date d'exploitation (YYYY-MM-DD), d\u00e9faut aujourd'hui"
+            "description": "Date d'exploitation (YYYY-MM-DD), défaut aujourd'hui"
           }
         ],
         "responses": {
@@ -3759,8 +3759,8 @@
         "tags": [
           "Tableau de Bord & Rapports"
         ],
-        "summary": "Tableau de bord de gestion de la journ\u00e9e",
-        "description": "Synth\u00e8se d'exploitation compl\u00e8te : ventes, couverts, tables, encaissements,\ntop produits, heures, caissiers, sessions, alertes de stock et FNE.",
+        "summary": "Tableau de bord de gestion de la journée",
+        "description": "Synthèse d'exploitation complète : ventes, couverts, tables, encaissements,\ntop produits, heures, caissiers, sessions, alertes de stock et FNE.",
         "operationId": "get_dashboard_overview_api_v1_reports_overview_get",
         "security": [
           {
@@ -3782,10 +3782,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Journ\u00e9e comptable ; d\u00e9faut : journ\u00e9e en cours",
+              "description": "Journée comptable ; défaut : journée en cours",
               "title": "Business Date"
             },
-            "description": "Journ\u00e9e comptable ; d\u00e9faut : journ\u00e9e en cours"
+            "description": "Journée comptable ; défaut : journée en cours"
           }
         ],
         "responses": {
@@ -3818,7 +3818,7 @@
           "Tableau de Bord & Rapports"
         ],
         "summary": "Tableau des ventes et marges",
-        "description": "Commandes sold\u00e9es de la p\u00e9riode : chiffre d'affaires, co\u00fbt mati\u00e8re des fiches techniques,\nmarges, d\u00e9tail par jour, produit, cat\u00e9gorie et moyen de paiement, \u00e9carts de caisse.",
+        "description": "Commandes soldées de la période : chiffre d'affaires, coût matière des fiches techniques,\nmarges, détail par jour, produit, catégorie et moyen de paiement, écarts de caisse.",
         "operationId": "sales_report_endpoint_api_v1_reports_sales_get",
         "security": [
           {
@@ -3840,10 +3840,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Premi\u00e8re journ\u00e9e incluse ; d\u00e9faut : la date de fin",
+              "description": "Première journée incluse ; défaut : la date de fin",
               "title": "Date From"
             },
-            "description": "Premi\u00e8re journ\u00e9e incluse ; d\u00e9faut : la date de fin"
+            "description": "Première journée incluse ; défaut : la date de fin"
           },
           {
             "name": "date_to",
@@ -3859,10 +3859,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Derni\u00e8re journ\u00e9e incluse ; d\u00e9faut : journ\u00e9e en cours",
+              "description": "Dernière journée incluse ; défaut : journée en cours",
               "title": "Date To"
             },
-            "description": "Derni\u00e8re journ\u00e9e incluse ; d\u00e9faut : journ\u00e9e en cours"
+            "description": "Dernière journée incluse ; défaut : journée en cours"
           }
         ],
         "responses": {
@@ -3895,7 +3895,7 @@
           "Tableau de Bord & Rapports"
         ],
         "summary": "Tableau du stock et valorisation",
-        "description": "Rapport de stock complet : stock initial, entr\u00e9es achats, ventes sorties mati\u00e8re,\npertes d\u00e9clar\u00e9es, \u00e9carts d'inventaire, stock final, valorisation au CMP et alertes.",
+        "description": "Rapport de stock complet : stock initial, entrées achats, ventes sorties matière,\npertes déclarées, écarts d'inventaire, stock final, valorisation au CMP et alertes.",
         "operationId": "stock_report_endpoint_api_v1_reports_stock_get",
         "security": [
           {
@@ -3917,10 +3917,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Premi\u00e8re journ\u00e9e incluse ; d\u00e9faut : la date de fin",
+              "description": "Première journée incluse ; défaut : la date de fin",
               "title": "Date From"
             },
-            "description": "Premi\u00e8re journ\u00e9e incluse ; d\u00e9faut : la date de fin"
+            "description": "Première journée incluse ; défaut : la date de fin"
           },
           {
             "name": "date_to",
@@ -3936,10 +3936,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Derni\u00e8re journ\u00e9e incluse ; d\u00e9faut : journ\u00e9e en cours",
+              "description": "Dernière journée incluse ; défaut : journée en cours",
               "title": "Date To"
             },
-            "description": "Derni\u00e8re journ\u00e9e incluse ; d\u00e9faut : journ\u00e9e en cours"
+            "description": "Dernière journée incluse ; défaut : journée en cours"
           }
         ],
         "responses": {
@@ -3972,7 +3972,7 @@
           "Tableau de Bord & Rapports"
         ],
         "summary": "Export CSV du tableau des ventes et marges",
-        "description": "G\u00e9n\u00e8re et t\u00e9l\u00e9charge un fichier CSV format\u00e9 pour Excel avec s\u00e9parateur point-virgule (BOM UTF-8)\nreprenant le suivi journalier des ventes, achats, marges, d\u00e9penses et versements banque.",
+        "description": "Génère et télécharge un fichier CSV formaté pour Excel avec séparateur point-virgule (BOM UTF-8)\nreprenant le suivi journalier des ventes, achats, marges, dépenses et versements banque.",
         "operationId": "export_sales_csv_api_v1_reports_sales_export_get",
         "security": [
           {
@@ -3994,10 +3994,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Premi\u00e8re journ\u00e9e incluse ; d\u00e9faut : la date de fin",
+              "description": "Première journée incluse ; défaut : la date de fin",
               "title": "Date From"
             },
-            "description": "Premi\u00e8re journ\u00e9e incluse ; d\u00e9faut : la date de fin"
+            "description": "Première journée incluse ; défaut : la date de fin"
           },
           {
             "name": "date_to",
@@ -4013,10 +4013,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Derni\u00e8re journ\u00e9e incluse ; d\u00e9faut : journ\u00e9e en cours",
+              "description": "Dernière journée incluse ; défaut : journée en cours",
               "title": "Date To"
             },
-            "description": "Derni\u00e8re journ\u00e9e incluse ; d\u00e9faut : journ\u00e9e en cours"
+            "description": "Dernière journée incluse ; défaut : journée en cours"
           }
         ],
         "responses": {
@@ -4046,8 +4046,8 @@
         "tags": [
           "Tableau de Bord & Rapports"
         ],
-        "summary": "Contr\u00f4le des rendements de viandes et prot\u00e9ines",
-        "description": "Contr\u00f4le des rendements des prot\u00e9ines : compare la mati\u00e8re premi\u00e8re sortie\navec les portions th\u00e9oriques attendues d'apr\u00e8s les fiches techniques, les plats\nr\u00e9ellement vendus en caisse et les pertes d\u00e9clar\u00e9es pour d\u00e9tecter les anomalies.",
+        "summary": "Contrôle des rendements de viandes et protéines",
+        "description": "Contrôle des rendements des protéines : compare la matière première sortie\navec les portions théoriques attendues d'après les fiches techniques, les plats\nréellement vendus en caisse et les pertes déclarées pour détecter les anomalies.",
         "operationId": "protein_yields_endpoint_api_v1_reports_protein_yields_get",
         "security": [
           {
@@ -4069,10 +4069,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Premi\u00e8re journ\u00e9e incluse ; d\u00e9faut : la date de fin",
+              "description": "Première journée incluse ; défaut : la date de fin",
               "title": "Date From"
             },
-            "description": "Premi\u00e8re journ\u00e9e incluse ; d\u00e9faut : la date de fin"
+            "description": "Première journée incluse ; défaut : la date de fin"
           },
           {
             "name": "date_to",
@@ -4088,10 +4088,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Derni\u00e8re journ\u00e9e incluse ; d\u00e9faut : journ\u00e9e en cours",
+              "description": "Dernière journée incluse ; défaut : journée en cours",
               "title": "Date To"
             },
-            "description": "Derni\u00e8re journ\u00e9e incluse ; d\u00e9faut : journ\u00e9e en cours"
+            "description": "Dernière journée incluse ; défaut : journée en cours"
           }
         ],
         "responses": {
@@ -4123,8 +4123,8 @@
         "tags": [
           "Tableau de Bord & Rapports"
         ],
-        "summary": "Export CSV du contr\u00f4le des rendements viandes et poissons",
-        "description": "G\u00e9n\u00e8re et t\u00e9l\u00e9charge un fichier CSV format\u00e9 pour Excel avec s\u00e9parateur point-virgule\nd\u00e9taillant le rendement des viandes et poissons (sorties stock vs fiches vs plats vendus).",
+        "summary": "Export CSV du contrôle des rendements viandes et poissons",
+        "description": "Génère et télécharge un fichier CSV formaté pour Excel avec séparateur point-virgule\ndétaillant le rendement des viandes et poissons (sorties stock vs fiches vs plats vendus).",
         "operationId": "export_protein_yields_csv_api_v1_reports_protein_yields_export_get",
         "security": [
           {
@@ -4146,10 +4146,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Premi\u00e8re journ\u00e9e incluse ; d\u00e9faut : la date de fin",
+              "description": "Première journée incluse ; défaut : la date de fin",
               "title": "Date From"
             },
-            "description": "Premi\u00e8re journ\u00e9e incluse ; d\u00e9faut : la date de fin"
+            "description": "Première journée incluse ; défaut : la date de fin"
           },
           {
             "name": "date_to",
@@ -4165,10 +4165,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Derni\u00e8re journ\u00e9e incluse ; d\u00e9faut : journ\u00e9e en cours",
+              "description": "Dernière journée incluse ; défaut : journée en cours",
               "title": "Date To"
             },
-            "description": "Derni\u00e8re journ\u00e9e incluse ; d\u00e9faut : journ\u00e9e en cours"
+            "description": "Dernière journée incluse ; défaut : journée en cours"
           }
         ],
         "responses": {
@@ -4196,9 +4196,9 @@
     "/api/v1/finance/expenses": {
       "post": {
         "tags": [
-          "Finance & D\u00e9caissements"
+          "Finance & Décaissements"
         ],
-        "summary": "Enregistrer une d\u00e9pense d'exploitation / d\u00e9caissement",
+        "summary": "Enregistrer une dépense d'exploitation / décaissement",
         "operationId": "record_expense_api_v1_finance_expenses_post",
         "security": [
           {
@@ -4240,9 +4240,9 @@
       },
       "get": {
         "tags": [
-          "Finance & D\u00e9caissements"
+          "Finance & Décaissements"
         ],
-        "summary": "Lister les d\u00e9penses sur une p\u00e9riode",
+        "summary": "Lister les dépenses sur une période",
         "operationId": "get_expenses_api_v1_finance_expenses_get",
         "security": [
           {
@@ -4264,10 +4264,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Premi\u00e8re journ\u00e9e incluse",
+              "description": "Première journée incluse",
               "title": "Date From"
             },
-            "description": "Premi\u00e8re journ\u00e9e incluse"
+            "description": "Première journée incluse"
           },
           {
             "name": "date_to",
@@ -4283,10 +4283,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Derni\u00e8re journ\u00e9e incluse",
+              "description": "Dernière journée incluse",
               "title": "Date To"
             },
-            "description": "Derni\u00e8re journ\u00e9e incluse"
+            "description": "Dernière journée incluse"
           },
           {
             "name": "category",
@@ -4301,10 +4301,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Filtrer par cat\u00e9gorie",
+              "description": "Filtrer par catégorie",
               "title": "Category"
             },
-            "description": "Filtrer par cat\u00e9gorie"
+            "description": "Filtrer par catégorie"
           }
         ],
         "responses": {
@@ -4334,7 +4334,7 @@
     "/api/v1/finance/bank-deposits": {
       "post": {
         "tags": [
-          "Finance & D\u00e9caissements"
+          "Finance & Décaissements"
         ],
         "summary": "Enregistrer un bordereau de versement bancaire",
         "operationId": "record_bank_deposit_api_v1_finance_bank_deposits_post",
@@ -4378,9 +4378,9 @@
       },
       "get": {
         "tags": [
-          "Finance & D\u00e9caissements"
+          "Finance & Décaissements"
         ],
-        "summary": "Lister les versements bancaires sur une p\u00e9riode",
+        "summary": "Lister les versements bancaires sur une période",
         "operationId": "get_bank_deposits_api_v1_finance_bank_deposits_get",
         "security": [
           {
@@ -4402,10 +4402,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Premi\u00e8re journ\u00e9e incluse",
+              "description": "Première journée incluse",
               "title": "Date From"
             },
-            "description": "Premi\u00e8re journ\u00e9e incluse"
+            "description": "Première journée incluse"
           },
           {
             "name": "date_to",
@@ -4421,10 +4421,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Derni\u00e8re journ\u00e9e incluse",
+              "description": "Dernière journée incluse",
               "title": "Date To"
             },
-            "description": "Derni\u00e8re journ\u00e9e incluse"
+            "description": "Dernière journée incluse"
           }
         ],
         "responses": {
@@ -4454,10 +4454,10 @@
     "/api/v1/production/market-purchases": {
       "post": {
         "tags": [
-          "Achats March\u00e9 & Production Cuisine"
+          "Achats Marché & Production Cuisine"
         ],
-        "summary": "Cr\u00e9er un bon d'achat march\u00e9 (caissi\u00e8re / responsable)",
-        "description": "Enregistre la liste des courses pr\u00e9visionnelles avant d'aller au march\u00e9.\nCalcule le montant total en FCFA \u00e0 d\u00e9caisser.",
+        "summary": "Créer un bon d'achat marché (caissière / responsable)",
+        "description": "Enregistre la liste des courses prévisionnelles avant d'aller au marché.\nCalcule le montant total en FCFA à décaisser.",
         "operationId": "create_market_purchase_endpoint_api_v1_production_market_purchases_post",
         "security": [
           {
@@ -4499,9 +4499,9 @@
       },
       "get": {
         "tags": [
-          "Achats March\u00e9 & Production Cuisine"
+          "Achats Marché & Production Cuisine"
         ],
-        "summary": "Lister les bons d'achat du march\u00e9",
+        "summary": "Lister les bons d'achat du marché",
         "operationId": "list_market_purchases_endpoint_api_v1_production_market_purchases_get",
         "security": [
           {
@@ -4523,10 +4523,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Premi\u00e8re journ\u00e9e de la p\u00e9riode",
+              "description": "Première journée de la période",
               "title": "Date From"
             },
-            "description": "Premi\u00e8re journ\u00e9e de la p\u00e9riode"
+            "description": "Première journée de la période"
           },
           {
             "name": "date_to",
@@ -4542,10 +4542,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Derni\u00e8re journ\u00e9e de la p\u00e9riode",
+              "description": "Dernière journée de la période",
               "title": "Date To"
             },
-            "description": "Derni\u00e8re journ\u00e9e de la p\u00e9riode"
+            "description": "Dernière journée de la période"
           }
         ],
         "responses": {
@@ -4579,9 +4579,9 @@
     "/api/v1/production/market-purchases/{purchase_id}": {
       "get": {
         "tags": [
-          "Achats March\u00e9 & Production Cuisine"
+          "Achats Marché & Production Cuisine"
         ],
-        "summary": "Consulter le d\u00e9tail d'un bon d'achat march\u00e9",
+        "summary": "Consulter le détail d'un bon d'achat marché",
         "operationId": "get_market_purchase_endpoint_api_v1_production_market_purchases__purchase_id__get",
         "security": [
           {
@@ -4621,15 +4621,119 @@
             }
           }
         }
+      },
+      "put": {
+        "tags": [
+          "Achats Marché & Production Cuisine"
+        ],
+        "summary": "Mettre à jour un bon d'achat marché en attente (Patron / Responsable)",
+        "description": "Met à jour les articles et quantités d'un bon en attente (DRAFT).\nPermet au Patron d'ajuster les quantités après analyse des écarts.",
+        "operationId": "update_market_purchase_endpoint_api_v1_production_market_purchases__purchase_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "purchase_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Purchase Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarketPurchaseListUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketPurchaseListOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/production/market-purchases/{purchase_id}/protein-analysis": {
+      "get": {
+        "tags": [
+          "Achats Marché & Production Cuisine"
+        ],
+        "summary": "Analyse comparative des 9 protéines du bon vs ventes de la semaine",
+        "description": "Compare les quantités demandées sur ce bon pour les 9 protéines avec\nles ventes, préparations cuisine et restes en stock sur la semaine.",
+        "operationId": "get_market_purchase_protein_analysis_endpoint_api_v1_production_market_purchases__purchase_id__protein_analysis_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "purchase_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Purchase Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketProteinAnalysisOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/production/market-purchases/{purchase_id}/complete": {
       "post": {
         "tags": [
-          "Achats March\u00e9 & Production Cuisine"
+          "Achats Marché & Production Cuisine"
         ],
-        "summary": "Valider un bon d'achat march\u00e9 et mettre \u00e0 jour le stock (Responsable)",
-        "description": "Valide les achats apr\u00e8s retour du march\u00e9 : met \u00e0 jour les quantit\u00e9s en stock\net alimente automatiquement la colonne ACHATS RE\u00c7US du suivi journalier.",
+        "summary": "Valider un bon d'achat marché et mettre à jour le stock (Responsable)",
+        "description": "Valide les achats après retour du marché : met à jour les quantités en stock\net alimente automatiquement la colonne ACHATS REÇUS du suivi journalier.",
         "operationId": "complete_market_purchase_endpoint_api_v1_production_market_purchases__purchase_id__complete_post",
         "security": [
           {
@@ -4652,11 +4756,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "D\u00e9duire automatiquement le montant de la caisse ouverte",
+              "description": "Déduire automatiquement le montant de la caisse ouverte",
               "default": false,
               "title": "Deduct From Cash Session"
             },
-            "description": "D\u00e9duire automatiquement le montant de la caisse ouverte"
+            "description": "Déduire automatiquement le montant de la caisse ouverte"
           }
         ],
         "responses": {
@@ -4686,10 +4790,10 @@
     "/api/v1/production/daily-preparations": {
       "post": {
         "tags": [
-          "Achats March\u00e9 & Production Cuisine"
+          "Achats Marché & Production Cuisine"
         ],
-        "summary": "Enregistrer la sortie cuisine du matin (pr\u00e9paration journali\u00e8re)",
-        "description": "Enregistre la quantit\u00e9 de viande/poisson sortie en cuisine pour la journ\u00e9e\net calcule imm\u00e9diatement le nombre de plats pr\u00e9vus.",
+        "summary": "Enregistrer la sortie cuisine du matin (préparation journalière)",
+        "description": "Enregistre la quantité de viande/poisson sortie en cuisine pour la journée\net calcule immédiatement le nombre de plats prévus.",
         "operationId": "record_daily_prep_endpoint_api_v1_production_daily_preparations_post",
         "requestBody": {
           "content": {
@@ -4733,10 +4837,10 @@
     "/api/v1/production/weekly-matrix": {
       "get": {
         "tags": [
-          "Achats March\u00e9 & Production Cuisine"
+          "Achats Marché & Production Cuisine"
         ],
         "summary": "Matrice hebdomadaire Achats & Ventes (Tableau Blanc Patron)",
-        "description": "Retourne la matrice compl\u00e8te pour le patron et le responsable :\nAchats de la semaine | ventilation journali\u00e8re Lundi-Vendredi (Sorti, Pr\u00e9vu, Vendu caisse, \u00c9cart, Valeur) | Totaux.",
+        "description": "Retourne la matrice complète pour le patron et le responsable :\nAchats de la semaine | ventilation journalière Lundi-Vendredi (Sorti, Prévu, Vendu caisse, Écart, Valeur) | Totaux.",
         "operationId": "get_weekly_matrix_endpoint_api_v1_production_weekly_matrix_get",
         "security": [
           {
@@ -4751,10 +4855,10 @@
             "schema": {
               "type": "string",
               "format": "date",
-              "description": "Date d\u00e9but de semaine (ex: Lundi)",
+              "description": "Date début de semaine (ex: Lundi)",
               "title": "Date From"
             },
-            "description": "Date d\u00e9but de semaine (ex: Lundi)"
+            "description": "Date début de semaine (ex: Lundi)"
           },
           {
             "name": "date_to",
@@ -4798,8 +4902,8 @@
         "tags": [
           "Approvisionnement"
         ],
-        "summary": "Consulter le statut du budget march\u00e9 (jauge)",
-        "description": "Retourne l'\u00e9tat de remplissage de la jauge budg\u00e9taire march\u00e9.\nPour l'\u00e9conome/acheteur, aucun montant en FCFA n'est retourn\u00e9 (confidentialit\u00e9).",
+        "summary": "Consulter le statut du budget marché (jauge)",
+        "description": "Retourne l'état de remplissage de la jauge budgétaire marché.\nPour l'économe/acheteur, aucun montant en FCFA n'est retourné (confidentialité).",
         "operationId": "get_purchase_market_budget_status_api_v1_purchases_market_budget_status_get",
         "security": [
           {
@@ -4814,11 +4918,11 @@
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "description": "Montant total en FCFA estim\u00e9",
+              "description": "Montant total en FCFA estimé",
               "default": 0,
               "title": "Total Budget Xof"
             },
-            "description": "Montant total en FCFA estim\u00e9"
+            "description": "Montant total en FCFA estimé"
           }
         ],
         "responses": {
@@ -4850,8 +4954,8 @@
         "tags": [
           "Approvisionnement"
         ],
-        "summary": "Articles \u00e0 acheter",
-        "description": "Articles actifs, par famille puis par nom, **sans prix** : stock actuel et alerte\nseulement. R\u00f4le : ACHETEUR et au-dessus.",
+        "summary": "Articles à acheter",
+        "description": "Articles actifs, par famille puis par nom, **sans prix** : stock actuel et alerte\nseulement. Rôle : ACHETEUR et au-dessus.",
         "operationId": "articles_api_v1_purchases_articles_get",
         "security": [
           {
@@ -4927,7 +5031,7 @@
           "Approvisionnement"
         ],
         "summary": "Envoyer une demande d'achat",
-        "description": "Quantit\u00e9s \u00e0 acheter ; la r\u00e9ponse donne `amount_xof`, le montant qui sera remis\n(dernier prix d'achat de chaque article, \u00e0 d\u00e9faut son co\u00fbt moyen), sans d\u00e9tail des prix.\nLa demande appara\u00eet aussit\u00f4t chez le responsable et l'admin (`GET /purchases`,\n`GET /purchases/pending-count`).\n\nIdempotent (`Idempotency-Key` obligatoire) : un rejeu renvoie la demande d'origine en `200`\navec `Idempotent-Replay: true`.\n\nErreurs : `404 NOT_FOUND` (`meta.article_ids` : articles inconnus ou d\u00e9sactiv\u00e9s),\n`409 IDEMPOTENCY_CONFLICT`, `422 VALIDATION_ERROR` (article pr\u00e9sent deux fois,\nquantit\u00e9 \u2264 0).",
+        "description": "Quantités à acheter ; la réponse donne `amount_xof`, le montant qui sera remis\n(dernier prix d'achat de chaque article, à défaut son coût moyen), sans détail des prix.\nLa demande apparaît aussitôt chez le responsable et l'admin (`GET /purchases`,\n`GET /purchases/pending-count`).\n\nIdempotent (`Idempotency-Key` obligatoire) : un rejeu renvoie la demande d'origine en `200`\navec `Idempotent-Replay: true`.\n\nErreurs : `404 NOT_FOUND` (`meta.article_ids` : articles inconnus ou désactivés),\n`409 IDEMPOTENCY_CONFLICT`, `422 VALIDATION_ERROR` (article présent deux fois,\nquantité ≤ 0).",
         "operationId": "create_api_v1_purchases_post",
         "security": [
           {
@@ -4981,10 +5085,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
+              "description": "Clé unique générée par le front",
               "title": "Idempotency-Key"
             },
-            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
+            "description": "Clé unique générée par le front"
           }
         ],
         "requestBody": {
@@ -5025,7 +5129,7 @@
           "Approvisionnement"
         ],
         "summary": "Demandes d'achat (suivi)",
-        "description": "Toutes les demandes, les plus r\u00e9centes en premier, pagin\u00e9es, avec tous les montants.\nR\u00e9serv\u00e9 au RESPONSABLE.",
+        "description": "Toutes les demandes, les plus récentes en premier, paginées, avec tous les montants.\nRéservé au RESPONSABLE.",
         "operationId": "list_requests_api_v1_purchases_get",
         "security": [
           {
@@ -5046,10 +5150,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Filtrer sur un \u00e9tat",
+              "description": "Filtrer sur un état",
               "title": "Status"
             },
-            "description": "Filtrer sur un \u00e9tat"
+            "description": "Filtrer sur un état"
           },
           {
             "name": "cursor",
@@ -5064,10 +5168,10 @@
                   "type": "null"
                 }
               ],
-              "description": "`next_cursor` de la page pr\u00e9c\u00e9dente ; absent : 1re page",
+              "description": "`next_cursor` de la page précédente ; absent : 1re page",
               "title": "Cursor"
             },
-            "description": "`next_cursor` de la page pr\u00e9c\u00e9dente ; absent : 1re page"
+            "description": "`next_cursor` de la page précédente ; absent : 1re page"
           },
           {
             "name": "limit",
@@ -5077,11 +5181,11 @@
               "type": "integer",
               "maximum": 500,
               "minimum": 1,
-              "description": "Nombre maximum d'\u00e9l\u00e9ments par page",
+              "description": "Nombre maximum d'éléments par page",
               "default": 100,
               "title": "Limit"
             },
-            "description": "Nombre maximum d'\u00e9l\u00e9ments par page"
+            "description": "Nombre maximum d'éléments par page"
           }
         ],
         "responses": {
@@ -5114,7 +5218,7 @@
           "Approvisionnement"
         ],
         "summary": "Mes demandes d'achat",
-        "description": "Demandes de l'utilisateur connect\u00e9, les plus r\u00e9centes en premier, pagin\u00e9es.",
+        "description": "Demandes de l'utilisateur connecté, les plus récentes en premier, paginées.",
         "operationId": "mine_api_v1_purchases_mine_get",
         "security": [
           {
@@ -5135,10 +5239,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Filtrer sur un \u00e9tat",
+              "description": "Filtrer sur un état",
               "title": "Status"
             },
-            "description": "Filtrer sur un \u00e9tat"
+            "description": "Filtrer sur un état"
           },
           {
             "name": "cursor",
@@ -5153,10 +5257,10 @@
                   "type": "null"
                 }
               ],
-              "description": "`next_cursor` de la page pr\u00e9c\u00e9dente ; absent : 1re page",
+              "description": "`next_cursor` de la page précédente ; absent : 1re page",
               "title": "Cursor"
             },
-            "description": "`next_cursor` de la page pr\u00e9c\u00e9dente ; absent : 1re page"
+            "description": "`next_cursor` de la page précédente ; absent : 1re page"
           },
           {
             "name": "limit",
@@ -5166,11 +5270,11 @@
               "type": "integer",
               "maximum": 500,
               "minimum": 1,
-              "description": "Nombre maximum d'\u00e9l\u00e9ments par page",
+              "description": "Nombre maximum d'éléments par page",
               "default": 100,
               "title": "Limit"
             },
-            "description": "Nombre maximum d'\u00e9l\u00e9ments par page"
+            "description": "Nombre maximum d'éléments par page"
           }
         ],
         "responses": {
@@ -5203,7 +5307,7 @@
           "Approvisionnement"
         ],
         "summary": "Ma demande",
-        "description": "Quantit\u00e9s demand\u00e9es, valid\u00e9es et re\u00e7ues, montant \u00e0 remettre ; jamais de prix.\nErreurs : `404 NOT_FOUND` (inconnue, ou demande d'un autre utilisateur).",
+        "description": "Quantités demandées, validées et reçues, montant à remettre ; jamais de prix.\nErreurs : `404 NOT_FOUND` (inconnue, ou demande d'un autre utilisateur).",
         "operationId": "my_request_api_v1_purchases_mine__purchase_id__get",
         "security": [
           {
@@ -5253,7 +5357,7 @@
           "Approvisionnement"
         ],
         "summary": "Retirer ma demande",
-        "description": "Tant qu'elle n'est pas valid\u00e9e (`SUBMITTED` \u2192 `CANCELLED`).\nErreurs : `404 NOT_FOUND`, `409 PURCHASE_STATE` (`meta.status` : \u00e9tat actuel, `meta.expected` : \u00e9tats accept\u00e9s).",
+        "description": "Tant qu'elle n'est pas validée (`SUBMITTED` → `CANCELLED`).\nErreurs : `404 NOT_FOUND`, `409 PURCHASE_STATE` (`meta.status` : état actuel, `meta.expected` : états acceptés).",
         "operationId": "cancel_api_v1_purchases_mine__purchase_id__cancel_post",
         "security": [
           {
@@ -5345,7 +5449,7 @@
           "Approvisionnement"
         ],
         "summary": "Demandes en attente d'action",
-        "description": "Compteurs pour un badge : \u00e0 valider, \u00e0 d\u00e9caisser, \u00e0 r\u00e9ceptionner.",
+        "description": "Compteurs pour un badge : à valider, à décaisser, à réceptionner.",
         "operationId": "pending_count_api_v1_purchases_pending_count_get",
         "responses": {
           "200": {
@@ -5371,8 +5475,8 @@
         "tags": [
           "Approvisionnement"
         ],
-        "summary": "D\u00e9tail d'une demande",
-        "description": "Lignes avec prix d'une unit\u00e9, montant par ligne et montants re\u00e7us.\nErreurs : `404 NOT_FOUND`.",
+        "summary": "Détail d'une demande",
+        "description": "Lignes avec prix d'une unité, montant par ligne et montants reçus.\nErreurs : `404 NOT_FOUND`.",
         "operationId": "get_request_api_v1_purchases__purchase_id__get",
         "security": [
           {
@@ -5422,7 +5526,7 @@
           "Approvisionnement"
         ],
         "summary": "Valider",
-        "description": "`SUBMITTED` \u2192 `APPROVED`. Corrections facultatives par ligne : quantit\u00e9\n(0 : ligne retir\u00e9e) et prix d'une unit\u00e9 ; `approved_total_xof` est recalcul\u00e9, et c'est le montant\nque voit l'acheteur.\n\nErreurs : `404 NOT_FOUND` (`meta.line_ids`), `409 PURCHASE_STATE` (`meta.status` : \u00e9tat actuel, `meta.expected` : \u00e9tats accept\u00e9s), `422 VALIDATION_ERROR` (toutes\nles quantit\u00e9s \u00e0 0 : refuser plut\u00f4t).",
+        "description": "`SUBMITTED` → `APPROVED`. Corrections facultatives par ligne : quantité\n(0 : ligne retirée) et prix d'une unité ; `approved_total_xof` est recalculé, et c'est le montant\nque voit l'acheteur.\n\nErreurs : `404 NOT_FOUND` (`meta.line_ids`), `409 PURCHASE_STATE` (`meta.status` : état actuel, `meta.expected` : états acceptés), `422 VALIDATION_ERROR` (toutes\nles quantités à 0 : refuser plutôt).",
         "operationId": "approve_api_v1_purchases__purchase_id__approve_post",
         "security": [
           {
@@ -5514,7 +5618,7 @@
           "Approvisionnement"
         ],
         "summary": "Refuser",
-        "description": "`SUBMITTED` ou `APPROVED` \u2192 `REJECTED`, avec un motif visible par\nl'acheteur. Erreurs : `404 NOT_FOUND`, `409 PURCHASE_STATE` (`meta.status` : \u00e9tat actuel, `meta.expected` : \u00e9tats accept\u00e9s).",
+        "description": "`SUBMITTED` ou `APPROVED` → `REJECTED`, avec un motif visible par\nl'acheteur. Erreurs : `404 NOT_FOUND`, `409 PURCHASE_STATE` (`meta.status` : état actuel, `meta.expected` : états acceptés).",
         "operationId": "reject_api_v1_purchases__purchase_id__reject_post",
         "security": [
           {
@@ -5605,8 +5709,8 @@
         "tags": [
           "Approvisionnement"
         ],
-        "summary": "D\u00e9caisser",
-        "description": "`APPROVED` \u2192 `DISBURSED` : argent remis \u00e0 l'acheteur (enregistrement\nseulement, pas de mouvement de tiroir). `amount_xof` : d\u00e9faut le total valid\u00e9.\n\nErreurs : `404 NOT_FOUND`, `409 PURCHASE_STATE` (`meta.status` : \u00e9tat actuel, `meta.expected` : \u00e9tats accept\u00e9s), `422 VALIDATION_ERROR` (total valid\u00e9 nul et\n`amount_xof` absent).",
+        "summary": "Décaisser",
+        "description": "`APPROVED` → `DISBURSED` : argent remis à l'acheteur (enregistrement\nseulement, pas de mouvement de tiroir). `amount_xof` : défaut le total validé.\n\nErreurs : `404 NOT_FOUND`, `409 PURCHASE_STATE` (`meta.status` : état actuel, `meta.expected` : états acceptés), `422 VALIDATION_ERROR` (total validé nul et\n`amount_xof` absent).",
         "operationId": "disburse_api_v1_purchases__purchase_id__disburse_post",
         "security": [
           {
@@ -5697,8 +5801,8 @@
         "tags": [
           "Approvisionnement"
         ],
-        "summary": "R\u00e9ceptionner",
-        "description": "`DISBURSED` \u2192 `RECEIVED`. Par ligne : quantit\u00e9 achet\u00e9e et montant pay\u00e9 ;\nune entr\u00e9e de stock (`PURCHASE_IN`) est cr\u00e9\u00e9e au prix pay\u00e9, le co\u00fbt moyen est recalcul\u00e9. Une\nligne valid\u00e9e absente compte comme non trouv\u00e9e (0). `change_due_xof` = remis - d\u00e9pens\u00e9\n(n\u00e9gatif : la caisse doit \u00e0 l'acheteur).\n\nErreurs : `404 NOT_FOUND` (`meta.line_ids`), `409 PURCHASE_STATE` (`meta.status` : \u00e9tat actuel, `meta.expected` : \u00e9tats accept\u00e9s), `422 VALIDATION_ERROR` (ligne en\ndouble, ligne retir\u00e9e \u00e0 la validation, montant pour une quantit\u00e9 nulle).",
+        "summary": "Réceptionner",
+        "description": "`DISBURSED` → `RECEIVED`. Par ligne : quantité achetée et montant payé ;\nune entrée de stock (`PURCHASE_IN`) est créée au prix payé, le coût moyen est recalculé. Une\nligne validée absente compte comme non trouvée (0). `change_due_xof` = remis - dépensé\n(négatif : la caisse doit à l'acheteur).\n\nErreurs : `404 NOT_FOUND` (`meta.line_ids`), `409 PURCHASE_STATE` (`meta.status` : état actuel, `meta.expected` : états acceptés), `422 VALIDATION_ERROR` (ligne en\ndouble, ligne retirée à la validation, montant pour une quantité nulle).",
         "operationId": "receive_api_v1_purchases__purchase_id__receive_post",
         "security": [
           {
@@ -5895,7 +5999,7 @@
         "tags": [
           "Clients & FNE"
         ],
-        "summary": "Cr\u00e9er un client d'entreprise",
+        "summary": "Créer un client d'entreprise",
         "operationId": "create_customer_api_v1_customers_post",
         "security": [
           {
@@ -5941,7 +6045,7 @@
         "tags": [
           "Clients & FNE"
         ],
-        "summary": "D\u00e9tail d'un client",
+        "summary": "Détail d'un client",
         "operationId": "get_customer_api_v1_customers__customer_id__get",
         "security": [
           {
@@ -5988,8 +6092,8 @@
         "tags": [
           "FNE"
         ],
-        "summary": "\u00c9mettre la FNE d'une commande sold\u00e9e",
-        "description": "FNE \u00e0 la demande (DGI CI).",
+        "summary": "Émettre la FNE d'une commande soldée",
+        "description": "FNE à la demande (DGI CI).",
         "operationId": "issue_api_v1_orders__order_id__fne_post",
         "security": [
           {
@@ -6020,10 +6124,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)",
+              "description": "Clé unique générée par le front (optionnelle)",
               "title": "Idempotency-Key"
             },
-            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)"
+            "description": "Clé unique générée par le front (optionnelle)"
           }
         ],
         "requestBody": {
@@ -6112,7 +6216,7 @@
           "FNE"
         ],
         "summary": "Documents FNE (suivi)",
-        "description": "Les plus r\u00e9cents en premier, par pages de `limit` : `next_cursor` donne la suivante.",
+        "description": "Les plus récents en premier, par pages de `limit` : `next_cursor` donne la suivante.",
         "operationId": "list_documents_api_v1_fne_documents_get",
         "security": [
           {
@@ -6152,10 +6256,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Journ\u00e9e comptable de la commande",
+              "description": "Journée comptable de la commande",
               "title": "Business Date"
             },
-            "description": "Journ\u00e9e comptable de la commande"
+            "description": "Journée comptable de la commande"
           },
           {
             "name": "cursor",
@@ -6170,10 +6274,10 @@
                   "type": "null"
                 }
               ],
-              "description": "`next_cursor` de la page pr\u00e9c\u00e9dente ; absent : 1re page",
+              "description": "`next_cursor` de la page précédente ; absent : 1re page",
               "title": "Cursor"
             },
-            "description": "`next_cursor` de la page pr\u00e9c\u00e9dente ; absent : 1re page"
+            "description": "`next_cursor` de la page précédente ; absent : 1re page"
           },
           {
             "name": "limit",
@@ -6183,11 +6287,11 @@
               "type": "integer",
               "maximum": 500,
               "minimum": 1,
-              "description": "Nombre maximum d'\u00e9l\u00e9ments par page",
+              "description": "Nombre maximum d'éléments par page",
               "default": 100,
               "title": "Limit"
             },
-            "description": "Nombre maximum d'\u00e9l\u00e9ments par page"
+            "description": "Nombre maximum d'éléments par page"
           }
         ],
         "responses": {
@@ -6251,10 +6355,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)",
+              "description": "Clé unique générée par le front (optionnelle)",
               "title": "Idempotency-Key"
             },
-            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)"
+            "description": "Clé unique générée par le front (optionnelle)"
           }
         ],
         "responses": {
@@ -6287,7 +6391,7 @@
           "FNE"
         ],
         "summary": "Trancher un document FNE incertain",
-        "description": "Tranche un cas incertain apr\u00e8s v\u00e9rification dans l'espace FNE.",
+        "description": "Tranche un cas incertain après vérification dans l'espace FNE.",
         "operationId": "resolve_api_v1_fne_documents__document_id__resolve_post",
         "security": [
           {
@@ -6318,10 +6422,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)",
+              "description": "Clé unique générée par le front (optionnelle)",
               "title": "Idempotency-Key"
             },
-            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)"
+            "description": "Clé unique générée par le front (optionnelle)"
           }
         ],
         "requestBody": {
@@ -6363,8 +6467,8 @@
         "tags": [
           "FNE"
         ],
-        "summary": "\u00c9mettre un avoir FNE",
-        "description": "Avoir total ou partiel sur une FNE certifi\u00e9e.",
+        "summary": "Émettre un avoir FNE",
+        "description": "Avoir total ou partiel sur une FNE certifiée.",
         "operationId": "refund_api_v1_fne_documents__document_id__refund_post",
         "security": [
           {
@@ -6395,10 +6499,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)",
+              "description": "Clé unique générée par le front (optionnelle)",
               "title": "Idempotency-Key"
             },
-            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)"
+            "description": "Clé unique générée par le front (optionnelle)"
           }
         ],
         "requestBody": {
@@ -6440,8 +6544,8 @@
         "tags": [
           "FNE"
         ],
-        "summary": "Duplicata d'une FNE certifi\u00e9e",
-        "description": "Duplicata d'une facture certifi\u00e9e.",
+        "summary": "Duplicata d'une FNE certifiée",
+        "description": "Duplicata d'une facture certifiée.",
         "operationId": "duplicate_api_v1_fne_documents__document_id__duplicate_get",
         "security": [
           {
@@ -6488,7 +6592,7 @@
         "tags": [
           "FNE"
         ],
-        "summary": "Compteur de la barre d'\u00e9tat",
+        "summary": "Compteur de la barre d'état",
         "description": "Nombre de documents en attente d'une action.",
         "operationId": "pending_count_api_v1_fne_pending_count_get",
         "responses": {
@@ -6515,8 +6619,8 @@
         "tags": [
           "FNE"
         ],
-        "summary": "R\u00e9capitulatif fiscal d'une journ\u00e9e",
-        "description": "R\u00e9capitulatif fiscal journalier.",
+        "summary": "Récapitulatif fiscal d'une journée",
+        "description": "Récapitulatif fiscal journalier.",
         "operationId": "daily_summary_api_v1_fne_daily_summary_get",
         "security": [
           {
@@ -6538,10 +6642,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Journ\u00e9e comptable",
+              "description": "Journée comptable",
               "title": "Business Date"
             },
-            "description": "Journ\u00e9e comptable"
+            "description": "Journée comptable"
           }
         ],
         "responses": {
@@ -6573,7 +6677,7 @@
         "tags": [
           "FNE"
         ],
-        "summary": "Alias r\u00e9tro-compatible pour \u00e9mettre une FNE",
+        "summary": "Alias rétro-compatible pour émettre une FNE",
         "operationId": "legacy_generate_api_v1_fne_generate_post",
         "deprecated": true,
         "security": [
@@ -6596,10 +6700,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)",
+              "description": "Clé unique générée par le front (optionnelle)",
               "title": "Idempotency-Key"
             },
-            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)"
+            "description": "Clé unique générée par le front (optionnelle)"
           }
         ],
         "requestBody": {
@@ -6683,10 +6787,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Date d\u00e9but",
+              "description": "Date début",
               "title": "Start Date"
             },
-            "description": "Date d\u00e9but"
+            "description": "Date début"
           }
         ],
         "responses": {
@@ -6716,7 +6820,7 @@
         "tags": [
           "Impression & Tiroir"
         ],
-        "summary": "\u00c9tat de l'imprimante et de l'agent d'impression",
+        "summary": "État de l'imprimante et de l'agent d'impression",
         "operationId": "get_printer_status_api_v1_printing_status_get",
         "responses": {
           "200": {
@@ -6781,10 +6885,10 @@
                   "type": "null"
                 }
               ],
-              "description": "`next_cursor` de la page pr\u00e9c\u00e9dente ; absent : 1re page",
+              "description": "`next_cursor` de la page précédente ; absent : 1re page",
               "title": "Cursor"
             },
-            "description": "`next_cursor` de la page pr\u00e9c\u00e9dente ; absent : 1re page"
+            "description": "`next_cursor` de la page précédente ; absent : 1re page"
           },
           {
             "name": "limit",
@@ -6794,11 +6898,11 @@
               "type": "integer",
               "maximum": 500,
               "minimum": 1,
-              "description": "Nombre maximum d'\u00e9l\u00e9ments par page",
+              "description": "Nombre maximum d'éléments par page",
               "default": 100,
               "title": "Limit"
             },
-            "description": "Nombre maximum d'\u00e9l\u00e9ments par page"
+            "description": "Nombre maximum d'éléments par page"
           }
         ],
         "responses": {
@@ -6830,7 +6934,7 @@
         "tags": [
           "Impression & Tiroir"
         ],
-        "summary": "D\u00e9tail d'un travail d'impression",
+        "summary": "Détail d'un travail d'impression",
         "operationId": "get_print_job_api_v1_printing_jobs__job_id__get",
         "security": [
           {
@@ -6988,8 +7092,8 @@
         "tags": [
           "Impression & Tiroir"
         ],
-        "summary": "Cr\u00e9er un terminal d'impression (jeton de l'agent)",
-        "description": "Cr\u00e9e un terminal et g\u00e9n\u00e8re le jeton Bearer `pt_...` de l'agent.\nCe jeton n'est renvoy\u00e9 qu'une seule fois dans cette r\u00e9ponse.",
+        "summary": "Créer un terminal d'impression (jeton de l'agent)",
+        "description": "Crée un terminal et génère le jeton Bearer `pt_...` de l'agent.\nCe jeton n'est renvoyé qu'une seule fois dans cette réponse.",
         "operationId": "create_terminal_api_v1_printing_terminals_post",
         "security": [
           {
@@ -7069,7 +7173,7 @@
         "tags": [
           "Impression & Tiroir"
         ],
-        "summary": "R\u00e9voquer un terminal d'impression",
+        "summary": "Révoquer un terminal d'impression",
         "operationId": "revoke_terminal_api_v1_printing_terminals__terminal_id__revoke_post",
         "security": [
           {
@@ -7150,7 +7254,7 @@
         "tags": [
           "Impression & Tiroir"
         ],
-        "summary": "R\u00e9-imprimer un duplicata de ticket (trac\u00e9)",
+        "summary": "Ré-imprimer un duplicata de ticket (tracé)",
         "operationId": "reprint_ticket_api_v1_printing_reprint__order_id__post",
         "security": [
           {
@@ -7312,7 +7416,7 @@
         "tags": [
           "Impression & Tiroir"
         ],
-        "summary": "Ouvrir le tiroir-caisse manuellement (r\u00f4le responsable)",
+        "summary": "Ouvrir le tiroir-caisse manuellement (rôle responsable)",
         "operationId": "open_drawer_manually_api_v1_printing_open_drawer_post",
         "security": [
           {
@@ -7529,7 +7633,7 @@
           "Agent d'impression"
         ],
         "summary": "Interrogation de l'agent",
-        "description": "Signale l'agent (et l'\u00e9tat de l'imprimante) et lui confie le plus ancien travail en\nfile, pass\u00e9 PRINTING. `job: null` : rien \u00e0 imprimer, ou imprimante rapport\u00e9e hors ligne.\n\nErreurs : `401 TERMINAL_TOKEN_INVALID` (jeton inconnu ou r\u00e9voqu\u00e9).",
+        "description": "Signale l'agent (et l'état de l'imprimante) et lui confie le plus ancien travail en\nfile, passé PRINTING. `job: null` : rien à imprimer, ou imprimante rapportée hors ligne.\n\nErreurs : `401 TERMINAL_TOKEN_INVALID` (jeton inconnu ou révoqué).",
         "operationId": "poll_api_v1_print_agent_poll_post",
         "requestBody": {
           "content": {
@@ -7575,8 +7679,8 @@
         "tags": [
           "Agent d'impression"
         ],
-        "summary": "R\u00e9sultat d'un travail d'impression",
-        "description": "Fige le travail en DONE ou FAILED. Renvoyer le m\u00eame r\u00e9sultat est sans effet (idempotent).\n\nErreurs : `401 TERMINAL_TOKEN_INVALID`, `404 PRINT_JOB_NOT_FOUND`, `409 PRINT_JOB_NOT_CLAIMED`\n(travail assign\u00e9 \u00e0 un autre terminal).",
+        "summary": "Résultat d'un travail d'impression",
+        "description": "Fige le travail en DONE ou FAILED. Renvoyer le même résultat est sans effet (idempotent).\n\nErreurs : `401 TERMINAL_TOKEN_INVALID`, `404 PRINT_JOB_NOT_FOUND`, `409 PRINT_JOB_NOT_CLAIMED`\n(travail assigné à un autre terminal).",
         "operationId": "report_job_result_api_v1_print_agent_jobs__job_id__result_post",
         "security": [
           {
@@ -7658,9 +7762,9 @@
     "/api/v1/settings": {
       "get": {
         "tags": [
-          "Param\u00e8tres Syst\u00e8me"
+          "Paramètres Système"
         ],
-        "summary": "Consulter les param\u00e8tres de l'\u00e9tablissement",
+        "summary": "Consulter les paramètres de l'établissement",
         "operationId": "get_establishment_settings_api_v1_settings_get",
         "responses": {
           "200": {
@@ -7682,9 +7786,9 @@
       },
       "put": {
         "tags": [
-          "Param\u00e8tres Syst\u00e8me"
+          "Paramètres Système"
         ],
-        "summary": "Mettre \u00e0 jour les param\u00e8tres de l'\u00e9tablissement (Admin)",
+        "summary": "Mettre à jour les paramètres de l'établissement (Admin)",
         "operationId": "update_establishment_settings_api_v1_settings_put",
         "requestBody": {
           "content": {
@@ -7728,7 +7832,7 @@
     "/api/v1/settings/registers": {
       "get": {
         "tags": [
-          "Param\u00e8tres Syst\u00e8me"
+          "Paramètres Système"
         ],
         "summary": "Lister les postes de caisse",
         "operationId": "list_cash_registers_api_v1_settings_registers_get",
@@ -7756,9 +7860,9 @@
       },
       "post": {
         "tags": [
-          "Param\u00e8tres Syst\u00e8me"
+          "Paramètres Système"
         ],
-        "summary": "Cr\u00e9er un poste de caisse (Admin)",
+        "summary": "Créer un poste de caisse (Admin)",
         "operationId": "create_cash_register_api_v1_settings_registers_post",
         "requestBody": {
           "content": {
@@ -7802,7 +7906,7 @@
     "/api/v1/settings/registers/{register_id}": {
       "patch": {
         "tags": [
-          "Param\u00e8tres Syst\u00e8me"
+          "Paramètres Système"
         ],
         "summary": "Modifier un poste de caisse (Admin)",
         "operationId": "update_cash_register_api_v1_settings_registers__register_id__patch",
@@ -7857,9 +7961,9 @@
       },
       "delete": {
         "tags": [
-          "Param\u00e8tres Syst\u00e8me"
+          "Paramètres Système"
         ],
-        "summary": "D\u00e9sactiver un poste de caisse (Admin)",
+        "summary": "Désactiver un poste de caisse (Admin)",
         "operationId": "delete_cash_register_api_v1_settings_registers__register_id__delete",
         "security": [
           {
@@ -7913,7 +8017,7 @@
           "id": {
             "type": "string",
             "title": "Id",
-            "description": "\u00c0 renvoyer dans POST /print-agent/jobs/{id}/result"
+            "description": "À renvoyer dans POST /print-agent/jobs/{id}/result"
           },
           "type": {
             "type": "string",
@@ -7923,7 +8027,7 @@
           "content": {
             "type": "string",
             "title": "Content",
-            "description": "Texte d\u00e9j\u00e0 mis en page ; vide pour DRAWER"
+            "description": "Texte déjà mis en page ; vide pour DRAWER"
           },
           "open_drawer": {
             "type": "boolean",
@@ -7933,12 +8037,12 @@
           "cut": {
             "type": "boolean",
             "title": "Cut",
-            "description": "Couper le papier apr\u00e8s le texte"
+            "description": "Couper le papier après le texte"
           },
           "is_reprint": {
             "type": "boolean",
             "title": "Is Reprint",
-            "description": "R\u00e9-impression d'un ticket d\u00e9j\u00e0 imprim\u00e9",
+            "description": "Ré-impression d'un ticket déjà imprimé",
             "default": false
           }
         },
@@ -7956,7 +8060,7 @@
         "properties": {
           "printer": {
             "$ref": "#/components/schemas/PrinterReport",
-            "description": "\u00c9tat de l'imprimante vu par l'agent"
+            "description": "État de l'imprimante vu par l'agent"
           }
         },
         "type": "object",
@@ -7987,7 +8091,7 @@
           "printed": {
             "type": "boolean",
             "title": "Printed",
-            "description": "Le travail est sorti (impulsion envoy\u00e9e pour DRAWER)"
+            "description": "Le travail est sorti (impulsion envoyée pour DRAWER)"
           },
           "error": {
             "anyOf": [
@@ -8000,7 +8104,7 @@
               }
             ],
             "title": "Error",
-            "description": "Cause de l'\u00e9chec"
+            "description": "Cause de l'échec"
           }
         },
         "type": "object",
@@ -8044,7 +8148,7 @@
           "line_id": {
             "type": "string",
             "title": "Line Id",
-            "description": "Ligne corrig\u00e9e"
+            "description": "Ligne corrigée"
           },
           "quantity": {
             "anyOf": [
@@ -8061,7 +8165,7 @@
               }
             ],
             "title": "Quantity",
-            "description": "0 : ligne retir\u00e9e"
+            "description": "0 : ligne retirée"
           },
           "unit_price_xof": {
             "anyOf": [
@@ -8078,7 +8182,7 @@
               }
             ],
             "title": "Unit Price Xof",
-            "description": "Prix d'une unit\u00e9"
+            "description": "Prix d'une unité"
           }
         },
         "type": "object",
@@ -8099,7 +8203,7 @@
             "type": "integer",
             "exclusiveMinimum": 0.0,
             "title": "Amount Xof",
-            "description": "Montant vers\u00e9 en banque en FCFA"
+            "description": "Montant versé en banque en FCFA"
           },
           "bank_name": {
             "type": "string",
@@ -8113,7 +8217,7 @@
             "maxLength": 100,
             "minLength": 2,
             "title": "Slip Number",
-            "description": "N\u00b0 de bordereau de versement"
+            "description": "N° de bordereau de versement"
           },
           "deposited_by": {
             "anyOf": [
@@ -8126,7 +8230,7 @@
               }
             ],
             "title": "Deposited By",
-            "description": "Nom de la personne ayant d\u00e9pos\u00e9"
+            "description": "Nom de la personne ayant déposé"
           },
           "notes": {
             "anyOf": [
@@ -8271,12 +8375,12 @@
           "unit": {
             "type": "string",
             "title": "Unit",
-            "description": "Unit\u00e9"
+            "description": "Unité"
           },
           "requested_quantity": {
             "type": "number",
             "title": "Requested Quantity",
-            "description": "Quantit\u00e9 demand\u00e9e"
+            "description": "Quantité demandée"
           },
           "approved_quantity": {
             "anyOf": [
@@ -8288,7 +8392,7 @@
               }
             ],
             "title": "Approved Quantity",
-            "description": "Quantit\u00e9 valid\u00e9e par le responsable (0 : retir\u00e9e) ; null avant validation"
+            "description": "Quantité validée par le responsable (0 : retirée) ; null avant validation"
           },
           "received_quantity": {
             "anyOf": [
@@ -8300,7 +8404,7 @@
               }
             ],
             "title": "Received Quantity",
-            "description": "Quantit\u00e9 r\u00e9ceptionn\u00e9e"
+            "description": "Quantité réceptionnée"
           }
         },
         "type": "object",
@@ -8323,14 +8427,14 @@
           "number": {
             "type": "string",
             "title": "Number",
-            "description": "Num\u00e9ro",
+            "description": "Numéro",
             "examples": [
               "ACH-0001"
             ]
           },
           "status": {
             "$ref": "#/components/schemas/PurchaseStatus",
-            "description": "\u00c9tat de la demande"
+            "description": "État de la demande"
           },
           "note": {
             "anyOf": [
@@ -8347,7 +8451,7 @@
           "amount_xof": {
             "type": "integer",
             "title": "Amount Xof",
-            "description": "Montant qui sera remis : total valid\u00e9, sinon total estim\u00e9 \u00e0 l'envoi"
+            "description": "Montant qui sera remis : total validé, sinon total estimé à l'envoi"
           },
           "disbursed_xof": {
             "anyOf": [
@@ -8371,7 +8475,7 @@
               }
             ],
             "title": "Received Total Xof",
-            "description": "Total d\u00e9pens\u00e9, saisi \u00e0 la r\u00e9ception"
+            "description": "Total dépensé, saisi à la réception"
           },
           "change_due_xof": {
             "anyOf": [
@@ -8383,7 +8487,7 @@
               }
             ],
             "title": "Change Due Xof",
-            "description": "Monnaie \u00e0 rendre (remis - d\u00e9pens\u00e9) ; n\u00e9gatif : la caisse doit \u00e0 l'acheteur"
+            "description": "Monnaie à rendre (remis - dépensé) ; négatif : la caisse doit à l'acheteur"
           },
           "closed_reason": {
             "anyOf": [
@@ -8407,7 +8511,7 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At",
-            "description": "Derni\u00e8re modification"
+            "description": "Dernière modification"
           },
           "lines": {
             "items": {
@@ -8415,7 +8519,7 @@
             },
             "type": "array",
             "title": "Lines",
-            "description": "Articles demand\u00e9s"
+            "description": "Articles demandés"
           }
         },
         "type": "object",
@@ -8440,14 +8544,14 @@
           "number": {
             "type": "string",
             "title": "Number",
-            "description": "Num\u00e9ro",
+            "description": "Numéro",
             "examples": [
               "ACH-0001"
             ]
           },
           "status": {
             "$ref": "#/components/schemas/PurchaseStatus",
-            "description": "\u00c9tat de la demande"
+            "description": "État de la demande"
           },
           "note": {
             "anyOf": [
@@ -8464,7 +8568,7 @@
           "amount_xof": {
             "type": "integer",
             "title": "Amount Xof",
-            "description": "Montant qui sera remis : total valid\u00e9, sinon total estim\u00e9 \u00e0 l'envoi"
+            "description": "Montant qui sera remis : total validé, sinon total estimé à l'envoi"
           },
           "disbursed_xof": {
             "anyOf": [
@@ -8488,7 +8592,7 @@
               }
             ],
             "title": "Received Total Xof",
-            "description": "Total d\u00e9pens\u00e9, saisi \u00e0 la r\u00e9ception"
+            "description": "Total dépensé, saisi à la réception"
           },
           "change_due_xof": {
             "anyOf": [
@@ -8500,7 +8604,7 @@
               }
             ],
             "title": "Change Due Xof",
-            "description": "Monnaie \u00e0 rendre (remis - d\u00e9pens\u00e9) ; n\u00e9gatif : la caisse doit \u00e0 l'acheteur"
+            "description": "Monnaie à rendre (remis - dépensé) ; négatif : la caisse doit à l'acheteur"
           },
           "closed_reason": {
             "anyOf": [
@@ -8524,7 +8628,7 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At",
-            "description": "Derni\u00e8re modification"
+            "description": "Dernière modification"
           }
         },
         "type": "object",
@@ -8544,7 +8648,7 @@
             "type": "string",
             "format": "date",
             "title": "Business Date",
-            "description": "Date comptable d'imputation de la d\u00e9pense"
+            "description": "Date comptable d'imputation de la dépense"
           },
           "category": {
             "type": "string",
@@ -8559,7 +8663,7 @@
               "AUTRE"
             ],
             "title": "Category",
-            "description": "Cat\u00e9gorie de la d\u00e9pense"
+            "description": "Catégorie de la dépense"
           },
           "amount_xof": {
             "type": "integer",
@@ -8572,7 +8676,7 @@
             "maxLength": 255,
             "minLength": 2,
             "title": "Reason",
-            "description": "Motif ou d\u00e9signation"
+            "description": "Motif ou désignation"
           },
           "recipient": {
             "anyOf": [
@@ -8585,7 +8689,7 @@
               }
             ],
             "title": "Recipient",
-            "description": "B\u00e9n\u00e9ficiaire / Fournisseur pay\u00e9"
+            "description": "Bénéficiaire / Fournisseur payé"
           },
           "receipt_reference": {
             "anyOf": [
@@ -8598,12 +8702,12 @@
               }
             ],
             "title": "Receipt Reference",
-            "description": "N\u00b0 de re\u00e7u ou pi\u00e8ce justificative"
+            "description": "N° de reçu ou pièce justificative"
           },
           "deduct_from_cash_session": {
             "type": "boolean",
             "title": "Deduct From Cash Session",
-            "description": "Si true et qu'une session de caisse est ouverte, d\u00e9duit du tiroir-caisse",
+            "description": "Si true et qu'une session de caisse est ouverte, déduit du tiroir-caisse",
             "default": false
           }
         },
@@ -9232,7 +9336,7 @@
           "article_id": {
             "type": "string",
             "title": "Article Id",
-            "description": "Article consomm\u00e9"
+            "description": "Article consommé"
           },
           "quantity": {
             "anyOf": [
@@ -9246,7 +9350,7 @@
               }
             ],
             "title": "Quantity",
-            "description": "Quantit\u00e9 par portion vendue"
+            "description": "Quantité par portion vendue"
           }
         },
         "type": "object",
@@ -9261,7 +9365,7 @@
           "article_id": {
             "type": "string",
             "title": "Article Id",
-            "description": "Article consomm\u00e9"
+            "description": "Article consommé"
           },
           "article_name": {
             "type": "string",
@@ -9271,22 +9375,22 @@
           "unit": {
             "type": "string",
             "title": "Unit",
-            "description": "Unit\u00e9 de l'article"
+            "description": "Unité de l'article"
           },
           "quantity": {
             "type": "number",
             "title": "Quantity",
-            "description": "Quantit\u00e9 par portion vendue"
+            "description": "Quantité par portion vendue"
           },
           "unit_cost_xof": {
             "type": "number",
             "title": "Unit Cost Xof",
-            "description": "Co\u00fbt moyen actuel d'une unit\u00e9 de l'article"
+            "description": "Coût moyen actuel d'une unité de l'article"
           },
           "cost_xof": {
             "type": "number",
             "title": "Cost Xof",
-            "description": "Co\u00fbt mati\u00e8re de ce composant pour une portion"
+            "description": "Coût matière de ce composant pour une portion"
           }
         },
         "type": "object",
@@ -9309,7 +9413,7 @@
             "type": "array",
             "maxItems": 20,
             "title": "Components",
-            "description": "Fiche compl\u00e8te ; liste vide : le plat ne d\u00e9stocke plus"
+            "description": "Fiche complète ; liste vide : le plat ne déstocke plus"
           }
         },
         "type": "object",
@@ -9321,7 +9425,7 @@
           {
             "components": [
               {
-                "article_id": "\u2026",
+                "article_id": "…",
                 "quantity": 0.2
               }
             ]
@@ -9333,7 +9437,7 @@
           "article_id": {
             "type": "string",
             "title": "Article Id",
-            "description": "Article compt\u00e9"
+            "description": "Article compté"
           },
           "counted_quantity": {
             "anyOf": [
@@ -9347,7 +9451,7 @@
               }
             ],
             "title": "Counted Quantity",
-            "description": "Quantit\u00e9 r\u00e9ellement pr\u00e9sente"
+            "description": "Quantité réellement présente"
           }
         },
         "type": "object",
@@ -9380,7 +9484,7 @@
             "maxLength": 50,
             "minLength": 1,
             "title": "Label",
-            "description": "Nom ou num\u00e9ro de la table"
+            "description": "Nom ou numéro de la table"
           },
           "zone": {
             "type": "string",
@@ -9395,7 +9499,7 @@
             "maximum": 50.0,
             "minimum": 1.0,
             "title": "Seats",
-            "description": "Nombre de places assises / capacit\u00e9 en personnes",
+            "description": "Nombre de places assises / capacité en personnes",
             "default": 4
           },
           "sort_order": {
@@ -9429,7 +9533,7 @@
               "ECONOME"
             ],
             "title": "Role",
-            "description": "R\u00f4le syst\u00e8me de l'utilisateur",
+            "description": "Rôle système de l'utilisateur",
             "default": "CAISSIER"
           },
           "pin": {
@@ -9437,7 +9541,7 @@
             "maxLength": 6,
             "minLength": 4,
             "title": "Pin",
-            "description": "Code PIN num\u00e9rique (4 \u00e0 6 chiffres)"
+            "description": "Code PIN numérique (4 à 6 chiffres)"
           }
         },
         "additionalProperties": false,
@@ -9650,24 +9754,24 @@
             "type": "string",
             "format": "date",
             "title": "Business Date",
-            "description": "Date du jour de pr\u00e9paration"
+            "description": "Date du jour de préparation"
           },
           "article_id": {
             "type": "string",
             "title": "Article Id",
-            "description": "ID de l'article prot\u00e9ine"
+            "description": "ID de l'article protéine"
           },
           "prepared_quantity": {
             "type": "number",
             "exclusiveMinimum": 0.0,
             "title": "Prepared Quantity",
-            "description": "Quantit\u00e9 sortie en cuisine"
+            "description": "Quantité sortie en cuisine"
           },
           "yield_portions_per_unit": {
             "type": "number",
             "exclusiveMinimum": 0.0,
             "title": "Yield Portions Per Unit",
-            "description": "Rendement en plats par unit\u00e9 de mati\u00e8re (ex: 4 plats/poulet)"
+            "description": "Rendement en plats par unité de matière (ex: 4 plats/poulet)"
           },
           "notes": {
             "anyOf": [
@@ -9773,7 +9877,7 @@
           "user_id": {
             "type": "string",
             "title": "User Id",
-            "description": "Utilisateur qui a sold\u00e9 les commandes"
+            "description": "Utilisateur qui a soldé les commandes"
           },
           "full_name": {
             "type": "string",
@@ -9783,7 +9887,7 @@
           "orders_count": {
             "type": "integer",
             "title": "Orders Count",
-            "description": "Commandes sold\u00e9es"
+            "description": "Commandes soldées"
           },
           "revenue_xof": {
             "type": "integer",
@@ -9805,12 +9909,12 @@
           "certified": {
             "type": "integer",
             "title": "Certified",
-            "description": "Commandes de la journ\u00e9e avec une FNE certifi\u00e9e"
+            "description": "Commandes de la journée avec une FNE certifiée"
           },
           "pending": {
             "type": "integer",
             "title": "Pending",
-            "description": "Documents FNE de la journ\u00e9e encore en attente"
+            "description": "Documents FNE de la journée encore en attente"
           }
         },
         "type": "object",
@@ -9825,12 +9929,12 @@
           "hour": {
             "type": "integer",
             "title": "Hour",
-            "description": "Heure d'encaissement (0 \u00e0 23, heure d'Abidjan)"
+            "description": "Heure d'encaissement (0 à 23, heure d'Abidjan)"
           },
           "orders_count": {
             "type": "integer",
             "title": "Orders Count",
-            "description": "Commandes sold\u00e9es dans l'heure"
+            "description": "Commandes soldées dans l'heure"
           },
           "revenue_xof": {
             "type": "integer",
@@ -9991,17 +10095,17 @@
             "type": "string",
             "format": "date",
             "title": "Business Date",
-            "description": "Journ\u00e9e comptable"
+            "description": "Journée comptable"
           },
           "revenue_xof": {
             "type": "integer",
             "title": "Revenue Xof",
-            "description": "Chiffre d'affaires des commandes sold\u00e9es"
+            "description": "Chiffre d'affaires des commandes soldées"
           },
           "orders_paid": {
             "type": "integer",
             "title": "Orders Paid",
-            "description": "Commandes sold\u00e9es"
+            "description": "Commandes soldées"
           },
           "orders_open": {
             "type": "integer",
@@ -10011,7 +10115,7 @@
           "orders_cancelled": {
             "type": "integer",
             "title": "Orders Cancelled",
-            "description": "Commandes annul\u00e9es"
+            "description": "Commandes annulées"
           },
           "average_ticket_xof": {
             "type": "integer",
@@ -10021,17 +10125,17 @@
           "guests_count": {
             "type": "integer",
             "title": "Guests Count",
-            "description": "Couverts des commandes sold\u00e9es (quand saisis)"
+            "description": "Couverts des commandes soldées (quand saisis)"
           },
           "dine_in_orders": {
             "type": "integer",
             "title": "Dine In Orders",
-            "description": "Commandes sold\u00e9es servies \u00e0 table"
+            "description": "Commandes soldées servies à table"
           },
           "takeaway_orders": {
             "type": "integer",
             "title": "Takeaway Orders",
-            "description": "Commandes sold\u00e9es \u00e0 emporter"
+            "description": "Commandes soldées à emporter"
           },
           "tables_occupied": {
             "type": "integer",
@@ -10049,7 +10153,7 @@
             },
             "type": "array",
             "title": "Payments",
-            "description": "Encaissements par moyen et op\u00e9rateur"
+            "description": "Encaissements par moyen et opérateur"
           },
           "top_products": {
             "items": {
@@ -10073,7 +10177,7 @@
             },
             "type": "array",
             "title": "By Cashier",
-            "description": "Ventes par personne qui a encaiss\u00e9"
+            "description": "Ventes par personne qui a encaissé"
           },
           "sessions": {
             "items": {
@@ -10081,7 +10185,7 @@
             },
             "type": "array",
             "title": "Sessions",
-            "description": "Sessions de caisse de la journ\u00e9e"
+            "description": "Sessions de caisse de la journée"
           },
           "low_stock_articles": {
             "type": "integer",
@@ -10090,7 +10194,7 @@
           },
           "fne": {
             "$ref": "#/components/schemas/DashboardFne",
-            "description": "Factures normalis\u00e9es de la journ\u00e9e"
+            "description": "Factures normalisées de la journée"
           }
         },
         "type": "object",
@@ -10132,7 +10236,7 @@
               }
             ],
             "title": "Provider",
-            "description": "Op\u00e9rateur Mobile Money (WAVE, ORANGE\u2026), sinon null"
+            "description": "Opérateur Mobile Money (WAVE, ORANGE…), sinon null"
           },
           "count": {
             "type": "integer",
@@ -10142,7 +10246,7 @@
           "amount_xof": {
             "type": "integer",
             "title": "Amount Xof",
-            "description": "Montant encaiss\u00e9"
+            "description": "Montant encaissé"
           }
         },
         "type": "object",
@@ -10164,12 +10268,12 @@
           "name": {
             "type": "string",
             "title": "Name",
-            "description": "Nom \u00e0 la vente"
+            "description": "Nom à la vente"
           },
           "quantity": {
             "type": "integer",
             "title": "Quantity",
-            "description": "Quantit\u00e9 vendue"
+            "description": "Quantité vendue"
           },
           "revenue_xof": {
             "type": "integer",
@@ -10224,7 +10328,7 @@
               }
             ],
             "title": "Closed At",
-            "description": "Cl\u00f4ture (Z)"
+            "description": "Clôture (Z)"
           },
           "z_number": {
             "anyOf": [
@@ -10236,7 +10340,7 @@
               }
             ],
             "title": "Z Number",
-            "description": "Num\u00e9ro du Z"
+            "description": "Numéro du Z"
           },
           "variance_xof": {
             "anyOf": [
@@ -10248,7 +10352,7 @@
               }
             ],
             "title": "Variance Xof",
-            "description": "\u00c9cart de caisse \u00e0 la cl\u00f4ture"
+            "description": "Écart de caisse à la clôture"
           }
         },
         "type": "object",
@@ -10284,7 +10388,7 @@
           "address": {
             "type": "string",
             "title": "Address",
-            "default": "Abidjan, C\u00f4te d'Ivoire"
+            "default": "Abidjan, Côte d'Ivoire"
           },
           "phone": {
             "type": "string",
@@ -10299,7 +10403,7 @@
           "receipt_footer": {
             "type": "string",
             "title": "Receipt Footer",
-            "default": "Merci de votre visite et \u00e0 tr\u00e8s bient\u00f4t !"
+            "default": "Merci de votre visite et à très bientôt !"
           },
           "print_width": {
             "type": "integer",
@@ -10338,7 +10442,7 @@
           "quantity": {
             "type": "integer",
             "title": "Quantity",
-            "description": "Quantit\u00e9 vendue"
+            "description": "Quantité vendue"
           },
           "amount_xof": {
             "type": "integer",
@@ -10360,22 +10464,22 @@
             "type": "string",
             "format": "date",
             "title": "Business Date",
-            "description": "Journ\u00e9e comptable"
+            "description": "Journée comptable"
           },
           "paid_orders": {
             "type": "integer",
             "title": "Paid Orders",
-            "description": "Commandes sold\u00e9es"
+            "description": "Commandes soldées"
           },
           "gross_ttc_xof": {
             "type": "integer",
             "title": "Gross Ttc Xof",
-            "description": "Chiffre d'affaires TTC des commandes sold\u00e9es"
+            "description": "Chiffre d'affaires TTC des commandes soldées"
           },
           "certified_orders": {
             "type": "integer",
             "title": "Certified Orders",
-            "description": "Commandes couvertes par une FNE certifi\u00e9e"
+            "description": "Commandes couvertes par une FNE certifiée"
           },
           "certified_ttc_xof": {
             "type": "integer",
@@ -10385,7 +10489,7 @@
           "pending_documents": {
             "type": "integer",
             "title": "Pending Documents",
-            "description": "FNE de la journ\u00e9e en attente"
+            "description": "FNE de la journée en attente"
           },
           "by_fiscal_group": {
             "items": {
@@ -10428,7 +10532,7 @@
           "is_uncertain": {
             "type": "boolean",
             "title": "Is Uncertain",
-            "description": "Issue inconnue (d\u00e9lai d\u00e9pass\u00e9, erreur serveur FNE) : v\u00e9rifier dans l'espace FNE puis `POST /fne/documents/{id}/resolve`. Jamais renvoy\u00e9 automatiquement",
+            "description": "Issue inconnue (délai dépassé, erreur serveur FNE) : vérifier dans l'espace FNE puis `POST /fne/documents/{id}/resolve`. Jamais renvoyé automatiquement",
             "default": false
           },
           "template": {
@@ -10453,7 +10557,7 @@
               }
             ],
             "title": "Order Id",
-            "description": "Commande factur\u00e9e"
+            "description": "Commande facturée"
           },
           "internal_reference": {
             "anyOf": [
@@ -10465,7 +10569,7 @@
               }
             ],
             "title": "Internal Reference",
-            "description": "N\u00b0 de la commande",
+            "description": "N° de la commande",
             "examples": [
               "2026-09-24-0042"
             ]
@@ -10491,7 +10595,7 @@
                 "type": "null"
               }
             ],
-            "description": "Client rattach\u00e9"
+            "description": "Client rattaché"
           },
           "customer_name": {
             "anyOf": [
@@ -10539,7 +10643,7 @@
               }
             ],
             "title": "External Number",
-            "description": "N\u00b0 FNE attribu\u00e9 par la DGI",
+            "description": "N° FNE attribué par la DGI",
             "examples": [
               "1304777N26000000023"
             ]
@@ -10554,7 +10658,7 @@
               }
             ],
             "title": "Qr Payload",
-            "description": "Lien de v\u00e9rification DGI : contenu du QR code, et page A4 imprimable"
+            "description": "Lien de vérification DGI : contenu du QR code, et page A4 imprimable"
           },
           "fne_amount_ttc_xof": {
             "anyOf": [
@@ -10566,7 +10670,7 @@
               }
             ],
             "title": "Fne Amount Ttc Xof",
-            "description": "Total TTC calcul\u00e9 par la FNE"
+            "description": "Total TTC calculé par la FNE"
           },
           "certified_at": {
             "anyOf": [
@@ -10584,7 +10688,7 @@
           "attempts": {
             "type": "integer",
             "title": "Attempts",
-            "description": "Nombre d'envois \u00e0 la FNE",
+            "description": "Nombre d'envois à la FNE",
             "default": 0
           },
           "last_error": {
@@ -10597,7 +10701,7 @@
               }
             ],
             "title": "Last Error",
-            "description": "Derni\u00e8re erreur (diagnostic, non affichable)"
+            "description": "Dernière erreur (diagnostic, non affichable)"
           },
           "next_retry_at": {
             "anyOf": [
@@ -10616,7 +10720,7 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At",
-            "description": "Cr\u00e9ation du document"
+            "description": "Création du document"
           }
         },
         "type": "object",
@@ -10688,7 +10792,7 @@
         "properties": {
           "template": {
             "$ref": "#/components/schemas/FneTemplate",
-            "description": "B2C particulier \u00b7 B2B entreprise (NCC obligatoire) \u00b7 B2G administration \u00b7 B2F client \u00e0 l'international",
+            "description": "B2C particulier · B2B entreprise (NCC obligatoire) · B2G administration · B2F client à l'international",
             "default": "B2C"
           },
           "customer_id": {
@@ -10712,7 +10816,7 @@
                 "type": "null"
               }
             ],
-            "description": "Moyen de paiement d\u00e9clar\u00e9 ; d\u00e9faut : celui du plus gros montant encaiss\u00e9"
+            "description": "Moyen de paiement déclaré ; défaut : celui du plus gros montant encaissé"
           }
         },
         "type": "object",
@@ -10722,7 +10826,7 @@
             "template": "B2C"
           },
           {
-            "customer_id": "\u2026",
+            "customer_id": "…",
             "template": "B2B"
           }
         ]
@@ -10737,12 +10841,12 @@
           "uncertain": {
             "type": "integer",
             "title": "Uncertain",
-            "description": "Dont : issue inconnue, \u00e0 v\u00e9rifier dans l'espace FNE"
+            "description": "Dont : issue inconnue, à vérifier dans l'espace FNE"
           },
           "failed": {
             "type": "integer",
             "title": "Failed",
-            "description": "Dont : refus\u00e9s par la DGI"
+            "description": "Dont : refusés par la DGI"
           }
         },
         "type": "object",
@@ -10776,14 +10880,14 @@
           "order_item_id": {
             "type": "string",
             "title": "Order Item Id",
-            "description": "Ligne de la commande \u00e0 reprendre"
+            "description": "Ligne de la commande à reprendre"
           },
           "quantity": {
             "type": "integer",
             "maximum": 999.0,
             "minimum": 1.0,
             "title": "Quantity",
-            "description": "Quantit\u00e9 reprise"
+            "description": "Quantité reprise"
           }
         },
         "type": "object",
@@ -10798,7 +10902,7 @@
           "is_certified": {
             "type": "boolean",
             "title": "Is Certified",
-            "description": "Constat dans l'espace FNE : la facture a-t-elle \u00e9t\u00e9 certifi\u00e9e (num\u00e9rot\u00e9e) ?"
+            "description": "Constat dans l'espace FNE : la facture a-t-elle été certifiée (numérotée) ?"
           },
           "external_number": {
             "anyOf": [
@@ -10811,7 +10915,7 @@
               }
             ],
             "title": "External Number",
-            "description": "N\u00b0 FNE relev\u00e9 ; obligatoire si certifi\u00e9e"
+            "description": "N° FNE relevé ; obligatoire si certifiée"
           },
           "qr_payload": {
             "anyOf": [
@@ -10823,7 +10927,7 @@
               }
             ],
             "title": "Qr Payload",
-            "description": "Lien de v\u00e9rification relev\u00e9 dans l'espace FNE (facultatif)"
+            "description": "Lien de vérification relevé dans l'espace FNE (facultatif)"
           }
         },
         "type": "object",
@@ -10974,7 +11078,7 @@
             "maxLength": 6,
             "minLength": 4,
             "title": "Pin",
-            "description": "Code PIN num\u00e9rique (4 \u00e0 6 chiffres)"
+            "description": "Code PIN numérique (4 à 6 chiffres)"
           },
           "device_id": {
             "type": "string",
@@ -11051,7 +11155,7 @@
               }
             ],
             "title": "Quantity",
-            "description": "Quantit\u00e9"
+            "description": "Quantité"
           }
         },
         "type": "object",
@@ -11149,6 +11253,60 @@
         ],
         "title": "MarketBudgetStatusOut"
       },
+      "MarketProteinAnalysisOut": {
+        "properties": {
+          "purchase_id": {
+            "type": "string",
+            "title": "Purchase Id"
+          },
+          "business_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Business Date"
+          },
+          "week_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Week Start"
+          },
+          "week_end": {
+            "type": "string",
+            "format": "date",
+            "title": "Week End"
+          },
+          "proteins": {
+            "items": {
+              "$ref": "#/components/schemas/ProteinComparisonRow"
+            },
+            "type": "array",
+            "title": "Proteins"
+          },
+          "total_requested_proteins_cost_xof": {
+            "type": "integer",
+            "title": "Total Requested Proteins Cost Xof"
+          },
+          "total_recommended_proteins_cost_xof": {
+            "type": "integer",
+            "title": "Total Recommended Proteins Cost Xof"
+          },
+          "total_potential_savings_xof": {
+            "type": "integer",
+            "title": "Total Potential Savings Xof"
+          }
+        },
+        "type": "object",
+        "required": [
+          "purchase_id",
+          "business_date",
+          "week_start",
+          "week_end",
+          "proteins",
+          "total_requested_proteins_cost_xof",
+          "total_recommended_proteins_cost_xof",
+          "total_potential_savings_xof"
+        ],
+        "title": "MarketProteinAnalysisOut"
+      },
       "MarketPurchaseItemCreate": {
         "properties": {
           "article_id": {
@@ -11173,7 +11331,7 @@
               }
             ],
             "title": "Custom Article Name",
-            "description": "Nom si nouvel article cr\u00e9\u00e9 \u00e0 la vol\u00e9e par l'\u00e9conome"
+            "description": "Nom si nouvel article créé à la volée par l'économe"
           },
           "unit": {
             "anyOf": [
@@ -11185,7 +11343,7 @@
               }
             ],
             "title": "Unit",
-            "description": "Unit\u00e9 de mesure (kg, litre, pi\u00e8ce...)"
+            "description": "Unité de mesure (kg, litre, pièce...)"
           },
           "category": {
             "anyOf": [
@@ -11197,19 +11355,19 @@
               }
             ],
             "title": "Category",
-            "description": "Famille/cat\u00e9gorie (PROTEINE, EPICERIE, etc.)"
+            "description": "Famille/catégorie (PROTEINE, EPICERIE, etc.)"
           },
           "quantity": {
             "type": "number",
             "exclusiveMinimum": 0.0,
             "title": "Quantity",
-            "description": "Quantit\u00e9 demand\u00e9e au march\u00e9"
+            "description": "Quantité demandée au marché"
           },
           "unit_price_xof": {
             "type": "integer",
             "minimum": 0.0,
             "title": "Unit Price Xof",
-            "description": "Prix d'achat unitaire estim\u00e9/n\u00e9goci\u00e9"
+            "description": "Prix d'achat unitaire estimé/négocié"
           }
         },
         "type": "object",
@@ -11386,6 +11544,35 @@
           "created_at"
         ],
         "title": "MarketPurchaseListOut"
+      },
+      "MarketPurchaseListUpdate": {
+        "properties": {
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MarketPurchaseItemCreate"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "MarketPurchaseListUpdate"
       },
       "OpenSessionInfo": {
         "properties": {
@@ -12370,7 +12557,7 @@
               }
             ],
             "title": "Order Id",
-            "description": "Commande concern\u00e9e"
+            "description": "Commande concernée"
           },
           "status": {
             "type": "string",
@@ -12398,7 +12585,7 @@
               }
             ],
             "title": "Error Message",
-            "description": "Derni\u00e8re erreur"
+            "description": "Dernière erreur"
           },
           "is_duplicate": {
             "type": "boolean",
@@ -12410,7 +12597,7 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At",
-            "description": "Date de cr\u00e9ation"
+            "description": "Date de création"
           }
         },
         "type": "object",
@@ -12445,12 +12632,12 @@
         "properties": {
           "terminal": {
             "$ref": "#/components/schemas/PrintTerminalOut",
-            "description": "Terminal cr\u00e9\u00e9"
+            "description": "Terminal créé"
           },
           "token": {
             "type": "string",
             "title": "Token",
-            "description": "Jeton de l'agent : affich\u00e9 une seule fois, non stock\u00e9"
+            "description": "Jeton de l'agent : affiché une seule fois, non stocké"
           }
         },
         "type": "object",
@@ -12483,7 +12670,7 @@
               }
             ],
             "title": "Revoked At",
-            "description": "R\u00e9vocation du jeton ; null si actif"
+            "description": "Révocation du jeton ; null si actif"
           },
           "last_seen_at": {
             "anyOf": [
@@ -12496,19 +12683,19 @@
               }
             ],
             "title": "Last Seen At",
-            "description": "Derni\u00e8re interrogation de son agent"
+            "description": "Dernière interrogation de son agent"
           },
           "printer_status": {
             "additionalProperties": true,
             "type": "object",
             "title": "Printer Status",
-            "description": "Dernier \u00e9tat d'imprimante rapport\u00e9"
+            "description": "Dernier état d'imprimante rapporté"
           },
           "created_at": {
             "type": "string",
             "format": "date-time",
             "title": "Created At",
-            "description": "Date de cr\u00e9ation"
+            "description": "Date de création"
           }
         },
         "type": "object",
@@ -12524,7 +12711,7 @@
           "online": {
             "type": "boolean",
             "title": "Online",
-            "description": "L'imprimante r\u00e9pond"
+            "description": "L'imprimante répond"
           },
           "paper": {
             "anyOf": [
@@ -12537,7 +12724,7 @@
               }
             ],
             "title": "Paper",
-            "description": "`ok`, `near_end`, `empty`\u2026"
+            "description": "`ok`, `near_end`, `empty`…"
           },
           "model": {
             "anyOf": [
@@ -12550,7 +12737,7 @@
               }
             ],
             "title": "Model",
-            "description": "Mod\u00e8le ou identifiant"
+            "description": "Modèle ou identifiant"
           },
           "width": {
             "anyOf": [
@@ -12564,7 +12751,7 @@
               }
             ],
             "title": "Width",
-            "description": "Caract\u00e8res par ligne"
+            "description": "Caractères par ligne"
           }
         },
         "type": "object",
@@ -12578,12 +12765,12 @@
           "agent_online": {
             "type": "boolean",
             "title": "Agent Online",
-            "description": "Un agent d'impression s'est signal\u00e9 r\u00e9cemment"
+            "description": "Un agent d'impression s'est signalé récemment"
           },
           "printer_online": {
             "type": "boolean",
             "title": "Printer Online",
-            "description": "L'imprimante r\u00e9pond \u00e0 l'agent"
+            "description": "L'imprimante répond à l'agent"
           },
           "paper": {
             "anyOf": [
@@ -12595,7 +12782,7 @@
               }
             ],
             "title": "Paper",
-            "description": "\u00c9tat du papier (ok, low\u2026)"
+            "description": "État du papier (ok, low…)"
           },
           "width": {
             "anyOf": [
@@ -12607,7 +12794,7 @@
               }
             ],
             "title": "Width",
-            "description": "Largeur en caract\u00e8res"
+            "description": "Largeur en caractères"
           },
           "agent_last_seen_at": {
             "anyOf": [
@@ -12620,7 +12807,7 @@
               }
             ],
             "title": "Agent Last Seen At",
-            "description": "Derni\u00e8re interrogation de l'agent"
+            "description": "Dernière interrogation de l'agent"
           },
           "queued_jobs": {
             "type": "integer",
@@ -12630,7 +12817,7 @@
           "failed_jobs": {
             "type": "integer",
             "title": "Failed Jobs",
-            "description": "Travaux en \u00e9chec (FAILED)"
+            "description": "Travaux en échec (FAILED)"
           },
           "last_success_at": {
             "anyOf": [
@@ -12643,7 +12830,7 @@
               }
             ],
             "title": "Last Success At",
-            "description": "Derni\u00e8re impression r\u00e9ussie"
+            "description": "Dernière impression réussie"
           }
         },
         "type": "object",
@@ -12683,12 +12870,12 @@
           "cost_xof": {
             "type": "number",
             "title": "Cost Xof",
-            "description": "Co\u00fbt mati\u00e8re d'une portion au CMP actuel"
+            "description": "Coût matière d'une portion au CMP actuel"
           },
           "margin_xof": {
             "type": "number",
             "title": "Margin Xof",
-            "description": "Prix de vente - co\u00fbt mati\u00e8re"
+            "description": "Prix de vente - coût matière"
           }
         },
         "type": "object",
@@ -12881,6 +13068,89 @@
         ],
         "title": "ProductResponse"
       },
+      "ProteinComparisonRow": {
+        "properties": {
+          "article_id": {
+            "type": "string",
+            "title": "Article Id"
+          },
+          "article_name": {
+            "type": "string",
+            "title": "Article Name"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "requested_quantity": {
+            "type": "number",
+            "title": "Requested Quantity"
+          },
+          "unit_price_xof": {
+            "type": "integer",
+            "title": "Unit Price Xof"
+          },
+          "line_total_xof": {
+            "type": "integer",
+            "title": "Line Total Xof"
+          },
+          "current_stock_quantity": {
+            "type": "number",
+            "title": "Current Stock Quantity"
+          },
+          "weekly_purchased_quantity": {
+            "type": "number",
+            "title": "Weekly Purchased Quantity"
+          },
+          "weekly_prepared_quantity": {
+            "type": "number",
+            "title": "Weekly Prepared Quantity"
+          },
+          "weekly_sold_dishes": {
+            "type": "integer",
+            "title": "Weekly Sold Dishes"
+          },
+          "estimated_remaining_quantity": {
+            "type": "number",
+            "title": "Estimated Remaining Quantity"
+          },
+          "recommended_quantity": {
+            "type": "number",
+            "title": "Recommended Quantity"
+          },
+          "recommended_total_xof": {
+            "type": "integer",
+            "title": "Recommended Total Xof"
+          },
+          "potential_savings_xof": {
+            "type": "integer",
+            "title": "Potential Savings Xof"
+          },
+          "status_alert": {
+            "type": "string",
+            "title": "Status Alert"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article_id",
+          "article_name",
+          "unit",
+          "requested_quantity",
+          "unit_price_xof",
+          "line_total_xof",
+          "current_stock_quantity",
+          "weekly_purchased_quantity",
+          "weekly_prepared_quantity",
+          "weekly_sold_dishes",
+          "estimated_remaining_quantity",
+          "recommended_quantity",
+          "recommended_total_xof",
+          "potential_savings_xof",
+          "status_alert"
+        ],
+        "title": "ProteinComparisonRow"
+      },
       "ProteinYieldItem": {
         "properties": {
           "article_id": {
@@ -12891,7 +13161,7 @@
           "article_name": {
             "type": "string",
             "title": "Article Name",
-            "description": "Nom de la mati\u00e8re premi\u00e8re (ex: B\u0153uf, Mouton)"
+            "description": "Nom de la matière première (ex: Bœuf, Mouton)"
           },
           "category": {
             "$ref": "#/components/schemas/StockArticleCategory",
@@ -12900,68 +13170,68 @@
           "unit": {
             "type": "string",
             "title": "Unit",
-            "description": "Unit\u00e9 de mesure (kg, pi\u00e8ce, morceau)"
+            "description": "Unité de mesure (kg, pièce, morceau)"
           },
           "avg_cost_xof": {
             "type": "number",
             "title": "Avg Cost Xof",
-            "description": "Co\u00fbt moyen unitaire d'achat (CMP)"
+            "description": "Coût moyen unitaire d'achat (CMP)"
           },
           "standard_portion": {
             "type": "number",
             "title": "Standard Portion",
-            "description": "Quantit\u00e9 standard consomm\u00e9e par plat (fiche)"
+            "description": "Quantité standard consommée par plat (fiche)"
           },
           "yield_ratio_per_unit": {
             "type": "number",
             "title": "Yield Ratio Per Unit",
-            "description": "Nombre de plats th\u00e9oriques par unit\u00e9"
+            "description": "Nombre de plats théoriques par unité"
           },
           "consumed_quantity": {
             "type": "number",
             "title": "Consumed Quantity",
-            "description": "Quantit\u00e9 totale sortie / consomm\u00e9e"
+            "description": "Quantité totale sortie / consommée"
           },
           "consumed_cost_xof": {
             "type": "integer",
             "title": "Consumed Cost Xof",
-            "description": "Valeur mati\u00e8re de la quantit\u00e9 sortie"
+            "description": "Valeur matière de la quantité sortie"
           },
           "theoretical_dishes": {
             "type": "integer",
             "title": "Theoretical Dishes",
-            "description": "Nombre de plats th\u00e9oriquement r\u00e9alisables"
+            "description": "Nombre de plats théoriquement réalisables"
           },
           "sold_dishes": {
             "type": "integer",
             "title": "Sold Dishes",
-            "description": "Nombre de plats r\u00e9ellement enregistr\u00e9s et vendus"
+            "description": "Nombre de plats réellement enregistrés et vendus"
           },
           "sold_revenue_xof": {
             "type": "integer",
             "title": "Sold Revenue Xof",
-            "description": "Chiffre d'affaires g\u00e9n\u00e9r\u00e9 par ces plats"
+            "description": "Chiffre d'affaires généré par ces plats"
           },
           "gross_margin_xof": {
             "type": "integer",
             "title": "Gross Margin Xof",
-            "description": "Marge brute directe (Ventes - Co\u00fbt mati\u00e8re)"
+            "description": "Marge brute directe (Ventes - Coût matière)"
           },
           "loss_dishes": {
             "type": "integer",
             "title": "Loss Dishes",
-            "description": "Portions couvertes par des pertes d\u00e9clar\u00e9es",
+            "description": "Portions couvertes par des pertes déclarées",
             "default": 0
           },
           "variance_dishes": {
             "type": "integer",
             "title": "Variance Dishes",
-            "description": "\u00c9cart de portions (Th\u00e9orique - Vendu - Pertes). Positif = manquant"
+            "description": "Écart de portions (Théorique - Vendu - Pertes). Positif = manquant"
           },
           "financial_impact_xof": {
             "type": "integer",
             "title": "Financial Impact Xof",
-            "description": "Valeur financi\u00e8re estim\u00e9e de l'\u00e9cart de portions"
+            "description": "Valeur financière estimée de l'écart de portions"
           },
           "status": {
             "type": "string",
@@ -13005,13 +13275,13 @@
             "type": "string",
             "format": "date",
             "title": "Date From",
-            "description": "Premi\u00e8re journ\u00e9e incluse"
+            "description": "Première journée incluse"
           },
           "date_to": {
             "type": "string",
             "format": "date",
             "title": "Date To",
-            "description": "Derni\u00e8re journ\u00e9e incluse"
+            "description": "Dernière journée incluse"
           },
           "totals": {
             "$ref": "#/components/schemas/ProteinYieldTotals"
@@ -13022,7 +13292,7 @@
             },
             "type": "array",
             "title": "Items",
-            "description": "D\u00e9tail par viande/poisson"
+            "description": "Détail par viande/poisson"
           }
         },
         "type": "object",
@@ -13039,12 +13309,12 @@
           "total_consumed_cost_xof": {
             "type": "integer",
             "title": "Total Consumed Cost Xof",
-            "description": "Co\u00fbt mati\u00e8re total des viandes/poissons"
+            "description": "Coût matière total des viandes/poissons"
           },
           "total_sold_revenue_xof": {
             "type": "integer",
             "title": "Total Sold Revenue Xof",
-            "description": "Chiffre d'affaires total g\u00e9n\u00e9r\u00e9"
+            "description": "Chiffre d'affaires total généré"
           },
           "total_gross_margin_xof": {
             "type": "integer",
@@ -13054,7 +13324,7 @@
           "total_theoretical_dishes": {
             "type": "integer",
             "title": "Total Theoretical Dishes",
-            "description": "Total des plats th\u00e9oriques attendus"
+            "description": "Total des plats théoriques attendus"
           },
           "total_sold_dishes": {
             "type": "integer",
@@ -13069,7 +13339,7 @@
           "total_financial_impact_xof": {
             "type": "integer",
             "title": "Total Financial Impact Xof",
-            "description": "Impact financier total des \u00e9carts"
+            "description": "Impact financier total des écarts"
           },
           "anomalies_count": {
             "type": "integer",
@@ -13099,7 +13369,7 @@
             "type": "array",
             "maxItems": 150,
             "title": "Lines",
-            "description": "Corrections ; une ligne absente est valid\u00e9e telle que demand\u00e9e",
+            "description": "Corrections ; une ligne absente est validée telle que demandée",
             "default": []
           }
         },
@@ -13118,7 +13388,7 @@
             "title": "Name",
             "description": "Nom",
             "examples": [
-              "B\u0153uf"
+              "Bœuf"
             ]
           },
           "category": {
@@ -13128,7 +13398,7 @@
           "unit": {
             "type": "string",
             "title": "Unit",
-            "description": "Unit\u00e9 d'achat",
+            "description": "Unité d'achat",
             "examples": [
               "kg"
             ]
@@ -13136,12 +13406,12 @@
           "quantity": {
             "type": "number",
             "title": "Quantity",
-            "description": "Quantit\u00e9 en stock (peut \u00eatre n\u00e9gative)"
+            "description": "Quantité en stock (peut être négative)"
           },
           "is_low": {
             "type": "boolean",
             "title": "Is Low",
-            "description": "Stock n\u00e9gatif ou au plus \u00e9gal au seuil d'alerte"
+            "description": "Stock négatif ou au plus égal au seuil d'alerte"
           }
         },
         "type": "object",
@@ -13197,7 +13467,7 @@
             "maxItems": 150,
             "minItems": 1,
             "title": "Lines",
-            "description": "\u00c0 acheter"
+            "description": "À acheter"
           }
         },
         "type": "object",
@@ -13217,7 +13487,7 @@
                 "quantity": 0.5
               }
             ],
-            "note": "March\u00e9 de Treichville"
+            "note": "Marché de Treichville"
           }
         ]
       },
@@ -13234,7 +13504,7 @@
               }
             ],
             "title": "Amount Xof",
-            "description": "Montant remis ; d\u00e9faut : total valid\u00e9"
+            "description": "Montant remis ; défaut : total validé"
           }
         },
         "type": "object",
@@ -13245,7 +13515,7 @@
           "article_id": {
             "type": "string",
             "title": "Article Id",
-            "description": "Article \u00e0 acheter"
+            "description": "Article à acheter"
           },
           "quantity": {
             "anyOf": [
@@ -13259,7 +13529,7 @@
               }
             ],
             "title": "Quantity",
-            "description": "Quantit\u00e9"
+            "description": "Quantité"
           }
         },
         "type": "object",
@@ -13293,12 +13563,12 @@
           "unit": {
             "type": "string",
             "title": "Unit",
-            "description": "Unit\u00e9"
+            "description": "Unité"
           },
           "requested_quantity": {
             "type": "number",
             "title": "Requested Quantity",
-            "description": "Quantit\u00e9 demand\u00e9e"
+            "description": "Quantité demandée"
           },
           "approved_quantity": {
             "anyOf": [
@@ -13310,22 +13580,22 @@
               }
             ],
             "title": "Approved Quantity",
-            "description": "Quantit\u00e9 valid\u00e9e (0 : ligne retir\u00e9e)"
+            "description": "Quantité validée (0 : ligne retirée)"
           },
           "unit_price_xof": {
             "type": "number",
             "title": "Unit Price Xof",
-            "description": "Prix d'une unit\u00e9 : dernier prix d'achat \u00e0 l'envoi, ou corrig\u00e9 \u00e0 la validation"
+            "description": "Prix d'une unité : dernier prix d'achat à l'envoi, ou corrigé à la validation"
           },
           "price_missing": {
             "type": "boolean",
             "title": "Price Missing",
-            "description": "Aucun prix connu (0) : la ligne ne compte pas dans le montant \u00e0 remettre"
+            "description": "Aucun prix connu (0) : la ligne ne compte pas dans le montant à remettre"
           },
           "amount_xof": {
             "type": "integer",
             "title": "Amount Xof",
-            "description": "Quantit\u00e9 (valid\u00e9e, sinon demand\u00e9e) x prix"
+            "description": "Quantité (validée, sinon demandée) x prix"
           },
           "received_quantity": {
             "anyOf": [
@@ -13337,7 +13607,7 @@
               }
             ],
             "title": "Received Quantity",
-            "description": "Quantit\u00e9 r\u00e9ceptionn\u00e9e"
+            "description": "Quantité réceptionnée"
           },
           "received_cost_xof": {
             "anyOf": [
@@ -13349,7 +13619,7 @@
               }
             ],
             "title": "Received Cost Xof",
-            "description": "Montant pay\u00e9 pour la ligne"
+            "description": "Montant payé pour la ligne"
           }
         },
         "type": "object",
@@ -13376,14 +13646,14 @@
           "number": {
             "type": "string",
             "title": "Number",
-            "description": "Num\u00e9ro",
+            "description": "Numéro",
             "examples": [
               "ACH-0001"
             ]
           },
           "status": {
             "$ref": "#/components/schemas/PurchaseStatus",
-            "description": "\u00c9tat de la demande"
+            "description": "État de la demande"
           },
           "requested_by": {
             "$ref": "#/components/schemas/UserOut",
@@ -13404,7 +13674,7 @@
           "estimated_total_xof": {
             "type": "integer",
             "title": "Estimated Total Xof",
-            "description": "Total au dernier prix d'achat, \u00e0 l'envoi"
+            "description": "Total au dernier prix d'achat, à l'envoi"
           },
           "approved_total_xof": {
             "anyOf": [
@@ -13416,7 +13686,7 @@
               }
             ],
             "title": "Approved Total Xof",
-            "description": "Total apr\u00e8s validation"
+            "description": "Total après validation"
           },
           "approved_by": {
             "anyOf": [
@@ -13427,7 +13697,7 @@
                 "type": "null"
               }
             ],
-            "description": "Responsable qui a valid\u00e9"
+            "description": "Responsable qui a validé"
           },
           "approved_at": {
             "anyOf": [
@@ -13452,7 +13722,7 @@
               }
             ],
             "title": "Disbursed Xof",
-            "description": "Montant remis \u00e0 l'acheteur"
+            "description": "Montant remis à l'acheteur"
           },
           "disbursed_by": {
             "anyOf": [
@@ -13476,7 +13746,7 @@
               }
             ],
             "title": "Disbursed At",
-            "description": "D\u00e9caissement"
+            "description": "Décaissement"
           },
           "received_total_xof": {
             "anyOf": [
@@ -13488,7 +13758,7 @@
               }
             ],
             "title": "Received Total Xof",
-            "description": "Total d\u00e9pens\u00e9 (somme des lignes re\u00e7ues)"
+            "description": "Total dépensé (somme des lignes reçues)"
           },
           "received_by": {
             "anyOf": [
@@ -13499,7 +13769,7 @@
                 "type": "null"
               }
             ],
-            "description": "Responsable qui a r\u00e9ceptionn\u00e9"
+            "description": "Responsable qui a réceptionné"
           },
           "received_at": {
             "anyOf": [
@@ -13512,7 +13782,7 @@
               }
             ],
             "title": "Received At",
-            "description": "R\u00e9ception"
+            "description": "Réception"
           },
           "supplier": {
             "anyOf": [
@@ -13524,7 +13794,7 @@
               }
             ],
             "title": "Supplier",
-            "description": "Fournisseur ou march\u00e9, saisi \u00e0 la r\u00e9ception"
+            "description": "Fournisseur ou marché, saisi à la réception"
           },
           "change_due_xof": {
             "anyOf": [
@@ -13536,7 +13806,7 @@
               }
             ],
             "title": "Change Due Xof",
-            "description": "Monnaie \u00e0 rendre (remis - d\u00e9pens\u00e9) ; n\u00e9gatif : la caisse doit \u00e0 l'acheteur"
+            "description": "Monnaie à rendre (remis - dépensé) ; négatif : la caisse doit à l'acheteur"
           },
           "closed_reason": {
             "anyOf": [
@@ -13589,7 +13859,7 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At",
-            "description": "Derni\u00e8re modification"
+            "description": "Dernière modification"
           },
           "lines": {
             "items": {
@@ -13597,7 +13867,7 @@
             },
             "type": "array",
             "title": "Lines",
-            "description": "Articles demand\u00e9s"
+            "description": "Articles demandés"
           }
         },
         "type": "object",
@@ -13619,17 +13889,17 @@
           "submitted": {
             "type": "integer",
             "title": "Submitted",
-            "description": "\u00c0 valider"
+            "description": "À valider"
           },
           "approved": {
             "type": "integer",
             "title": "Approved",
-            "description": "Valid\u00e9es, \u00e0 d\u00e9caisser"
+            "description": "Validées, à décaisser"
           },
           "disbursed": {
             "type": "integer",
             "title": "Disbursed",
-            "description": "Argent remis, \u00e0 r\u00e9ceptionner"
+            "description": "Argent remis, à réceptionner"
           }
         },
         "type": "object",
@@ -13653,7 +13923,7 @@
               }
             ],
             "title": "Business Date",
-            "description": "Journ\u00e9e des entr\u00e9es de stock ; d\u00e9faut : session ouverte"
+            "description": "Journée des entrées de stock ; défaut : session ouverte"
           },
           "supplier": {
             "anyOf": [
@@ -13676,7 +13946,7 @@
             "maxItems": 150,
             "minItems": 1,
             "title": "Lines",
-            "description": "Ce qui a \u00e9t\u00e9 achet\u00e9 ; une ligne valid\u00e9e absente compte comme non trouv\u00e9e"
+            "description": "Ce qui a été acheté ; une ligne validée absente compte comme non trouvée"
           }
         },
         "type": "object",
@@ -13693,7 +13963,7 @@
                 "total_cost_xof": 21000
               }
             ],
-            "supplier": "March\u00e9 de Treichville"
+            "supplier": "Marché de Treichville"
           }
         ]
       },
@@ -13735,14 +14005,14 @@
           "number": {
             "type": "string",
             "title": "Number",
-            "description": "Num\u00e9ro",
+            "description": "Numéro",
             "examples": [
               "ACH-0001"
             ]
           },
           "status": {
             "$ref": "#/components/schemas/PurchaseStatus",
-            "description": "\u00c9tat de la demande"
+            "description": "État de la demande"
           },
           "requested_by": {
             "$ref": "#/components/schemas/UserOut",
@@ -13763,7 +14033,7 @@
           "estimated_total_xof": {
             "type": "integer",
             "title": "Estimated Total Xof",
-            "description": "Total au dernier prix d'achat, \u00e0 l'envoi"
+            "description": "Total au dernier prix d'achat, à l'envoi"
           },
           "approved_total_xof": {
             "anyOf": [
@@ -13775,7 +14045,7 @@
               }
             ],
             "title": "Approved Total Xof",
-            "description": "Total apr\u00e8s validation"
+            "description": "Total après validation"
           },
           "approved_by": {
             "anyOf": [
@@ -13786,7 +14056,7 @@
                 "type": "null"
               }
             ],
-            "description": "Responsable qui a valid\u00e9"
+            "description": "Responsable qui a validé"
           },
           "approved_at": {
             "anyOf": [
@@ -13811,7 +14081,7 @@
               }
             ],
             "title": "Disbursed Xof",
-            "description": "Montant remis \u00e0 l'acheteur"
+            "description": "Montant remis à l'acheteur"
           },
           "disbursed_by": {
             "anyOf": [
@@ -13835,7 +14105,7 @@
               }
             ],
             "title": "Disbursed At",
-            "description": "D\u00e9caissement"
+            "description": "Décaissement"
           },
           "received_total_xof": {
             "anyOf": [
@@ -13847,7 +14117,7 @@
               }
             ],
             "title": "Received Total Xof",
-            "description": "Total d\u00e9pens\u00e9 (somme des lignes re\u00e7ues)"
+            "description": "Total dépensé (somme des lignes reçues)"
           },
           "received_by": {
             "anyOf": [
@@ -13858,7 +14128,7 @@
                 "type": "null"
               }
             ],
-            "description": "Responsable qui a r\u00e9ceptionn\u00e9"
+            "description": "Responsable qui a réceptionné"
           },
           "received_at": {
             "anyOf": [
@@ -13871,7 +14141,7 @@
               }
             ],
             "title": "Received At",
-            "description": "R\u00e9ception"
+            "description": "Réception"
           },
           "supplier": {
             "anyOf": [
@@ -13883,7 +14153,7 @@
               }
             ],
             "title": "Supplier",
-            "description": "Fournisseur ou march\u00e9, saisi \u00e0 la r\u00e9ception"
+            "description": "Fournisseur ou marché, saisi à la réception"
           },
           "change_due_xof": {
             "anyOf": [
@@ -13895,7 +14165,7 @@
               }
             ],
             "title": "Change Due Xof",
-            "description": "Monnaie \u00e0 rendre (remis - d\u00e9pens\u00e9) ; n\u00e9gatif : la caisse doit \u00e0 l'acheteur"
+            "description": "Monnaie à rendre (remis - dépensé) ; négatif : la caisse doit à l'acheteur"
           },
           "closed_reason": {
             "anyOf": [
@@ -13948,7 +14218,7 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At",
-            "description": "Derni\u00e8re modification"
+            "description": "Dernière modification"
           }
         },
         "type": "object",
@@ -13969,7 +14239,7 @@
           "article_id": {
             "type": "string",
             "title": "Article Id",
-            "description": "Article re\u00e7u"
+            "description": "Article reçu"
           },
           "quantity": {
             "anyOf": [
@@ -13983,7 +14253,7 @@
               }
             ],
             "title": "Quantity",
-            "description": "Quantit\u00e9 re\u00e7ue"
+            "description": "Quantité reçue"
           },
           "total_cost_xof": {
             "anyOf": [
@@ -13996,7 +14266,7 @@
               }
             ],
             "title": "Total Cost Xof",
-            "description": "Montant pay\u00e9 pour la ligne (ou `unit_cost_xof`)"
+            "description": "Montant payé pour la ligne (ou `unit_cost_xof`)"
           },
           "unit_cost_xof": {
             "anyOf": [
@@ -14013,7 +14283,7 @@
               }
             ],
             "title": "Unit Cost Xof",
-            "description": "Prix d'une unit\u00e9"
+            "description": "Prix d'une unité"
           }
         },
         "type": "object",
@@ -14042,13 +14312,13 @@
               }
             ],
             "title": "Quantity",
-            "description": "Quantit\u00e9 achet\u00e9e (0 : pas trouv\u00e9)"
+            "description": "Quantité achetée (0 : pas trouvé)"
           },
           "total_cost_xof": {
             "type": "integer",
             "minimum": 0.0,
             "title": "Total Cost Xof",
-            "description": "Montant pay\u00e9 pour la ligne"
+            "description": "Montant payé pour la ligne"
           }
         },
         "type": "object",
@@ -14103,7 +14373,7 @@
             "maxLength": 6,
             "minLength": 4,
             "title": "New Pin",
-            "description": "Nouveau code PIN num\u00e9rique (4 \u00e0 6 chiffres)"
+            "description": "Nouveau code PIN numérique (4 à 6 chiffres)"
           }
         },
         "additionalProperties": false,
@@ -14124,11 +14394,11 @@
             "type": "string",
             "format": "date",
             "title": "Business Date",
-            "description": "Journ\u00e9e"
+            "description": "Journée"
           },
           "status": {
             "$ref": "#/components/schemas/SessionStatus",
-            "description": "\u00c9tat"
+            "description": "État"
           },
           "z_number": {
             "anyOf": [
@@ -14140,7 +14410,7 @@
               }
             ],
             "title": "Z Number",
-            "description": "Num\u00e9ro du Z (cl\u00f4tur\u00e9e)"
+            "description": "Numéro du Z (clôturée)"
           },
           "expected_cash_xof": {
             "anyOf": [
@@ -14152,7 +14422,7 @@
               }
             ],
             "title": "Expected Cash Xof",
-            "description": "Esp\u00e8ces attendues \u00e0 la cl\u00f4ture"
+            "description": "Espèces attendues à la clôture"
           },
           "counted_cash_xof": {
             "anyOf": [
@@ -14164,7 +14434,7 @@
               }
             ],
             "title": "Counted Cash Xof",
-            "description": "Esp\u00e8ces compt\u00e9es"
+            "description": "Espèces comptées"
           },
           "variance_xof": {
             "anyOf": [
@@ -14176,7 +14446,7 @@
               }
             ],
             "title": "Variance Xof",
-            "description": "\u00c9cart de caisse (compt\u00e9 - attendu)"
+            "description": "Écart de caisse (compté - attendu)"
           }
         },
         "type": "object",
@@ -14196,12 +14466,12 @@
           "category": {
             "type": "string",
             "title": "Category",
-            "description": "Cat\u00e9gorie"
+            "description": "Catégorie"
           },
           "quantity": {
             "type": "integer",
             "title": "Quantity",
-            "description": "Quantit\u00e9 vendue"
+            "description": "Quantité vendue"
           },
           "revenue_xof": {
             "type": "integer",
@@ -14211,12 +14481,12 @@
           "recipe_cost_xof": {
             "type": "integer",
             "title": "Recipe Cost Xof",
-            "description": "Co\u00fbt mati\u00e8re (fiches)"
+            "description": "Coût matière (fiches)"
           },
           "recipe_margin_xof": {
             "type": "integer",
             "title": "Recipe Margin Xof",
-            "description": "Marge sur co\u00fbt mati\u00e8re"
+            "description": "Marge sur coût matière"
           }
         },
         "type": "object",
@@ -14235,12 +14505,12 @@
             "type": "string",
             "format": "date",
             "title": "Business Date",
-            "description": "Journ\u00e9e"
+            "description": "Journée"
           },
           "orders_count": {
             "type": "integer",
             "title": "Orders Count",
-            "description": "Commandes sold\u00e9es"
+            "description": "Commandes soldées"
           },
           "revenue_xof": {
             "type": "integer",
@@ -14250,17 +14520,17 @@
           "recipe_cost_xof": {
             "type": "integer",
             "title": "Recipe Cost Xof",
-            "description": "Co\u00fbt mati\u00e8re (fiches)"
+            "description": "Coût matière (fiches)"
           },
           "recipe_margin_xof": {
             "type": "integer",
             "title": "Recipe Margin Xof",
-            "description": "Marge sur co\u00fbt mati\u00e8re"
+            "description": "Marge sur coût matière"
           },
           "purchases_xof": {
             "type": "integer",
             "title": "Purchases Xof",
-            "description": "Achats / R\u00e9ceptions de marchandises du jour",
+            "description": "Achats / Réceptions de marchandises du jour",
             "default": 0
           },
           "inventory_consumption_xof": {
@@ -14272,7 +14542,7 @@
           "gross_margin_xof": {
             "type": "integer",
             "title": "Gross Margin Xof",
-            "description": "Marge brute du jour (CA - Co\u00fbt mati\u00e8re - Pertes/Conso)",
+            "description": "Marge brute du jour (CA - Coût matière - Pertes/Conso)",
             "default": 0
           },
           "gross_margin_rate": {
@@ -14284,31 +14554,31 @@
           "expenses_xof": {
             "type": "integer",
             "title": "Expenses Xof",
-            "description": "D\u00e9penses d'exploitation du jour (d\u00e9caissements)",
+            "description": "Dépenses d'exploitation du jour (décaissements)",
             "default": 0
           },
           "net_result_xof": {
             "type": "integer",
             "title": "Net Result Xof",
-            "description": "R\u00e9sultat net d'exploitation (Marge brute - D\u00e9penses)",
+            "description": "Résultat net d'exploitation (Marge brute - Dépenses)",
             "default": 0
           },
           "expected_cash_xof": {
             "type": "integer",
             "title": "Expected Cash Xof",
-            "description": "Esp\u00e8ces attendues en caisse",
+            "description": "Espèces attendues en caisse",
             "default": 0
           },
           "counted_cash_xof": {
             "type": "integer",
             "title": "Counted Cash Xof",
-            "description": "Esp\u00e8ces compt\u00e9es / vers\u00e9es",
+            "description": "Espèces comptées / versées",
             "default": 0
           },
           "cash_variance_xof": {
             "type": "integer",
             "title": "Cash Variance Xof",
-            "description": "\u00c9cart de caisse (compt\u00e9 - attendu)",
+            "description": "Écart de caisse (compté - attendu)",
             "default": 0
           },
           "bank_deposit_xof": {
@@ -14342,7 +14612,7 @@
           "amount_xof": {
             "type": "integer",
             "title": "Amount Xof",
-            "description": "Montant encaiss\u00e9"
+            "description": "Montant encaissé"
           }
         },
         "type": "object",
@@ -14363,17 +14633,17 @@
           "name": {
             "type": "string",
             "title": "Name",
-            "description": "Nom \u00e0 la vente"
+            "description": "Nom à la vente"
           },
           "category": {
             "type": "string",
             "title": "Category",
-            "description": "Cat\u00e9gorie \u00e0 la vente"
+            "description": "Catégorie à la vente"
           },
           "quantity": {
             "type": "integer",
             "title": "Quantity",
-            "description": "Quantit\u00e9 vendue"
+            "description": "Quantité vendue"
           },
           "revenue_xof": {
             "type": "integer",
@@ -14388,12 +14658,12 @@
           "recipe_cost_xof": {
             "type": "integer",
             "title": "Recipe Cost Xof",
-            "description": "Co\u00fbt mati\u00e8re (0 sans fiche)"
+            "description": "Coût matière (0 sans fiche)"
           },
           "recipe_margin_xof": {
             "type": "integer",
             "title": "Recipe Margin Xof",
-            "description": "Marge sur co\u00fbt mati\u00e8re"
+            "description": "Marge sur coût matière"
           }
         },
         "type": "object",
@@ -14415,13 +14685,13 @@
             "type": "string",
             "format": "date",
             "title": "Date From",
-            "description": "Premi\u00e8re journ\u00e9e incluse"
+            "description": "Première journée incluse"
           },
           "date_to": {
             "type": "string",
             "format": "date",
             "title": "Date To",
-            "description": "Derni\u00e8re journ\u00e9e incluse"
+            "description": "Dernière journée incluse"
           },
           "totals": {
             "$ref": "#/components/schemas/SalesTotals"
@@ -14432,7 +14702,7 @@
             },
             "type": "array",
             "title": "By Day",
-            "description": "Une ligne par journ\u00e9e avec des ventes"
+            "description": "Une ligne par journée avec des ventes"
           },
           "by_product": {
             "items": {
@@ -14440,7 +14710,7 @@
             },
             "type": "array",
             "title": "By Product",
-            "description": "Par chiffre d'affaires d\u00e9croissant"
+            "description": "Par chiffre d'affaires décroissant"
           },
           "by_category": {
             "items": {
@@ -14448,7 +14718,7 @@
             },
             "type": "array",
             "title": "By Category",
-            "description": "Par chiffre d'affaires d\u00e9croissant"
+            "description": "Par chiffre d'affaires décroissant"
           },
           "by_payment_method": {
             "items": {
@@ -14464,7 +14734,7 @@
             },
             "type": "array",
             "title": "Cash Sessions",
-            "description": "Sessions de la p\u00e9riode"
+            "description": "Sessions de la période"
           }
         },
         "type": "object",
@@ -14485,12 +14755,12 @@
           "revenue_xof": {
             "type": "integer",
             "title": "Revenue Xof",
-            "description": "Chiffre d'affaires des commandes sold\u00e9es"
+            "description": "Chiffre d'affaires des commandes soldées"
           },
           "orders_count": {
             "type": "integer",
             "title": "Orders Count",
-            "description": "Nombre de commandes sold\u00e9es"
+            "description": "Nombre de commandes soldées"
           },
           "average_ticket_xof": {
             "type": "integer",
@@ -14500,43 +14770,43 @@
           "recipe_cost_xof": {
             "type": "integer",
             "title": "Recipe Cost Xof",
-            "description": "Co\u00fbt mati\u00e8re des plats vendus, d'apr\u00e8s leurs fiches techniques"
+            "description": "Coût matière des plats vendus, d'après leurs fiches techniques"
           },
           "recipe_margin_xof": {
             "type": "integer",
             "title": "Recipe Margin Xof",
-            "description": "Chiffre d'affaires - co\u00fbt mati\u00e8re des fiches"
+            "description": "Chiffre d'affaires - coût matière des fiches"
           },
           "uncosted_revenue_xof": {
             "type": "integer",
             "title": "Uncosted Revenue Xof",
-            "description": "Part du chiffre d'affaires r\u00e9alis\u00e9e par des produits sans fiche technique"
+            "description": "Part du chiffre d'affaires réalisée par des produits sans fiche technique"
           },
           "inventory_consumption_xof": {
             "type": "integer",
             "title": "Inventory Consumption Xof",
-            "description": "Consommation des articles suivis par inventaire (l\u00e9gumes, gaz\u2026) : \u00e9carts d'inventaire et pertes"
+            "description": "Consommation des articles suivis par inventaire (légumes, gaz…) : écarts d'inventaire et pertes"
           },
           "stock_variance_xof": {
             "type": "integer",
             "title": "Stock Variance Xof",
-            "description": "\u00c9carts sur les articles \u00e0 fiche (prot\u00e9ines, boissons) : manquants \u00e0 l'inventaire et pertes d\u00e9clar\u00e9es ; n\u00e9gatif si l'inventaire trouve plus que pr\u00e9vu"
+            "description": "Écarts sur les articles à fiche (protéines, boissons) : manquants à l'inventaire et pertes déclarées ; négatif si l'inventaire trouve plus que prévu"
           },
           "gross_margin_xof": {
             "type": "integer",
             "title": "Gross Margin Xof",
-            "description": "Marge brute : chiffre d'affaires - co\u00fbt mati\u00e8re - consommation - \u00e9carts"
+            "description": "Marge brute : chiffre d'affaires - coût matière - consommation - écarts"
           },
           "expenses_xof": {
             "type": "integer",
             "title": "Expenses Xof",
-            "description": "Total des d\u00e9penses d'exploitation (d\u00e9caissements)",
+            "description": "Total des dépenses d'exploitation (décaissements)",
             "default": 0
           },
           "net_result_xof": {
             "type": "integer",
             "title": "Net Result Xof",
-            "description": "R\u00e9sultat net d'exploitation estim\u00e9 (Marge brute - D\u00e9penses)",
+            "description": "Résultat net d'exploitation estimé (Marge brute - Dépenses)",
             "default": 0
           },
           "bank_deposit_xof": {
@@ -14568,7 +14838,7 @@
             },
             "type": "object",
             "title": "Counted Breakdown",
-            "description": "Comptage par d\u00e9nomination : {'10000': 12, '5000': 8, ...}"
+            "description": "Comptage par dénomination : {'10000': 12, '5000': 8, ...}"
           },
           "notes": {
             "anyOf": [
@@ -14652,11 +14922,11 @@
             "maxLength": 16,
             "minLength": 1,
             "title": "Unit",
-            "description": "Unit\u00e9 : kg, pi\u00e8ce, bouteille\u2026"
+            "description": "Unité : kg, pièce, bouteille…"
           },
           "out_mode": {
             "$ref": "#/components/schemas/StockOutMode",
-            "description": "RECIPE : sorties automatiques depuis les ventes (fiche technique) ; INVENTORY : consommation d\u00e9duite des inventaires"
+            "description": "RECIPE : sorties automatiques depuis les ventes (fiche technique) ; INVENTORY : consommation déduite des inventaires"
           },
           "avg_cost_xof": {
             "anyOf": [
@@ -14670,7 +14940,7 @@
               }
             ],
             "title": "Avg Cost Xof",
-            "description": "Co\u00fbt unitaire de d\u00e9part ; ensuite recalcul\u00e9 \u00e0 chaque entr\u00e9e (CMP)",
+            "description": "Coût unitaire de départ ; ensuite recalculé à chaque entrée (CMP)",
             "default": "0"
           },
           "alert_threshold": {
@@ -14717,7 +14987,7 @@
             "alert_threshold": 3,
             "avg_cost_xof": 4000,
             "category": "PROTEINE",
-            "name": "B\u0153uf",
+            "name": "Bœuf",
             "out_mode": "RECIPE",
             "unit": "kg"
           }
@@ -14735,7 +15005,7 @@
             "title": "Name",
             "description": "Nom",
             "examples": [
-              "B\u0153uf"
+              "Bœuf"
             ]
           },
           "category": {
@@ -14745,7 +15015,7 @@
           "unit": {
             "type": "string",
             "title": "Unit",
-            "description": "Unit\u00e9",
+            "description": "Unité",
             "examples": [
               "kg"
             ]
@@ -14757,17 +15027,17 @@
           "quantity": {
             "type": "number",
             "title": "Quantity",
-            "description": "Quantit\u00e9 en stock (peut \u00eatre n\u00e9gative)"
+            "description": "Quantité en stock (peut être négative)"
           },
           "avg_cost_xof": {
             "type": "number",
             "title": "Avg Cost Xof",
-            "description": "Co\u00fbt moyen pond\u00e9r\u00e9 d'une unit\u00e9"
+            "description": "Coût moyen pondéré d'une unité"
           },
           "value_xof": {
             "type": "integer",
             "title": "Value Xof",
-            "description": "Valeur du stock (0 si la quantit\u00e9 est n\u00e9gative)"
+            "description": "Valeur du stock (0 si la quantité est négative)"
           },
           "alert_threshold": {
             "anyOf": [
@@ -14784,12 +15054,12 @@
           "is_low": {
             "type": "boolean",
             "title": "Is Low",
-            "description": "Stock n\u00e9gatif ou au plus \u00e9gal au seuil"
+            "description": "Stock négatif ou au plus égal au seuil"
           },
           "is_active": {
             "type": "boolean",
             "title": "Is Active",
-            "description": "Article utilis\u00e9"
+            "description": "Article utilisé"
           },
           "note": {
             "anyOf": [
@@ -14807,7 +15077,7 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At",
-            "description": "Derni\u00e8re modification"
+            "description": "Dernière modification"
           }
         },
         "type": "object",
@@ -14919,7 +15189,7 @@
         },
         "type": "object",
         "title": "StockArticleUpdate",
-        "description": "Champs modifiables ; la quantit\u00e9 et le co\u00fbt ne changent que par un mouvement."
+        "description": "Champs modifiables ; la quantité et le coût ne changent que par un mouvement."
       },
       "StockCountCreate": {
         "properties": {
@@ -14934,7 +15204,7 @@
               }
             ],
             "title": "Business Date",
-            "description": "Journ\u00e9e concern\u00e9e ; d\u00e9faut : journ\u00e9e de la session ouverte"
+            "description": "Journée concernée ; défaut : journée de la session ouverte"
           },
           "reason": {
             "anyOf": [
@@ -14979,14 +15249,14 @@
               }
             ],
             "title": "Business Date",
-            "description": "Journ\u00e9e concern\u00e9e ; d\u00e9faut : journ\u00e9e de la session ouverte"
+            "description": "Journée concernée ; défaut : journée de la session ouverte"
           },
           "reason": {
             "type": "string",
             "maxLength": 255,
             "minLength": 1,
             "title": "Reason",
-            "description": "Motif : avari\u00e9, cass\u00e9, repas du personnel\u2026"
+            "description": "Motif : avarié, cassé, repas du personnel…"
           },
           "lines": {
             "items": {
@@ -15030,28 +15300,28 @@
           "quantity": {
             "type": "number",
             "title": "Quantity",
-            "description": "Quantit\u00e9 sign\u00e9e (+ entr\u00e9e, - sortie)"
+            "description": "Quantité signée (+ entrée, - sortie)"
           },
           "quantity_after": {
             "type": "number",
             "title": "Quantity After",
-            "description": "Stock de l'article apr\u00e8s le mouvement"
+            "description": "Stock de l'article après le mouvement"
           },
           "unit_cost_xof": {
             "type": "number",
             "title": "Unit Cost Xof",
-            "description": "Co\u00fbt d'une unit\u00e9 (prix pay\u00e9 ou CMP)"
+            "description": "Coût d'une unité (prix payé ou CMP)"
           },
           "value_xof": {
             "type": "integer",
             "title": "Value Xof",
-            "description": "Valeur sign\u00e9e du mouvement"
+            "description": "Valeur signée du mouvement"
           },
           "business_date": {
             "type": "string",
             "format": "date",
             "title": "Business Date",
-            "description": "Journ\u00e9e"
+            "description": "Journée"
           },
           "reference_order_id": {
             "anyOf": [
@@ -15063,7 +15333,7 @@
               }
             ],
             "title": "Reference Order Id",
-            "description": "Commande \u00e0 l'origine (vente)"
+            "description": "Commande à l'origine (vente)"
           },
           "supplier": {
             "anyOf": [
@@ -15075,7 +15345,7 @@
               }
             ],
             "title": "Supplier",
-            "description": "Fournisseur (entr\u00e9e)"
+            "description": "Fournisseur (entrée)"
           },
           "reason": {
             "anyOf": [
@@ -15144,7 +15414,7 @@
             },
             "type": "array",
             "title": "Movements",
-            "description": "Mouvements cr\u00e9\u00e9s"
+            "description": "Mouvements créés"
           },
           "articles": {
             "items": {
@@ -15152,7 +15422,7 @@
             },
             "type": "array",
             "title": "Articles",
-            "description": "Articles apr\u00e8s l'op\u00e9ration"
+            "description": "Articles après l'opération"
           },
           "warnings": {
             "items": {
@@ -15160,7 +15430,7 @@
             },
             "type": "array",
             "title": "Warnings",
-            "description": "`STOCK_NEGATIVE_WARNING` : un article passe sous z\u00e9ro",
+            "description": "`STOCK_NEGATIVE_WARNING` : un article passe sous zéro",
             "default": []
           }
         },
@@ -15192,7 +15462,7 @@
               }
             ],
             "title": "Business Date",
-            "description": "Journ\u00e9e concern\u00e9e ; d\u00e9faut : journ\u00e9e de la session ouverte"
+            "description": "Journée concernée ; défaut : journée de la session ouverte"
           },
           "supplier": {
             "anyOf": [
@@ -15228,7 +15498,7 @@
             "maxItems": 100,
             "minItems": 1,
             "title": "Lines",
-            "description": "Articles re\u00e7us"
+            "description": "Articles reçus"
           }
         },
         "type": "object",
@@ -15240,17 +15510,17 @@
           {
             "lines": [
               {
-                "article_id": "\u2026",
+                "article_id": "…",
                 "quantity": 10,
                 "total_cost_xof": 40000
               },
               {
-                "article_id": "\u2026",
+                "article_id": "…",
                 "quantity": 24,
                 "unit_cost_xof": 250
               }
             ],
-            "supplier": "March\u00e9 de Cocody"
+            "supplier": "Marché de Cocody"
           }
         ]
       },
@@ -15273,7 +15543,7 @@
           "unit": {
             "type": "string",
             "title": "Unit",
-            "description": "Unit\u00e9"
+            "description": "Unité"
           },
           "out_mode": {
             "$ref": "#/components/schemas/StockOutMode",
@@ -15282,12 +15552,12 @@
           "opening_quantity": {
             "type": "number",
             "title": "Opening Quantity",
-            "description": "Stock au d\u00e9but de la p\u00e9riode"
+            "description": "Stock au début de la période"
           },
           "purchased_quantity": {
             "type": "number",
             "title": "Purchased Quantity",
-            "description": "Entr\u00e9es (achats)"
+            "description": "Entrées (achats)"
           },
           "purchases_xof": {
             "type": "integer",
@@ -15302,22 +15572,22 @@
           "loss_quantity": {
             "type": "number",
             "title": "Loss Quantity",
-            "description": "Pertes d\u00e9clar\u00e9es"
+            "description": "Pertes déclarées"
           },
           "count_adjustment_quantity": {
             "type": "number",
             "title": "Count Adjustment Quantity",
-            "description": "\u00c9cart d'inventaire (+ trouv\u00e9 en plus, - manquant)"
+            "description": "Écart d'inventaire (+ trouvé en plus, - manquant)"
           },
           "closing_quantity": {
             "type": "number",
             "title": "Closing Quantity",
-            "description": "Stock \u00e0 la fin de la p\u00e9riode"
+            "description": "Stock à la fin de la période"
           },
           "consumption_quantity": {
             "type": "number",
             "title": "Consumption Quantity",
-            "description": "Consommation totale : d\u00e9but + entr\u00e9es - fin"
+            "description": "Consommation totale : début + entrées - fin"
           },
           "consumption_xof": {
             "type": "integer",
@@ -15332,7 +15602,7 @@
           "avg_cost_xof": {
             "type": "number",
             "title": "Avg Cost Xof",
-            "description": "Co\u00fbt moyen actuel"
+            "description": "Coût moyen actuel"
           },
           "value_xof": {
             "type": "integer",
@@ -15401,13 +15671,13 @@
             "type": "string",
             "format": "date",
             "title": "Date From",
-            "description": "Premi\u00e8re journ\u00e9e incluse"
+            "description": "Première journée incluse"
           },
           "date_to": {
             "type": "string",
             "format": "date",
             "title": "Date To",
-            "description": "Derni\u00e8re journ\u00e9e incluse"
+            "description": "Dernière journée incluse"
           },
           "totals": {
             "$ref": "#/components/schemas/StockTotals"
@@ -15435,32 +15705,32 @@
           "stock_value_xof": {
             "type": "integer",
             "title": "Stock Value Xof",
-            "description": "Valeur du stock actuel (co\u00fbt moyen)"
+            "description": "Valeur du stock actuel (coût moyen)"
           },
           "purchases_xof": {
             "type": "integer",
             "title": "Purchases Xof",
-            "description": "Achats de la p\u00e9riode"
+            "description": "Achats de la période"
           },
           "sales_cost_xof": {
             "type": "integer",
             "title": "Sales Cost Xof",
-            "description": "Sorties par les ventes (co\u00fbt mati\u00e8re)"
+            "description": "Sorties par les ventes (coût matière)"
           },
           "inventory_consumption_xof": {
             "type": "integer",
             "title": "Inventory Consumption Xof",
-            "description": "Consommation des articles suivis par inventaire (\u00e9carts et pertes)"
+            "description": "Consommation des articles suivis par inventaire (écarts et pertes)"
           },
           "stock_variance_xof": {
             "type": "integer",
             "title": "Stock Variance Xof",
-            "description": "\u00c9carts sur les articles \u00e0 fiche (inventaire et pertes)"
+            "description": "Écarts sur les articles à fiche (inventaire et pertes)"
           },
           "low_count": {
             "type": "integer",
             "title": "Low Count",
-            "description": "Articles en alerte (stock n\u00e9gatif ou sous le seuil)"
+            "description": "Articles en alerte (stock négatif ou sous le seuil)"
           }
         },
         "type": "object",
@@ -16018,7 +16288,7 @@
               }
             ],
             "title": "Label",
-            "description": "Nom ou num\u00e9ro mis \u00e0 jour"
+            "description": "Nom ou numéro mis à jour"
           },
           "zone": {
             "anyOf": [
@@ -16032,7 +16302,7 @@
               }
             ],
             "title": "Zone",
-            "description": "Zone mise \u00e0 jour"
+            "description": "Zone mise à jour"
           },
           "seats": {
             "anyOf": [
@@ -16046,7 +16316,7 @@
               }
             ],
             "title": "Seats",
-            "description": "Nombre de places mis \u00e0 jour"
+            "description": "Nombre de places mis à jour"
           },
           "sort_order": {
             "anyOf": [
@@ -16070,7 +16340,7 @@
               }
             ],
             "title": "Is Active",
-            "description": "Statut actif / archiv\u00e9"
+            "description": "Statut actif / archivé"
           }
         },
         "type": "object",
@@ -16090,7 +16360,7 @@
               }
             ],
             "title": "Full Name",
-            "description": "Nom complet mis \u00e0 jour"
+            "description": "Nom complet mis à jour"
           },
           "role": {
             "anyOf": [
@@ -16108,7 +16378,7 @@
               }
             ],
             "title": "Role",
-            "description": "R\u00f4le syst\u00e8me mis \u00e0 jour"
+            "description": "Rôle système mis à jour"
           },
           "is_active": {
             "anyOf": [
@@ -16120,7 +16390,7 @@
               }
             ],
             "title": "Is Active",
-            "description": "Statut actif / d\u00e9sactiv\u00e9"
+            "description": "Statut actif / désactivé"
           }
         },
         "additionalProperties": false,
@@ -16314,6 +16584,17 @@
           "financial_impact_xof": {
             "type": "integer",
             "title": "Financial Impact Xof"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
           }
         },
         "type": "object",

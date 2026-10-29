@@ -8,8 +8,10 @@ from caisse.schemas.production import (
     DailyPreparationCreate,
     DailyPreparationOut,
     MarketBudgetStatusOut,
+    MarketProteinAnalysisOut,
     MarketPurchaseListCreate,
     MarketPurchaseListOut,
+    MarketPurchaseListUpdate,
     WeeklyMatrixReportOut,
 )
 from caisse.services import production_service
@@ -62,6 +64,38 @@ def get_market_purchase_endpoint(
     db: DbSession,
 ) -> MarketPurchaseListOut:
     return production_service.get_market_purchase(db, purchase_id)
+
+
+@router.put(
+    "/market-purchases/{purchase_id}",
+    response_model=MarketPurchaseListOut,
+    summary="Mettre à jour un bon d'achat marché en attente (Patron / Responsable)",
+)
+def update_market_purchase_endpoint(
+    purchase_id: str,
+    payload: MarketPurchaseListUpdate,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> MarketPurchaseListOut:
+    """Met à jour les articles et quantités d'un bon en attente (DRAFT).
+    Permet au Patron d'ajuster les quantités après analyse des écarts."""
+    return production_service.update_market_purchase(db, purchase_id, current_user, payload)
+
+
+@router.get(
+    "/market-purchases/{purchase_id}/protein-analysis",
+    response_model=MarketProteinAnalysisOut,
+    summary="Analyse comparative des 9 protéines du bon vs ventes de la semaine",
+)
+def get_market_purchase_protein_analysis_endpoint(
+    purchase_id: str,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> MarketProteinAnalysisOut:
+    """Compare les quantités demandées sur ce bon pour les 9 protéines avec
+    les ventes, préparations cuisine et restes en stock sur la semaine."""
+    return production_service.get_market_purchase_protein_analysis(db, purchase_id)
+
 
 
 @router.post(
