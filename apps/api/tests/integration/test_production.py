@@ -714,5 +714,92 @@ def test_auto_validate_preparations_on_session_close(client: TestClient, db_sess
     assert canard_prep_2.notes == "Sortie manuelle du matin par le chef"
 
 
+def test_weekly_matrix_foufou_and_foutou_breakdown(client: TestClient, db_session: Session) -> None:
+    resp_login = client.post(
+        "/api/v1/auth/login",
+        json={"pin": "654321", "device_id": "pos-terminal-01"},
+    )
+    resp_token = resp_login.json()["access_token"]
+    resp_headers = {"Authorization": f"Bearer {resp_token}", "X-Device-Id": "pos-terminal-01"}
+
+    caissier_login = client.post(
+        "/api/v1/auth/login",
+        json={"pin": "123456", "device_id": "pos-terminal-01"},
+    )
+    caissier_token = caissier_login.json()["access_token"]
+    caissier_headers = {"Authorization": f"Bearer {caissier_token}", "X-Device-Id": "pos-terminal-01"}
+
+    # Protéine
+    machoiron_art = StockArticle(
+        name="Mâchoiron Frais",
+        category="PROTEINE",
+        unit="kg",
+        out_mode="RECIPE",
+        quantity=Decimal("10"),
+        avg_cost_xof=Decimal("3500"),
+    )
+    db_session.add(machoiron_art)
+    db_session.flush()
+
+    cat = Category(name="Poissons Plats", kind="FOOD", sort_order=10)
+    db_session.add(cat)
+    db_session.flush()
+
+    p_normal = Product(category_id=cat.id, name="Mâchoiron Braisé", short_name="Mach Braise", price_xof=4000, vat_rate=Decimal("0.00"))
+    p_foufou = Product(category_id=cat.id, name="Foufou Mâchoiron", short_name="Foufou Mach", price_xof=4500, vat_rate=Decimal("0.00"))
+    p_foutou = Product(category_id=cat.id, name="Foutou banane Mâchoiron", short_name="Foutou Mach", price_xof=4500, vat_rate=Decimal("0.00"))
+    db_session.add_all([p_normal, p_foufou, p_foutou])
+    db_session.flush()
+
+    # Recettes
+    for p in [p_normal, p_foufou, p_foutou]:
+        db_session.add(ProductComponent(product_id=p.id, article_id=machoiron_art.id, quantity=Decimal("0.333")))
+    db_session.commit()
+
+    b_date = "2026-10-30"
+
+    # Ouvrir session de caisse
+    open_sess = client.post(
+        "/api/v1/cash-sessions",
+        headers={**caissier_headers, "Idempotency-Key": "sess-foufou-foutou-01"},
+        json={"cash_register_id": "reg-01", "opening_float_xof": 10000, "business_date": b_date},
+    )
+    assert open_sess.status_code == 201
+
+    # Commande : 1 normal, 1 foufou, 2 foutou (total 4 plats, 1 normal + 1 foufou + 2 foutou)
+    ord_res = client.post("/api/v1/orders", headers=caissier_headers, json={"table_id": "tbl-01", "guests_count": 4})
+    o_id = ord_res.json()["id"]
+
+    client.post(f"/api/v1/orders/{o_id}/items", headers=caissier_headers, json={"product_id": p_normal.id, "quantity": 1})
+    client.post(f"/api/v1/orders/{o_id}/items", headers=caissier_headers, json={"product_id": p_foufou.id, "quantity": 1})
+    client.post(f"/api/v1/orders/{o_id}/items", headers=caissier_headers, json={"product_id": p_foutou.id, "quantity": 2})
+
+    tot_xof = 1 * 4000 + 1 * 4500 + 2 * 4500  # 17500
+    pay_res = client.post(
+        f"/api/v1/orders/{o_id}/payments",
+        headers={**caissier_headers, "Idempotency-Key": "pay-foufou-foutou-01"},
+        json={"method": "CASH", "amount_xof": tot_xof, "tendered_xof": tot_xof},
+    )
+    assert pay_res.status_code == 201
+
+    # Matrice hebdomadaire
+    matrix_res = client.get(
+        f"/api/v1/production/weekly-matrix?date_from={b_date}&date_to={b_date}",
+        headers=resp_headers,
+    )
+    assert matrix_res.status_code == 200
+    matrix_data = matrix_res.json()
+
+    machoiron_row = next((r for r in matrix_data["rows"] if r["article_id"] == machoiron_art.id), None)
+    assert machoiron_row is not None
+    day_res = machoiron_row["days"][0]
+
+    assert day_res["sold_dishes"] == 4
+    assert day_res["normal_dishes_sold"] == 1
+    assert day_res["foufou_dishes_sold"] == 1
+    assert day_res["foutou_dishes_sold"] == 2
+
+
+
 
 

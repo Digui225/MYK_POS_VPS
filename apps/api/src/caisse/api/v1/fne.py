@@ -336,9 +336,10 @@ def duplicate(
 def pending_count(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
+    business_date: Optional[date] = Query(None, description="Filtrer par journée comptable"),
 ) -> FnePendingCountOut:
     """Nombre de documents en attente d'une action."""
-    pending, uncertain, failed = fne_repo.pending_counts(db)
+    pending, uncertain, failed = fne_repo.pending_counts(db, business_date=business_date)
     return FnePendingCountOut(pending=pending, uncertain=uncertain, failed=failed)
 
 

@@ -854,6 +854,7 @@ def get_weekly_matrix(
         tot_sold_dishes = 0
         tot_normal_sold = 0
         tot_foufou_sold = 0
+        tot_foutou_sold = 0
         tot_var_dishes = 0
         tot_impact_xof = 0
         tot_actual_rev = 0
@@ -870,6 +871,7 @@ def get_weekly_matrix(
             # Ventes des plats liés à cet article pour ce jour
             day_normal_sold = 0
             day_foufou_sold = 0
+            day_foutou_sold = 0
             day_sold = 0
             day_rev = 0
 
@@ -879,8 +881,10 @@ def get_weekly_matrix(
                     day_sold += s_q
                     day_rev += s_r
                     p_name = (c.product.name if c.product else "").lower()
-                    if "foufou" in p_name or "foutou" in p_name:
+                    if "foufou" in p_name:
                         day_foufou_sold += s_q
+                    elif "foutou" in p_name:
+                        day_foutou_sold += s_q
                     else:
                         day_normal_sold += s_q
 
@@ -892,7 +896,7 @@ def get_weekly_matrix(
             impact = calculate_financial_impact(variance, avg_dish_price)
 
             day_expected_rev = theo_dishes * dish_selling_price
-            day_actual_rev = day_rev if day_rev > 0 else (day_normal_sold * dish_selling_price + day_foufou_sold * foufou_selling_price)
+            day_actual_rev = day_rev if day_rev > 0 else (day_normal_sold * dish_selling_price + (day_foufou_sold + day_foutou_sold) * foufou_selling_price)
             day_rev_variance = day_actual_rev - day_expected_rev
 
             tot_prep_qty += prepared_q
@@ -900,6 +904,7 @@ def get_weekly_matrix(
             tot_sold_dishes += day_sold
             tot_normal_sold += day_normal_sold
             tot_foufou_sold += day_foufou_sold
+            tot_foutou_sold += day_foutou_sold
             tot_var_dishes += variance
             tot_impact_xof += impact
             tot_actual_rev += day_actual_rev
@@ -916,6 +921,7 @@ def get_weekly_matrix(
                     sold_dishes=day_sold,
                     normal_dishes_sold=day_normal_sold,
                     foufou_dishes_sold=day_foufou_sold,
+                    foutou_dishes_sold=day_foutou_sold,
                     foufou_price_xof=foufou_selling_price,
                     variance_dishes=variance,
                     dish_price_xof=dish_selling_price,

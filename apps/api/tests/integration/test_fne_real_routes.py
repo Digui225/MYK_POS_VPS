@@ -103,6 +103,11 @@ def test_fne_real_api_routes_lifecycle(client: TestClient, mock_fne: MockFneProv
     assert count_resp.status_code == 200
     assert "pending" in count_resp.json()
 
+    # 7b. Compteurs avec filtre business_date
+    count_filtered = client.get("/api/v1/fne/pending-count?business_date=2026-10-30", headers=headers)
+    assert count_filtered.status_code == 200
+    assert "pending" in count_filtered.json()
+
     # 8. Récapitulatif journalier
     daily_resp = client.get("/api/v1/fne/daily-summary", headers=headers)
     assert daily_resp.status_code == 200

@@ -102,15 +102,35 @@ def list_documents(
     return list(db.scalars(stmt))
 
 
-def pending_counts(db: Session) -> tuple[int, int, int]:
+def pending_counts(db: Session, business_date: Optional[date] = None) -> tuple[int, int, int]:
     """(en attente, dont incertains, dont refusés)."""
-    row = db.execute(
+    stmt = (
         select(
             func.count(),
             func.count().filter(FneDocument.is_uncertain.is_(True)),
             func.count().filter(FneDocument.status == FneStatus.FAILED),
-        ).where(FneDocument.status.in_(PENDING_STATUSES))
-    ).one()
+        )
+        .where(FneDocument.status.in_(PENDING_STATUSES))
+    )
+    if business_date is not None:
+        stmt = (
+            stmt.outerjoin(Order, Order.id == FneDocument.order_id)
+            .outerjoin(
+                CashSession,
+                or_(
+                    CashSession.id == FneDocument.cash_session_id,
+                    CashSession.id == Order.cash_session_id,
+                ),
+            )
+            .where(
+                or_(
+                    CashSession.business_date == business_date,
+                    func.date(FneDocument.created_at) == business_date,
+                    func.date(Order.opened_at) == business_date,
+                )
+            )
+        )
+    row = db.execute(stmt).one()
     return int(row[0]), int(row[1]), int(row[2])
 
 

@@ -114,6 +114,7 @@ class WeeklyDayData(BaseSchema):
     sold_dishes: int
     normal_dishes_sold: int = 0
     foufou_dishes_sold: int = 0
+    foutou_dishes_sold: int = 0
     foufou_price_xof: int = 0
     variance_dishes: int
     dish_price_xof: int
