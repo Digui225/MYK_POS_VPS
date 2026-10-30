@@ -71,6 +71,8 @@ class MarketBudgetStatusOut(BaseSchema):
     total_budget_xof: int | None = None
     econome_limit_xof: int | None = None
     total_limit_xof: int | None = None
+    other_envelope_xof: int | None = None
+    real_disbursement_xof: int | None = None
     remaining_budget_xof: int | None = None
     remaining_econome_xof: int | None = None
 

@@ -566,11 +566,12 @@ def market_budget_status(
     )
     from caisse.schemas.production import MarketBudgetStatusOut
 
-    total_limit, econome_limit, _ = get_market_budget_limits(db)
+    total_limit, econome_limit, reserve = get_market_budget_limits(db)
     raw = calculate_market_budget_status(
         total_budget_xof,
         role=user.role,
         total_limit=total_limit,
         econome_limit=econome_limit,
+        other_envelope=reserve,
     )
     return MarketBudgetStatusOut(**raw)

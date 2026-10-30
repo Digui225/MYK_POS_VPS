@@ -11251,6 +11251,28 @@
             ],
             "title": "Total Limit Xof"
           },
+          "other_envelope_xof": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Other Envelope Xof"
+          },
+          "real_disbursement_xof": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Real Disbursement Xof"
+          },
           "remaining_budget_xof": {
             "anyOf": [
               {

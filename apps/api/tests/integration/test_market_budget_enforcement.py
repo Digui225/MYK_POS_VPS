@@ -40,10 +40,12 @@ def test_market_budget_status_endpoint_for_econome(client: TestClient, db_sessio
     data = resp.json()
     assert data["is_exceeded"] is False
     assert data["color_class"] == "emerald"
-    assert data["percentage"] == 20
-    # Montants visibles pour l'économe
+    assert data["percentage"] == 33  # 60 000 / 180 000 = 33%
+    # Montants visibles pour l'économe : plafond limité à 180 000 XOF (protéines), 120 000 XOF reste secret
     assert data.get("total_budget_xof") == 60000
-    assert data.get("total_limit_xof") == 300000
+    assert data.get("total_limit_xof") == 180000
+    assert data.get("econome_limit_xof") == 180000
+    assert data.get("other_envelope_xof") is None
 
 
 def test_market_budget_status_endpoint_for_responsable(client: TestClient, db_session: Session) -> None:
@@ -58,8 +60,10 @@ def test_market_budget_status_endpoint_for_responsable(client: TestClient, db_se
     data = resp.json()
     assert data["total_budget_xof"] == 50000
     assert data["total_limit_xof"] == 300000
-    assert data["econome_limit_xof"] == 300000
-    assert data["remaining_budget_xof"] == 250000
+    assert data["econome_limit_xof"] == 180000
+    assert data["other_envelope_xof"] == 120000
+    assert data["real_disbursement_xof"] == 170000  # 50 000 protéines + 120 000 condiments
+    assert data["remaining_budget_xof"] == 130000  # 300 000 - 170 000 = 130 000 XOF
 
 
 def test_market_purchase_creation_blocked_when_econome_exceeds_limit(client: TestClient, db_session: Session) -> None:

@@ -455,6 +455,8 @@ def complete_market_purchase(
     purchase.status = "COMPLETED"
     purchase.validated_by_user_id = validator_user.id
 
+    from caisse.domain.market_budget_rules import DEFAULT_MARKET_CONDIMENTS_KIT, DEFAULT_RESERVE_XOF
+
     if create_stock_movements:
         for item in purchase.items:
             art = db.query(StockArticle).filter(StockArticle.id == item.article_id).first()
@@ -481,8 +483,38 @@ def complete_market_purchase(
                 )
                 db.add(mov)
 
-    # Déduction optionnelle du tiroir-caisse (dépense d'exploitation MARCHE_APPOINT)
-    if deduct_from_cash_session and purchase.total_budget_xof > 0:
+        # Option 1 : Injection automatique du Kit Condiments Hebdomadaire (120 000 XOF)
+        # Réapprovisionne les condiments essentiels et active la disponibilité des sauces et plats
+        for cond in DEFAULT_MARKET_CONDIMENTS_KIT:
+            c_art = db.query(StockArticle).filter(StockArticle.name == cond["name"]).first()
+            if c_art:
+                qty: Decimal = cond["quantity"]
+                unit_cost = Decimal(cond["unit_price_xof"])
+                new_qty = c_art.quantity + qty
+                new_avg = weighted_average_cost(
+                    stock_qty=c_art.quantity,
+                    stock_cost=c_art.avg_cost_xof,
+                    in_qty=qty,
+                    in_unit_cost=unit_cost,
+                )
+                c_art.quantity = new_qty
+                c_art.avg_cost_xof = new_avg
+
+                mov = StockMovement(
+                    article_id=c_art.id,
+                    type=StockMovementType.PURCHASE_IN,
+                    quantity=qty,
+                    quantity_after=new_qty,
+                    unit_cost_xof=unit_cost,
+                    business_date=purchase.business_date,
+                    user_id=validator_user.id,
+                    reason=f"Kit condiments marché (120 000 XOF) #{purchase.business_date}",
+                )
+                db.add(mov)
+
+    # Déduction optionnelle du tiroir-caisse (Protéines ajustées + 120 000 XOF de condiments)
+    total_disbursement_xof = purchase.total_budget_xof + DEFAULT_RESERVE_XOF
+    if deduct_from_cash_session and total_disbursement_xof > 0:
         open_session = (
             db.query(CashSession)
             .filter(CashSession.status == CashSessionStatus.OPEN)
@@ -496,8 +528,8 @@ def complete_market_purchase(
                     cash_session_id=open_session.id,
                     user_id=validator_user.id,
                     type="OUT",
-                    amount_xof=purchase.total_budget_xof,
-                    reason=f"[MARCHE_APPOINT] Achats marché {purchase.business_date}",
+                    amount_xof=total_disbursement_xof,
+                    reason=f"[MARCHE_APPOINT] Achats marché {purchase.business_date} (Protéines {purchase.total_budget_xof:,} + Condiments {DEFAULT_RESERVE_XOF:,} XOF)",
                 )
             )
 
@@ -507,9 +539,9 @@ def complete_market_purchase(
                 cash_session_id=session_id,
                 user_id=validator_user.id,
                 category="MARCHE_APPOINT",
-                amount_xof=purchase.total_budget_xof,
+                amount_xof=total_disbursement_xof,
                 recipient="Marché d'approvisionnement",
-                reason=f"Achats viandes & poissons {purchase.business_date}",
+                reason=f"Achats viandes ({purchase.total_budget_xof:,} XOF) et condiments ({DEFAULT_RESERVE_XOF:,} XOF) {purchase.business_date}",
             )
         )
 
