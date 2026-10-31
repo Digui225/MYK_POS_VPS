@@ -841,6 +841,11 @@ def get_weekly_matrix(
     total_purchases_cost = 0
     total_variance_impact = 0
 
+    from caisse.repositories import reports as reports_repo
+
+    period_movements = reports_repo.movements_by_article_type(db, date_from, date_to)
+    after_movements = reports_repo.quantity_after(db, date_to)
+
     for a in articles:
         comps = article_components.get(str(a.id), [])
         standard_portion = float(comps[0].quantity) if comps else 1.0
@@ -868,14 +873,41 @@ def get_weekly_matrix(
         if foufou_comp and foufou_comp.product and foufou_comp.product.price_xof:
             foufou_selling_price = int(foufou_comp.product.price_xof)
 
-        p_qty, p_cost = purchases_map.get(str(a.id), (0.0, 0))
-        total_purchases_cost += p_cost
-        potential_dishes = int(round(p_qty * default_yield))
+        # Calcul du stock de départ (au début de la semaine) et des achats
+        closing_stock = a.quantity - after_movements.get(a.id, Decimal(0))
+        in_period_net = sum(
+            (
+                q
+                for (aid, t), (q, _) in period_movements.items()
+                if aid == a.id and t != StockMovementType.OPENING
+            ),
+            Decimal(0),
+        )
+        opening_stock_dec = max(Decimal(0), closing_stock - in_period_net)
+        opening_qty = round(float(opening_stock_dec), 3)
 
-        purchase_unit_price = int(round(p_cost / p_qty)) if p_qty > 0 else 0
+        p_qty, p_cost = purchases_map.get(str(a.id), (0.0, 0))
+        tot_available_qty = round(opening_qty + p_qty, 3)
+
+        # Repli si aucun mouvement n'a été enregistré mais que du stock existe en base
+        if tot_available_qty <= 0 and float(a.quantity) > 0:
+            opening_qty = round(float(a.quantity), 3)
+            tot_available_qty = opening_qty
+
+        # Prix unitaire : prix d'achat si acheté, sinon coût moyen pondéré (CMP)
+        if p_qty > 0:
+            purchase_unit_price = int(round(p_cost / p_qty))
+        else:
+            purchase_unit_price = int(round(float(a.avg_cost_xof)))
+
+        # Coût total de la matière première disponible
+        tot_available_cost = int(round(tot_available_qty * purchase_unit_price))
+        total_purchases_cost += tot_available_cost
+
+        potential_dishes = int(round(tot_available_qty * default_yield))
         weekly_expected_rev = potential_dishes * dish_selling_price
         expected_margin_pct = (
-            round(((weekly_expected_rev - p_cost) * 100) / weekly_expected_rev, 2)
+            round(((weekly_expected_rev - tot_available_cost) * 100) / weekly_expected_rev, 2)
             if weekly_expected_rev > 0
             else 0.0
         )
@@ -893,7 +925,7 @@ def get_weekly_matrix(
 
         for d in calendar_dates:
             day_name = DAY_NAMES_FR[d.weekday()]
-            remaining_q = max(0.0, round(p_qty - tot_prep_qty, 3))
+            remaining_q = max(0.0, round(tot_available_qty - tot_prep_qty, 3))
 
             prep = prep_map.get((str(a.id), d))
             prepared_q = float(prep.prepared_quantity) if prep else 0.0
@@ -967,13 +999,13 @@ def get_weekly_matrix(
 
         total_variance_impact += tot_impact_xof
 
-        actual_margin_xof = tot_actual_rev - p_cost
+        actual_margin_xof = tot_actual_rev - tot_available_cost
         actual_margin_pct = (
             round((actual_margin_xof * 100) / tot_actual_rev, 2)
             if tot_actual_rev > 0
             else 0.0
         )
-        qty_variance = round(tot_prep_qty - p_qty, 3)
+        qty_variance = round(tot_prep_qty - tot_available_qty, 3)
         dishes_variance = tot_sold_dishes - potential_dishes
 
         rows.append(
@@ -981,9 +1013,12 @@ def get_weekly_matrix(
                 article_id=str(a.id),
                 article_name=a.name,
                 unit=a.unit,
+                opening_stock_qty=opening_qty,
                 weekly_purchased_qty=p_qty,
+                total_available_qty=tot_available_qty,
                 purchase_unit_price_xof=purchase_unit_price,
                 weekly_purchased_cost_xof=p_cost,
+                total_available_cost_xof=tot_available_cost,
                 default_yield_portions=default_yield,
                 weekly_potential_dishes=potential_dishes,
                 dish_selling_price_xof=dish_selling_price,

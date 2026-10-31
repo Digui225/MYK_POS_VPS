@@ -16739,9 +16739,19 @@
             "type": "string",
             "title": "Unit"
           },
+          "opening_stock_qty": {
+            "type": "number",
+            "title": "Opening Stock Qty",
+            "default": 0.0
+          },
           "weekly_purchased_qty": {
             "type": "number",
             "title": "Weekly Purchased Qty"
+          },
+          "total_available_qty": {
+            "type": "number",
+            "title": "Total Available Qty",
+            "default": 0.0
           },
           "purchase_unit_price_xof": {
             "type": "integer",
@@ -16751,6 +16761,11 @@
           "weekly_purchased_cost_xof": {
             "type": "integer",
             "title": "Weekly Purchased Cost Xof"
+          },
+          "total_available_cost_xof": {
+            "type": "integer",
+            "title": "Total Available Cost Xof",
+            "default": 0
           },
           "default_yield_portions": {
             "type": "number",

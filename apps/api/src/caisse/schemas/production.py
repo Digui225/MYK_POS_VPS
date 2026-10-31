@@ -131,9 +131,12 @@ class WeeklyProductRow(BaseSchema):
     article_id: str
     article_name: str
     unit: str
+    opening_stock_qty: float = 0.0
     weekly_purchased_qty: float
+    total_available_qty: float = 0.0
     purchase_unit_price_xof: int = 0
     weekly_purchased_cost_xof: int
+    total_available_cost_xof: int = 0
     default_yield_portions: float
     weekly_potential_dishes: int
     dish_selling_price_xof: int = 0
