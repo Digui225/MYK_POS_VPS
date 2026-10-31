@@ -900,9 +900,10 @@ def get_weekly_matrix(
         else:
             purchase_unit_price = int(round(float(a.avg_cost_xof)))
 
-        # Coût total de la matière première disponible
+        # Coût total de la matière première disponible (théorique)
         tot_available_cost = int(round(tot_available_qty * purchase_unit_price))
-        total_purchases_cost += tot_available_cost
+        # Les achats réels de la période (dépenses décaissées de la semaine)
+        total_purchases_cost += p_cost
 
         potential_dishes = int(round(tot_available_qty * default_yield))
         weekly_expected_rev = potential_dishes * dish_selling_price
@@ -999,7 +1000,7 @@ def get_weekly_matrix(
 
         total_variance_impact += tot_impact_xof
 
-        actual_margin_xof = tot_actual_rev - tot_available_cost
+        actual_margin_xof = tot_actual_rev - p_cost
         actual_margin_pct = (
             round((actual_margin_xof * 100) / tot_actual_rev, 2)
             if tot_actual_rev > 0
