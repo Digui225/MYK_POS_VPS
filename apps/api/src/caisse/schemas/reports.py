@@ -146,7 +146,9 @@ class StockReportArticle(Schema):
     consumption_quantity: float = Field(description="Consommation totale : début + entrées - fin")
     consumption_xof: int = Field(description="Valeur de la consommation")
     quantity: float = Field(description="Stock actuel")
-    avg_cost_xof: float = Field(description="Coût moyen actuel")
+    avg_cost_xof: float = Field(
+        description="Coût moyen actuel (2 décimales max, exception D3 au contrat §montants)"
+    )
     value_xof: int = Field(description="Valeur du stock actuel")
     alert_threshold: float | None = Field(description="Seuil d'alerte")
     is_low: bool = Field(description="En alerte")
@@ -235,7 +237,9 @@ class ProteinYieldItem(Schema):
     article_name: str = Field(description="Nom de la matière première (ex: Bœuf, Mouton)")
     category: StockArticleCategory = Field(description="Famille de stock")
     unit: str = Field(description="Unité de mesure (kg, pièce, morceau)")
-    avg_cost_xof: float = Field(description="Coût moyen unitaire d'achat (CMP)")
+    avg_cost_xof: float = Field(
+        description="Coût moyen unitaire d'achat (CMP, 2 décimales max, exception D3 au contrat §montants)"
+    )
     standard_portion: float = Field(description="Quantité standard consommée par plat (fiche)")
     yield_ratio_per_unit: float = Field(description="Nombre de plats théoriques par unité")
     consumed_quantity: float = Field(description="Quantité totale sortie / consommée")

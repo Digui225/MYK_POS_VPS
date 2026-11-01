@@ -93,6 +93,10 @@ def test_complete_stock_and_recipe_workflow(client: TestClient, db_session: Sess
     recipe_data = recipe_res.json()
     assert len(recipe_data["components"]) == 1
     assert recipe_data["components"][0]["quantity"] == 0.3
+    assert isinstance(recipe_data["cost_xof"], int)
+    assert isinstance(recipe_data["margin_xof"], int)
+    assert isinstance(recipe_data["components"][0]["cost_xof"], int)
+    assert isinstance(recipe_data["components"][0]["unit_cost_xof"], (float, int))
 
     # Vérifier que le catalogue calcule les portions disponibles (20 kg / 0.3 = 66 portions)
     cat_prods = client.get("/api/v1/catalog/products", headers=resp_headers).json()

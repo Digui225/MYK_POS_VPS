@@ -15,7 +15,7 @@
 | Base | `/api/v1` — la version change uniquement en cas de rupture |
 | Format | JSON, `snake_case`, UTF-8 |
 | Dates | ISO 8601 UTC avec `Z` : `2026-09-24T20:14:03Z`. La **journée comptable** est une date nue : `business_date: "2026-09-24"` |
-| Montants | **Entiers XOF**, suffixe `_xof` obligatoire : `total_ttc_xof: 9500`. Jamais de flottant, jamais de chaîne |
+| Montants | **Entiers XOF**, suffixe `_xof` obligatoire : `total_ttc_xof: 9500`. Jamais de chaîne. *Exception documentée (D3)* : les prix unitaires de valorisation de stock (`avg_cost_xof`, `unit_cost_xof`, `unit_price_xof`) tolèrent un flottant à 2 décimales max pour les sous-unités (grammes, cl) ; tout total reste un entier strict. |
 | Quantités | Entier pour les lignes de commande, décimal (3 chiffres) pour le stock |
 | Identifiants | UUID en chaîne |
 | Énumérations | MAJUSCULES_SNAKE : `PARTIALLY_PAID`, `MOBILE_MONEY` |

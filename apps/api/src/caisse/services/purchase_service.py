@@ -23,6 +23,7 @@ from caisse.core.security import utcnow
 from caisse.core.sequences import next_value
 from caisse.domain import stock_rules
 from caisse.domain.enums import PurchaseStatus, StockArticleCategory, UserRole
+from caisse.domain.money import to_unit_rate
 from caisse.models.purchase import PurchaseRequest, PurchaseRequestLine
 from caisse.models.user import User
 from caisse.repositories import purchases as purchases_repo
@@ -215,7 +216,7 @@ def to_out(db: Session, request: PurchaseRequest) -> PurchaseOut:
                 unit=article.unit,
                 requested_quantity=float(line.requested_quantity),
                 approved_quantity=_float(line.approved_quantity),
-                unit_price_xof=float(line.unit_price_xof),
+                unit_price_xof=to_unit_rate(line.unit_price_xof),
                 price_missing=line.unit_price_xof == 0,
                 amount_xof=_line_amount(line),
                 received_quantity=_float(line.received_quantity),

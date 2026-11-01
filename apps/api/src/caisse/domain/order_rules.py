@@ -55,7 +55,7 @@ def recalculate_order_totals(items: list[Any]) -> tuple[int, int, int]:
             continue
 
         line_total = item.unit_price_xof * item.quantity
-        ht, vat = calculate_vat_split(line_total, float(item.vat_rate))
+        ht, vat = calculate_vat_split(line_total, item.vat_rate)
         total_ttc += line_total
         total_ht += ht
         total_vat += vat

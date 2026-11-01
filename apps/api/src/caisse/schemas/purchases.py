@@ -116,7 +116,7 @@ class PurchaseLineOut(BaseSchema):
     requested_quantity: float = Field(description="Quantité demandée")
     approved_quantity: float | None = Field(default=None, description="Quantité validée (0 : ligne retirée)")
     unit_price_xof: float = Field(
-        description="Prix d'une unité : dernier prix d'achat à l'envoi, ou corrigé à la validation"
+        description="Prix d'une unité : dernier prix d'achat à l'envoi, ou corrigé à la validation (2 décimales max, exception D3 au contrat §montants)"
     )
     price_missing: bool = Field(
         description="Aucun prix connu (0) : la ligne ne compte pas dans le montant à remettre"

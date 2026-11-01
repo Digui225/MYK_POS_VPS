@@ -7,7 +7,7 @@ moyen du moment de la vente) ; la consommation des articles suivis par inventair
 
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 from typing import Any, Optional
 
 from sqlalchemy import func, select
@@ -22,6 +22,7 @@ from caisse.domain.enums import (
     StockMovementType,
     StockOutMode,
 )
+from caisse.domain.money import to_unit_rate, to_xof
 from caisse.models.cash_session import CashSession
 from caisse.models.finance import BankDeposit, CashExpense
 from caisse.models.fne import FneDocument
@@ -66,8 +67,8 @@ MAX_DAYS = 366
 _ZERO = Decimal(0)
 
 
-def _xof(value: Decimal) -> int:
-    return int(value.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+def _xof(value: Decimal | int | float) -> int:
+    return to_xof(value)
 
 
 def check_period(date_from: date, date_to: date) -> None:
@@ -318,7 +319,7 @@ def stock_report(db: Session, date_from: date, date_to: date) -> StockReportOut:
                 consumption_quantity=float(opening + purchased - closing),
                 consumption_xof=_xof(consumption_value),
                 quantity=float(a.quantity),
-                avg_cost_xof=float(a.avg_cost_xof),
+                avg_cost_xof=to_unit_rate(a.avg_cost_xof),
                 value_xof=current_value,
                 alert_threshold=float(a.alert_threshold) if a.alert_threshold is not None else None,
                 is_low=is_low,
@@ -788,8 +789,8 @@ def protein_yield_report(db: Session, date_from: date, date_to: date) -> Protein
             sale_qty + loss_qty - (inv_qty if inv_qty < 0 else 0),
             float(sold_dishes * standard_portion),
         )
-        avg_cost = float(a.avg_cost_xof)
-        consumed_cost = int(round(consumed_qty * avg_cost))
+        avg_cost = to_unit_rate(a.avg_cost_xof)
+        consumed_cost = to_xof(Decimal(str(consumed_qty)) * a.avg_cost_xof)
 
         theoretical_dishes = (
             int(round(consumed_qty / standard_portion)) if standard_portion > 0 else int(consumed_qty)
@@ -803,7 +804,7 @@ def protein_yield_report(db: Session, date_from: date, date_to: date) -> Protein
         avg_dish_price = (
             (sold_revenue / sold_dishes) if sold_dishes > 0 else (avg_cost * standard_portion * 2)
         )
-        financial_impact = int(round(variance_dishes * avg_dish_price)) if variance_dishes > 0 else 0
+        financial_impact = to_xof(variance_dishes * avg_dish_price) if variance_dishes > 0 else 0
         gross_margin = sold_revenue - consumed_cost
 
         if variance_dishes <= 0:

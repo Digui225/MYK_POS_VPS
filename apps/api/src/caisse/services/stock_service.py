@@ -19,6 +19,7 @@ from caisse.core import idempotency
 from caisse.core.errors import IdempotencyConflictError, NotFoundError, StockArticleNameExistsError
 from caisse.domain import stock_rules
 from caisse.domain.enums import StockMovementType
+from caisse.domain.money import to_unit_rate, to_xof
 from caisse.models.catalog import Product
 from caisse.models.order import Order
 from caisse.models.stock import ProductComponent, StockArticle, StockMovement
@@ -60,7 +61,7 @@ def article_out(article: StockArticle) -> StockArticleOut:
         unit=article.unit,
         out_mode=article.out_mode,
         quantity=float(article.quantity),
-        avg_cost_xof=float(article.avg_cost_xof),
+        avg_cost_xof=to_unit_rate(article.avg_cost_xof),
         value_xof=stock_rules.value_xof(max(article.quantity, Decimal(0)), article.avg_cost_xof),
         alert_threshold=(
             float(article.alert_threshold) if article.alert_threshold is not None else None
@@ -80,7 +81,7 @@ def movement_out(movement: StockMovement, article_name: str) -> StockMovementOut
         type=movement.type,
         quantity=float(movement.quantity),
         quantity_after=float(movement.quantity_after),
-        unit_cost_xof=float(movement.unit_cost_xof),
+        unit_cost_xof=to_unit_rate(movement.unit_cost_xof),
         value_xof=stock_rules.value_xof(movement.quantity, movement.unit_cost_xof),
         business_date=movement.business_date,
         reference_order_id=str(movement.reference_order_id) if movement.reference_order_id else None,
@@ -597,19 +598,19 @@ def components_out(db: Session, product_id: str) -> ProductComponentsOut:
             article_name=article.name,
             unit=article.unit,
             quantity=float(component.quantity),
-            unit_cost_xof=float(article.avg_cost_xof),
-            cost_xof=float(stock_rules.quantize_cost(component.quantity * article.avg_cost_xof)),
+            unit_cost_xof=to_unit_rate(article.avg_cost_xof),
+            cost_xof=to_xof(component.quantity * article.avg_cost_xof),
         )
         for component, article in stock_repo.components(db, str(product_id))
     ]
-    cost = round(sum(line.cost_xof for line in lines), 2)
+    cost = sum(line.cost_xof for line in lines)
     return ProductComponentsOut(
         product_id=str(product.id),
         product_name=product.name,
         price_xof=product.price_xof,
         components=lines,
         cost_xof=cost,
-        margin_xof=round(product.price_xof - cost, 2),
+        margin_xof=product.price_xof - cost,
     )
 
 

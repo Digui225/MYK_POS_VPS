@@ -14,6 +14,7 @@ from caisse.domain.enums import (
     StockMovementType,
     StockOutMode,
 )
+from caisse.domain.money import to_xof
 from caisse.domain.production_rules import (
     calculate_dish_variance,
     calculate_financial_impact,
@@ -326,8 +327,8 @@ def get_market_purchase_protein_analysis(
         art_id = str(art.id)
         p_item = purchase_items_map.get(art_id)
         requested_qty = float(p_item.quantity) if p_item else 0.0
-        unit_price = p_item.unit_price_xof if p_item else int(art.avg_cost_xof)
-        line_total = int(round(requested_qty * unit_price))
+        unit_price = p_item.unit_price_xof if p_item else to_xof(art.avg_cost_xof)
+        line_total = to_xof(requested_qty * unit_price)
 
         current_stock = float(art.quantity)
         m_prod = matrix_products_map.get(art_id)
@@ -351,7 +352,7 @@ def get_market_purchase_protein_analysis(
         else:
             recommended_qty = 0.0
 
-        recommended_total = int(round(recommended_qty * unit_price))
+        recommended_total = to_xof(recommended_qty * unit_price)
         savings = max(0, line_total - recommended_total)
 
         tot_req_cost += line_total
@@ -895,12 +896,12 @@ def get_weekly_matrix(
 
         # Prix unitaire : prix d'achat si acheté, sinon coût moyen pondéré (CMP)
         if p_qty > 0:
-            purchase_unit_price = int(round(p_cost / p_qty))
+            purchase_unit_price = to_xof(p_cost / p_qty)
         else:
-            purchase_unit_price = int(round(float(a.avg_cost_xof)))
+            purchase_unit_price = to_xof(a.avg_cost_xof)
 
         # Coût total de la matière première disponible (théorique)
-        tot_available_cost = int(round(tot_available_qty * purchase_unit_price))
+        tot_available_cost = to_xof(tot_available_qty * purchase_unit_price)
         # Les achats réels de la période (dépenses décaissées de la semaine)
         total_purchases_cost += p_cost
 

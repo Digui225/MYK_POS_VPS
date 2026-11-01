@@ -78,7 +78,9 @@ class StockArticleOut(BaseSchema):
     unit: str = Field(description="Unité", examples=["kg"])
     out_mode: StockOutMode = Field(description="RECIPE (fiche technique) ou INVENTORY")
     quantity: float = Field(description="Quantité en stock (peut être négative)")
-    avg_cost_xof: float = Field(description="Coût moyen pondéré d'une unité")
+    avg_cost_xof: float = Field(
+        description="Coût moyen pondéré d'une unité (2 décimales max, exception D3 au contrat §montants)"
+    )
     value_xof: int = Field(description="Valeur du stock (0 si la quantité est négative)")
     alert_threshold: float | None = Field(description="Seuil d'alerte ; null : aucun")
     is_low: bool = Field(description="Stock négatif ou au plus égal au seuil")
@@ -119,8 +121,10 @@ class ComponentOut(BaseSchema):
     article_name: str = Field(description="Nom de l'article")
     unit: str = Field(description="Unité de l'article")
     quantity: float = Field(description="Quantité par portion vendue")
-    unit_cost_xof: float = Field(description="Coût moyen actuel d'une unité de l'article")
-    cost_xof: float = Field(description="Coût matière de ce composant pour une portion")
+    unit_cost_xof: float = Field(
+        description="Coût moyen actuel d'une unité de l'article (2 décimales max, exception D3 au contrat §montants)"
+    )
+    cost_xof: int = Field(description="Coût matière de ce composant pour une portion (arrondi XOF)")
 
 
 class ProductComponentsOut(BaseSchema):
@@ -128,8 +132,8 @@ class ProductComponentsOut(BaseSchema):
     product_name: str = Field(description="Nom du plat")
     price_xof: int = Field(description="Prix de vente")
     components: list[ComponentOut] = Field(description="Fiche technique")
-    cost_xof: float = Field(description="Coût matière d'une portion au CMP actuel")
-    margin_xof: float = Field(description="Prix de vente - coût matière")
+    cost_xof: int = Field(description="Coût matière d'une portion au CMP actuel (arrondi XOF)")
+    margin_xof: int = Field(description="Prix de vente - coût matière (arrondi XOF)")
 
 
 # --- Saisies -----------------------------------------------------------------------------
@@ -219,7 +223,9 @@ class StockMovementOut(BaseSchema):
     type: StockMovementType = Field(description="Nature du mouvement")
     quantity: float = Field(description="Quantité signée (+ entrée, - sortie)")
     quantity_after: float = Field(description="Stock de l'article après le mouvement")
-    unit_cost_xof: float = Field(description="Coût d'une unité (prix payé ou CMP)")
+    unit_cost_xof: float = Field(
+        description="Coût d'une unité (prix payé ou CMP, 2 décimales max, exception D3 au contrat §montants)"
+    )
     value_xof: int = Field(description="Valeur signée du mouvement")
     business_date: date = Field(description="Journée")
     reference_order_id: str | None = Field(default=None, description="Commande à l'origine (vente)")
