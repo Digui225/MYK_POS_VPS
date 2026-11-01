@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from caisse.cli import cmd_reset_transactions
-from caisse.config import Settings
+from caisse.core.config import Settings
 from caisse.models.audit import AuditLog
 
 

@@ -7,9 +7,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from caisse.core.security import hash_pin
 from caisse.domain.enums import UserRole
 from caisse.models.user import User
-from caisse.security import hash_pin
 
 pytestmark = pytest.mark.integration
 

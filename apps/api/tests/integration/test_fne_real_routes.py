@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from caisse.deps import get_fne_provider
+from caisse.core.deps import get_fne_provider
 from caisse.infrastructure.fne import MockFneProvider
 from caisse.main import app
 

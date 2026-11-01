@@ -15,10 +15,10 @@ from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from caisse import idempotency
+from caisse.core import idempotency
+from caisse.core.errors import IdempotencyConflictError, NotFoundError, StockArticleNameExistsError
 from caisse.domain import stock_rules
 from caisse.domain.enums import StockMovementType
-from caisse.errors import IdempotencyConflictError, NotFoundError, StockArticleNameExistsError
 from caisse.models.catalog import Product
 from caisse.models.order import Order
 from caisse.models.stock import ProductComponent, StockArticle, StockMovement

@@ -7,7 +7,7 @@ from decimal import Decimal
 import httpx
 import pytest
 
-from caisse.domain.ports import (
+from caisse.domain.fne import (
     FneAuthError,
     FneError,
     FneRejectedError,

@@ -5,8 +5,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from caisse.domain.enums import FneDocumentType, FneStatus
+from caisse.domain.fne import FneUnavailableError
 from caisse.domain.payment_rules import format_receipt_text
-from caisse.domain.ports import FneUnavailableError
 from caisse.models.fne import FneDocument
 from caisse.models.print_job import PrintJob
 from caisse.services.fne_service import receipt_fne_info
@@ -105,7 +105,7 @@ def test_unavailable_dgi_prints_no_fiscal_block(
         def refund(self, invoice_id, payload, *, timeout):
             raise FneUnavailableError("connexion refusée")
 
-    monkeypatch.setattr("caisse.deps.get_fne_provider", lambda: DgiDown())
+    monkeypatch.setattr("caisse.core.deps.get_fne_provider", lambda: DgiDown())
     pay = _pay_with_fne(client, "fne-down")
     content = db_session.get(PrintJob, pay["print_job_id"]).content
     doc = db_session.query(FneDocument).filter(FneDocument.order_id == pay["order_id"]).one()

@@ -8,7 +8,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Path, Response, status
 
-from caisse.deps import Ctx, CurrentTerminal, DbSession
+from caisse.core.deps import Ctx, CurrentTerminal, DbSession
 from caisse.schemas.printing import AgentJobOut, AgentPollIn, AgentPollOut, AgentResultIn
 from caisse.services.printing_service import PrintingService
 

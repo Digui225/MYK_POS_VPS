@@ -15,11 +15,11 @@ from pathlib import Path
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from caisse.core.security import utcnow
 from caisse.domain.enums import StockArticleCategory, StockMovementType, StockOutMode
 from caisse.models.catalog import Product
 from caisse.models.stock import ProductComponent, StockArticle
 from caisse.repositories import stock as stock_repo
-from caisse.security import utcnow
 from caisse.services import stock_service
 
 DATA_DIR = Path(__file__).parent / "data"

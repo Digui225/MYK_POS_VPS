@@ -4,11 +4,11 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from caisse.core.pagination import PageRequest, newest_first
 from caisse.domain.enums import PurchaseStatus, StockMovementType
 from caisse.models.purchase import PurchaseRequest, PurchaseRequestLine
 from caisse.models.stock import StockArticle, StockMovement
 from caisse.models.user import User
-from caisse.pagination import PageRequest, newest_first
 
 
 def get(db: Session, request_id: str) -> PurchaseRequest | None:

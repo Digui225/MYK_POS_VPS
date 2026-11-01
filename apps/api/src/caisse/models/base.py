@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
-from caisse.database import Base as Base
+from caisse.core.database import Base as Base
 
 __all__ = ["Base", "TimestampMixin", "generate_uuid"]
 

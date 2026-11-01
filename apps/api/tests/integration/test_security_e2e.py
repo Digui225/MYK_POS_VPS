@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from caisse.security_rate_limit import rate_limiter
+from caisse.core.security_rate_limit import rate_limiter
 
 
 def test_e2e_security_suite(client: TestClient) -> None:

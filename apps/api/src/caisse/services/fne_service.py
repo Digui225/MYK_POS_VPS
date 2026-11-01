@@ -13,24 +13,24 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from caisse.config import get_settings
-from caisse.domain import fne
-from caisse.domain.enums import FneDocumentType, FneStatus, OrderStatus, PaymentMethod
-from caisse.domain.ports import (
-    FneAuthError,
-    FneError,
-    FneProvider,
-    FneRejectedError,
-    FneResult,
-    FneUnavailableError,
-)
-from caisse.errors import (
+from caisse.core.config import get_settings
+from caisse.core.errors import (
     CaisseException,
     FneDocumentStateError,
     FneInvalidDataError,
     FneNotConfiguredError,
     FneOrderNotPaidError,
     FneRefundExceedsError,
+)
+from caisse.domain import fne
+from caisse.domain.enums import FneDocumentType, FneStatus, OrderStatus, PaymentMethod
+from caisse.domain.fne import (
+    FneAuthError,
+    FneError,
+    FneProvider,
+    FneRejectedError,
+    FneResult,
+    FneUnavailableError,
 )
 from caisse.models.catalog import Product
 from caisse.models.customer import Customer

@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
 from caisse.core.config import get_settings
+from caisse.core.database import get_db
+from caisse.core.deps import get_client_ip, get_current_user, require_device_id
 from caisse.core.errors import CaisseException
-from caisse.database import get_db
-from caisse.deps import get_client_ip, get_current_user, require_device_id
+from caisse.core.security_rate_limit import login_lockout, require_rate_limit
 from caisse.models.user import User
 from caisse.schemas.auth import (
     LoginRequest,
@@ -15,7 +16,6 @@ from caisse.schemas.auth import (
     RefreshTokenResponse,
     UserResponse,
 )
-from caisse.security_rate_limit import login_lockout, require_rate_limit
 from caisse.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentification"])

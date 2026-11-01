@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from fastapi import status
 from sqlalchemy.orm import Session
 
-from caisse.errors import CaisseException
+from caisse.core.errors import CaisseException
 from caisse.models.print_terminal import PrintTerminal
 from caisse.repositories.print_terminals import PrintTerminalRepository
 from caisse.services.audit_service import AuditService

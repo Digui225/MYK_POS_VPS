@@ -3,9 +3,9 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from caisse.core.pagination import PageRequest, newest_first
 from caisse.models.cash_session import CashSession
 from caisse.models.order import Order, OrderItem
-from caisse.pagination import PageRequest, newest_first
 from caisse.repositories.base import BaseRepository
 
 

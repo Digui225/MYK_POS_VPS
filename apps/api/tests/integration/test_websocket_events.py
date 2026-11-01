@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from caisse.security import create_access_token
+from caisse.core.security import create_access_token
 
 
 def test_payment_event_reaches_the_admin_dashboard(client: TestClient) -> None:

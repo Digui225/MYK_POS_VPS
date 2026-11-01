@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from caisse.core.errors import CaisseException
 from caisse.domain.enums import OrderStatus
 from caisse.domain.order_rules import (
     assert_order_editable,
@@ -9,7 +10,6 @@ from caisse.domain.order_rules import (
     generate_order_number,
     recalculate_order_totals,
 )
-from caisse.errors import CaisseException
 
 
 def test_generate_order_number():

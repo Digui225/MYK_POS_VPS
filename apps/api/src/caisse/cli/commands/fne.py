@@ -18,7 +18,7 @@ PROBE_LINES = [
 
 def cmd_fne_probe(args: argparse.Namespace) -> None:
     from caisse.domain import fne
-    from caisse.domain.ports import FneError
+    from caisse.domain.fne import FneError
     from caisse.infrastructure.fne import HttpFneProvider
 
     settings = get_settings()

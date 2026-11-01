@@ -1,12 +1,12 @@
 import pytest
 
+from caisse.core.errors import CaisseException
 from caisse.domain.session_rules import (
     calculate_counted_cash,
     calculate_variance,
     validate_business_date,
     validate_opening_float,
 )
-from caisse.errors import CaisseException
 
 
 def test_validate_business_date_valid():

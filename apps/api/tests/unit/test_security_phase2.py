@@ -3,7 +3,7 @@ import logging
 import pytest
 from fastapi.testclient import TestClient
 
-from caisse.security_rate_limit import InMemoryRateLimiter, rate_limiter
+from caisse.core.security_rate_limit import InMemoryRateLimiter, rate_limiter
 
 
 def test_in_memory_rate_limiter_unit() -> None:

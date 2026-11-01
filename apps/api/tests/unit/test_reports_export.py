@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 from fastapi.testclient import TestClient
 
-from caisse.deps import get_current_user
+from caisse.core.deps import get_current_user
 from caisse.domain.enums import (
     CashSessionStatus,
     OrderStatus,

@@ -4,12 +4,12 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from caisse import idempotency
-from caisse.database import get_db
-from caisse.deps import Paging, require_device_id, require_role
-from caisse.idempotency import OptionalIdempotencyKey
+from caisse.core import idempotency
+from caisse.core.database import get_db
+from caisse.core.deps import Paging, require_device_id, require_role
+from caisse.core.idempotency import OptionalIdempotencyKey
+from caisse.core.pagination import split
 from caisse.models.user import User
-from caisse.pagination import split
 from caisse.schemas.common import Page
 from caisse.schemas.orders import (
     OrderCancelRequest,

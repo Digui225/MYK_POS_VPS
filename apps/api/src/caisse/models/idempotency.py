@@ -3,7 +3,7 @@ from typing import Any
 from sqlalchemy import JSON, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from caisse.database import Base
+from caisse.core.database import Base
 from caisse.models.base import TimestampMixin
 
 

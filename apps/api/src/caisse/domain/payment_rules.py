@@ -4,8 +4,8 @@ from typing import Any
 
 from fastapi import status
 
+from caisse.core.errors import CaisseException
 from caisse.domain.enums import PaymentMethod
-from caisse.errors import CaisseException
 
 # Commandes standard ESC/POS pour imprimantes thermiques (XP-58IIH / POS-58 / 80mm)
 ESC_INIT = b"\x1b\x40"

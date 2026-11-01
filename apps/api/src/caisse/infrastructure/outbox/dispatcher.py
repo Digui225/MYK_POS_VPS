@@ -4,7 +4,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from caisse.config import get_settings
+from caisse.core.config import get_settings
 from caisse.domain.enums import FneStatus
 from caisse.models.fne import FneDocument
 from caisse.models.outbox import OutboxEvent

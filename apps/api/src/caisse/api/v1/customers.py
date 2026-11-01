@@ -3,9 +3,9 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from caisse.database import get_db
-from caisse.deps import get_current_user
-from caisse.errors import CaisseException
+from caisse.core.database import get_db
+from caisse.core.deps import get_current_user
+from caisse.core.errors import CaisseException
 from caisse.models.user import User
 from caisse.schemas.customer import CustomerCreate, CustomerOut
 from caisse.services import customer_service

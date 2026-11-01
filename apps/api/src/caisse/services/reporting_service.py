@@ -13,6 +13,7 @@ from typing import Any, Optional
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from caisse.core.errors import ValidationError
 from caisse.domain import stock_rules
 from caisse.domain.enums import (
     CashSessionStatus,
@@ -21,7 +22,6 @@ from caisse.domain.enums import (
     StockMovementType,
     StockOutMode,
 )
-from caisse.errors import ValidationError
 from caisse.models.cash_session import CashSession
 from caisse.models.finance import BankDeposit, CashExpense
 from caisse.models.fne import FneDocument

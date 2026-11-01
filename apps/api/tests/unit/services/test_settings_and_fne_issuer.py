@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from caisse.core.config import get_settings
-from caisse.database import Base
+from caisse.core.database import Base
 from caisse.repositories import settings as settings_repo
 from caisse.services.fne_service import _issuer
 

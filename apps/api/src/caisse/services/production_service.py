@@ -6,6 +6,7 @@ from fastapi import status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
+from caisse.core.errors import CaisseException
 from caisse.domain.enums import (
     CashSessionStatus,
     OrderStatus,
@@ -20,7 +21,6 @@ from caisse.domain.production_rules import (
     calculate_theoretical_dishes,
 )
 from caisse.domain.stock_rules import weighted_average_cost
-from caisse.errors import CaisseException
 from caisse.models.cash_session import CashMovement, CashSession
 from caisse.models.finance import CashExpense
 from caisse.models.order import Order, OrderItem

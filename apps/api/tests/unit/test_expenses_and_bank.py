@@ -2,10 +2,10 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
+from caisse.core.security import hash_pin
 from caisse.models.cash_session import CashRegister, CashSession
 from caisse.models.user import User
 from caisse.schemas.finance import BankDepositCreate, CashExpenseCreate
-from caisse.security import hash_pin
 from caisse.services import finance_service, reporting_service
 
 

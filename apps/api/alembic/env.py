@@ -10,8 +10,8 @@ from alembic import context
 # Ajouter le chemin source
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
-from caisse.config import get_settings
-from caisse.database import Base
+from caisse.core.config import get_settings
+from caisse.core.database import Base
 # Importer tous les modèles pour autogenerate
 import caisse.models  # noqa
 

@@ -1,13 +1,10 @@
-import pytest
-
 from caisse.domain.fiscal import (
     build_fne_payload,
     generate_fne_number,
     generate_fne_token,
     generate_qr_url,
 )
-from caisse.infrastructure.fne.manual_provider import ManualFneProvider
-from caisse.infrastructure.fne.mock_provider import MockFneProvider
+from caisse.infrastructure.fne.mock import MockFneProvider
 
 
 def test_generate_fne_number():
@@ -79,32 +76,26 @@ def test_build_fne_payload():
     assert payload["schema_version"] == "1.0-CI-DGI"
 
 
-@pytest.mark.anyio
-async def test_mock_fne_provider_success():
-    provider = MockFneProvider(should_fail=False)
-    payload = {"invoice_number": "FNE-2104598B-20260928-00001", "totals": {"total_ttc_xof": 5000}}
-    res = await provider.submit_invoice(payload)
-    assert res.success is True
-    assert res.status == "CERTIFIED"
-    assert res.token is not None
-    assert "https://fne.dgi.gouv.ci" in res.qr_url
+def test_mock_fne_provider_sign_and_refund():
+    provider = MockFneProvider(ncc="2104598B", balance_sticker=100)
+    payload = {
+        "invoiceType": "sale",
+        "paymentMethod": "cash",
+        "template": "B2C",
+        "items": [{"description": "Bissap", "quantity": 1, "amount": 1000, "taxes": ["TVA"]}],
+    }
+    result = provider.sign(payload, timeout=4.0)
+    assert result.external_number.startswith("2104598B")
+    assert result.qr_payload.startswith("mock://fne/verification/")
+    assert result.amount_ttc == 1180
+    assert result.invoice_id is not None
+    assert provider.balance_sticker == 99
 
-
-@pytest.mark.anyio
-async def test_mock_fne_provider_failure():
-    provider = MockFneProvider(should_fail=True)
-    payload = {"invoice_number": "FNE-2104598B-20260928-00001"}
-    res = await provider.submit_invoice(payload)
-    assert res.success is False
-    assert res.status == "FAILED"
-    assert res.error_message == "Simulated DGI server failure"
-
-
-@pytest.mark.anyio
-async def test_manual_fne_provider():
-    provider = ManualFneProvider()
-    payload = {"invoice_number": "FNE-2104598B-20260928-00002"}
-    res = await provider.submit_invoice(payload)
-    assert res.success is True
-    assert res.status == "MANUAL_EXPORTED"
-    assert res.token is not None
+    # Test refund
+    refund_result = provider.refund(
+        result.invoice_id,
+        {"items": [{"id": result.items[0].id, "quantity": 1}]},
+        timeout=4.0,
+    )
+    assert refund_result.external_number.startswith("A2104598B")
+    assert provider.balance_sticker == 98

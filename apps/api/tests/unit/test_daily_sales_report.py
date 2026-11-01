@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from caisse.core.security import hash_pin
 from caisse.domain.enums import (
     CashSessionStatus,
     OrderStatus,
@@ -14,7 +15,6 @@ from caisse.models.cash_session import CashRegister, CashSession
 from caisse.models.order import Order
 from caisse.models.stock import StockArticle, StockMovement
 from caisse.models.user import User
-from caisse.security import hash_pin
 from caisse.services import reporting_service
 
 

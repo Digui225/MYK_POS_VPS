@@ -2,7 +2,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Path, Query, status
 
-from caisse.deps import (
+from caisse.core.deps import (
     Admin,
     Ctx,
     CurrentUser,
@@ -10,9 +10,9 @@ from caisse.deps import (
     Paging,
     Responsable,
 )
-from caisse.errors import CaisseException
+from caisse.core.errors import CaisseException
+from caisse.core.pagination import split
 from caisse.models.order import Order
-from caisse.pagination import split
 from caisse.schemas.common import Page
 from caisse.schemas.printing import (
     PrintingStatusOut,

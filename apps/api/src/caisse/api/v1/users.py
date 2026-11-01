@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from caisse.database import get_db
-from caisse.deps import require_role
-from caisse.errors import CaisseException
+from caisse.core.database import get_db
+from caisse.core.deps import require_role
+from caisse.core.errors import CaisseException
+from caisse.core.security import hash_pin
 from caisse.models.user import User
 from caisse.repositories.users import UserRepository
 from caisse.schemas.auth import (
@@ -13,7 +14,6 @@ from caisse.schemas.auth import (
     UserResponse,
 )
 from caisse.schemas.common import PaginatedResponse
-from caisse.security import hash_pin
 from caisse.services.auth_service import AuthService
 
 router = APIRouter(prefix="/users", tags=["Utilisateurs"])

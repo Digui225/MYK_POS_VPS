@@ -6,13 +6,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from caisse import cli
+from caisse.core.pagination import decode_cursor, encode_cursor
 from caisse.domain.enums import FneDocumentType, FneStatus
 from caisse.infrastructure.fne.mock import MockFneProvider
 from caisse.models.audit import AuditLog
 from caisse.models.cash_session import CashRegister, CashSession
 from caisse.models.fne import FneDocument
 from caisse.models.order import Order
-from caisse.pagination import decode_cursor, encode_cursor
 from caisse.services import fne_service
 
 

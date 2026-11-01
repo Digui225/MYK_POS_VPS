@@ -2,10 +2,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Path, Query, Request, Response, status
 
-from caisse.deps import Acheteur, Ctx, CurrentUser, DbSession, Paging, Responsable
+from caisse.core.deps import Acheteur, Ctx, CurrentUser, DbSession, Paging, Responsable
+from caisse.core.idempotency import IdempotencyKey, apply_replay_headers
+from caisse.core.pagination import split
 from caisse.domain.enums import PurchaseStatus, StockArticleCategory
-from caisse.idempotency import IdempotencyKey, apply_replay_headers
-from caisse.pagination import split
 from caisse.repositories import purchases as purchases_repo
 from caisse.schemas.common import Page
 from caisse.schemas.production import MarketBudgetStatusOut

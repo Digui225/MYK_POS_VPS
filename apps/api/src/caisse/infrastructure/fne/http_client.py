@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 
-from caisse.domain.ports import (
+from caisse.domain.fne import (
     FneAuthError,
     FneItemRef,
     FneRejectedError,

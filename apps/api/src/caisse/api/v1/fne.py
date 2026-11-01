@@ -5,19 +5,19 @@ from fastapi import APIRouter, Depends, Query, Request, Response, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from caisse import idempotency
-from caisse.database import get_db
-from caisse.deps import (
+from caisse.core import idempotency
+from caisse.core.database import get_db
+from caisse.core.deps import (
     DbSession,
+    FneProviderDep,
     Paging,
     Responsable,
     get_current_user,
-    get_fne_provider,
     require_role,
 )
-from caisse.idempotency import OptionalIdempotencyKey
+from caisse.core.idempotency import OptionalIdempotencyKey
+from caisse.core.pagination import split
 from caisse.models.user import User
-from caisse.pagination import split
 from caisse.repositories import fne as fne_repo
 from caisse.schemas.common import Page
 from caisse.schemas.fne import (
@@ -49,7 +49,7 @@ def issue(
     idempotency_key: OptionalIdempotencyKey = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-    provider: Any = Depends(get_fne_provider),
+    provider: FneProviderDep = None,
 ) -> FneDocumentResult:
     """FNE à la demande (DGI CI)."""
     request_hash = idempotency.hash_request(body)
@@ -144,7 +144,7 @@ def retry(
     idempotency_key: OptionalIdempotencyKey = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("CAISSIER", "RESPONSABLE", "ADMIN")),
-    provider: Any = Depends(get_fne_provider),
+    provider: FneProviderDep = None,
 ) -> FneDocumentResult:
     """Renvoie un document en QUEUED ou FAILED."""
     request_hash = idempotency.hash_request(None)
@@ -200,7 +200,7 @@ def resolve(
     idempotency_key: OptionalIdempotencyKey = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("RESPONSABLE", "ADMIN")),
-    provider: Any = Depends(get_fne_provider),
+    provider: FneProviderDep = None,
 ) -> FneDocumentResult:
     """Tranche un cas incertain après vérification dans l'espace FNE."""
     request_hash = idempotency.hash_request(body)
@@ -265,7 +265,7 @@ def refund(
     idempotency_key: OptionalIdempotencyKey = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("RESPONSABLE", "ADMIN")),
-    provider: Any = Depends(get_fne_provider),
+    provider: FneProviderDep = None,
 ) -> FneDocumentResult:
     """Avoir total ou partiel sur une FNE certifiée."""
     request_hash = idempotency.hash_request(body)
@@ -373,7 +373,7 @@ def legacy_generate(
     idempotency_key: OptionalIdempotencyKey = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-    provider: Any = Depends(get_fne_provider),
+    provider: FneProviderDep = None,
 ) -> dict[str, Any]:
     from caisse.domain.fne import FneTemplate
     from caisse.models.customer import Customer

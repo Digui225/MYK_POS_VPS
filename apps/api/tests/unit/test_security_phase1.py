@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from caisse.config import Settings
+from caisse.core.config import Settings
 from caisse.main import app
 
 

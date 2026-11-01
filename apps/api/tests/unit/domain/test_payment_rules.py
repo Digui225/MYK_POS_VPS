@@ -1,5 +1,6 @@
 import pytest
 
+from caisse.core.errors import CaisseException
 from caisse.domain.enums import PaymentMethod
 from caisse.domain.payment_rules import (
     ESC_CUT_PAPER,
@@ -10,7 +11,6 @@ from caisse.domain.payment_rules import (
     should_open_drawer,
     validate_payment_amount,
 )
-from caisse.errors import CaisseException
 
 
 def test_validate_payment_amount_valid():

@@ -45,7 +45,7 @@ def refunds_of(db: Session, parent_id: str) -> list[FneDocument]:
     )
 
 
-from caisse.pagination import PageRequest, newest_first
+from caisse.core.pagination import PageRequest, newest_first
 
 
 def next_due(db: Session, now: datetime) -> FneDocument | None:

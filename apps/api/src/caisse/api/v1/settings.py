@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from caisse.core.config import get_settings
-from caisse.database import get_db
-from caisse.deps import get_current_user, require_role
-from caisse.errors import CaisseException
+from caisse.core.database import get_db
+from caisse.core.deps import get_current_user, require_role
+from caisse.core.errors import CaisseException
 from caisse.models.cash_session import CashRegister, CashSession
 from caisse.models.settings import EstablishmentSetting
 from caisse.models.user import User

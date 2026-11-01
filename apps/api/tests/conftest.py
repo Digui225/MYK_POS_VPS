@@ -15,11 +15,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from caisse.database import Base, get_db
+from caisse.core.database import Base, get_db
+from caisse.core.security import hash_pin
 from caisse.main import app
 from caisse.models.cash_session import CashRegister
 from caisse.models.user import User
-from caisse.security import hash_pin
 
 test_engine = create_engine(
     POSTGRES_TEST_URL,
@@ -36,7 +36,7 @@ def disable_hardware_printing_in_tests(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture(autouse=True)
 def reset_rate_limiter_in_tests() -> None:
-    from caisse.security_rate_limit import login_lockout, rate_limiter
+    from caisse.core.security_rate_limit import login_lockout, rate_limiter
     rate_limiter.reset()
     login_lockout.reset()
 

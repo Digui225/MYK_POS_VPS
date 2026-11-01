@@ -2,9 +2,9 @@ from typing import Any
 
 from fastapi import status
 
+from caisse.core.errors import CaisseException
 from caisse.domain.enums import OrderStatus
 from caisse.domain.money import calculate_vat_split
-from caisse.errors import CaisseException
 
 
 def generate_order_number(business_date_str: str, sequence_number: int) -> str:

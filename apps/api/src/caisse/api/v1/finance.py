@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, status
 
-from caisse.deps import CurrentUser, DbSession, Responsable
+from caisse.core.deps import CurrentUser, DbSession, Responsable
 from caisse.schemas.finance import (
     BankDepositCreate,
     BankDepositListOut,

@@ -8,14 +8,14 @@ from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
-from caisse import idempotency
+from caisse.core import idempotency
+from caisse.core.errors import CaisseException
 from caisse.domain.session_rules import (
     calculate_counted_cash,
     calculate_variance,
     validate_business_date,
     validate_opening_float,
 )
-from caisse.errors import CaisseException
 from caisse.infrastructure.websocket.manager import ws_manager
 from caisse.models.cash_session import CashMovement, CashSession
 from caisse.models.order import Order

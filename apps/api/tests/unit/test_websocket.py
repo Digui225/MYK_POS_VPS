@@ -6,9 +6,9 @@ from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from caisse.core.config import get_settings
+from caisse.core.security import create_access_token, create_override_token, create_refresh_token
 from caisse.infrastructure.websocket.manager import WebSocketManager
 from caisse.main import app
-from caisse.security import create_access_token, create_override_token, create_refresh_token
 
 
 class DummyWS:

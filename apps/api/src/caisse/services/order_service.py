@@ -3,13 +3,13 @@ from datetime import datetime, timezone
 from fastapi import status
 from sqlalchemy.orm import Session
 
+from caisse.core.errors import CaisseException
 from caisse.domain.order_rules import (
     assert_order_editable,
     calculate_line_total,
     generate_order_number,
     recalculate_order_totals,
 )
-from caisse.errors import CaisseException
 from caisse.infrastructure.websocket.manager import ws_manager
 from caisse.models.order import Order, OrderItem
 from caisse.repositories.catalog import CatalogRepository

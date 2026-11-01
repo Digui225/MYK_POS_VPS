@@ -2,10 +2,10 @@ import pytest
 from fastapi import status
 from sqlalchemy.orm import Session
 
-from caisse.database import engine
+from caisse.core.database import engine
+from caisse.core.errors import CaisseException
 from caisse.domain.enums import OrderStatus
 from caisse.domain.order_rules import assert_order_editable
-from caisse.errors import CaisseException
 from caisse.models.customer import Customer
 from caisse.repositories.customers import CustomerRepository
 

@@ -3,10 +3,10 @@ from decimal import Decimal
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from caisse.core.security import hash_pin
 from caisse.domain.enums import StockArticleCategory, StockOutMode
 from caisse.models.stock import StockArticle
 from caisse.models.user import User
-from caisse.security import hash_pin
 
 
 def test_econome_permissions_and_boundaries(client: TestClient, db_session: Session) -> None:

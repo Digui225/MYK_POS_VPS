@@ -11,7 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
-from caisse.database import SessionLocal
+from caisse.core.database import SessionLocal
 from caisse.models.catalog import Category, Product
 from caisse.models.stock import StockItem
 

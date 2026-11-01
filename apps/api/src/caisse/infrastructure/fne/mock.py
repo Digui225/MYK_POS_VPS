@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
-from caisse.domain.ports import FneError, FneRejectedError, FneResult
+from caisse.domain.fne import FneError, FneRejectedError, FneResult
 from caisse.infrastructure.fne.http_client import parse_result
 
 _RATES = {"TVA": Decimal(18), "TVAB": Decimal(9), "TVAC": Decimal(0), "TVAD": Decimal(0)}

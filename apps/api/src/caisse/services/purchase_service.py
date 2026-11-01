@@ -11,16 +11,18 @@ from decimal import Decimal
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from caisse import idempotency
-from caisse.deps import RequestContext
-from caisse.domain import stock_rules
-from caisse.domain.enums import PurchaseStatus, StockArticleCategory, UserRole
-from caisse.errors import (
+from caisse.core import idempotency
+from caisse.core.deps import RequestContext
+from caisse.core.errors import (
     IdempotencyConflictError,
     NotFoundError,
     PurchaseStateError,
     ValidationError,
 )
+from caisse.core.security import utcnow
+from caisse.core.sequences import next_value
+from caisse.domain import stock_rules
+from caisse.domain.enums import PurchaseStatus, StockArticleCategory, UserRole
 from caisse.models.purchase import PurchaseRequest, PurchaseRequestLine
 from caisse.models.user import User
 from caisse.repositories import purchases as purchases_repo
@@ -40,8 +42,6 @@ from caisse.schemas.purchases import (
     PurchaseSummaryOut,
     UserOut,
 )
-from caisse.security import utcnow
-from caisse.sequences import next_value
 from caisse.services import audit_service, stock_service
 
 NUMBER_PREFIX = "ACH"

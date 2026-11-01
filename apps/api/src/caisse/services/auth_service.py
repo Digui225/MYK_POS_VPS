@@ -4,8 +4,16 @@ from datetime import datetime, timezone
 from fastapi import status
 from sqlalchemy.orm import Session
 
-from caisse.config import get_settings
-from caisse.errors import CaisseException
+from caisse.core.config import get_settings
+from caisse.core.errors import CaisseException
+from caisse.core.security import (
+    create_access_token,
+    create_override_token,
+    create_refresh_token,
+    decode_token,
+    hash_pin,
+    verify_pin,
+)
 from caisse.models.user import User
 from caisse.repositories.sessions import CashSessionRepository
 from caisse.repositories.users import UserRepository
@@ -15,14 +23,6 @@ from caisse.schemas.auth import (
     OverrideResponse,
     RefreshTokenResponse,
     UserResponse,
-)
-from caisse.security import (
-    create_access_token,
-    create_override_token,
-    create_refresh_token,
-    decode_token,
-    hash_pin,
-    verify_pin,
 )
 from caisse.services.audit_service import AuditService
 

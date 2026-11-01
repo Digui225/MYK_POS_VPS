@@ -1,7 +1,7 @@
 from sqlalchemy import Boolean, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from caisse.database import Base
+from caisse.core.database import Base
 from caisse.models.base import TimestampMixin, generate_uuid
 
 

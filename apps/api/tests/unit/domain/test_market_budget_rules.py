@@ -1,10 +1,10 @@
 import pytest
 
+from caisse.core.errors import MarketBudgetExceededError
 from caisse.domain.market_budget_rules import (
     calculate_market_budget_status,
     validate_market_budget,
 )
-from caisse.errors import MarketBudgetExceededError
 
 
 def test_budget_status_empty_basket():

@@ -4,7 +4,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from caisse.errors import CustomerNccExistsError
+from caisse.core.errors import CustomerNccExistsError
 from caisse.models.customer import Customer
 
 

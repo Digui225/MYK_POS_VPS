@@ -3,9 +3,9 @@ from decimal import Decimal
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from caisse.core.security import hash_pin
 from caisse.models.stock import StockArticle
 from caisse.models.user import User
-from caisse.security import hash_pin
 
 
 def _setup_users(db_session: Session) -> None:

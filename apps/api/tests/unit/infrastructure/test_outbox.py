@@ -74,7 +74,7 @@ def test_fne_service_has_retry_document_alias() -> None:
 
 
 def test_dispatch_fne_certification_event(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
-    from caisse.config import get_settings
+    from caisse.core.config import get_settings
     from caisse.domain.enums import FneDocumentType, FneStatus
     from caisse.models.fne import FneDocument
     from caisse.models.user import User
@@ -113,7 +113,7 @@ def test_dispatch_fne_certification_event(db_session: Session, monkeypatch: pyte
 
 
 def test_dispatch_pending_fne_retries(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
-    from caisse.config import get_settings
+    from caisse.core.config import get_settings
     from caisse.domain.enums import FneDocumentType, FneStatus
     from caisse.models.fne import FneDocument
     from caisse.models.user import User
@@ -142,7 +142,7 @@ def test_dispatch_pending_fne_retries(db_session: Session, monkeypatch: pytest.M
 def test_dispatch_leaves_pending_fne_to_the_payment(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     """Un document PENDING est envoyé par l'encaissement qui l'a créé : le renvoi de fond ne
     doit pas l'envoyer une seconde fois (deux factures DGI pour une vente)."""
-    from caisse.config import get_settings
+    from caisse.core.config import get_settings
     from caisse.domain.enums import FneDocumentType, FneStatus
     from caisse.models.fne import FneDocument
     from caisse.models.user import User

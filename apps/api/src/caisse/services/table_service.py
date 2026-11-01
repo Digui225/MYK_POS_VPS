@@ -1,7 +1,7 @@
 from fastapi import status
 from sqlalchemy.orm import Session
 
-from caisse.errors import CaisseException
+from caisse.core.errors import CaisseException
 from caisse.models.order import Order
 from caisse.models.table import RestaurantTable
 from caisse.repositories.tables import TableRepository

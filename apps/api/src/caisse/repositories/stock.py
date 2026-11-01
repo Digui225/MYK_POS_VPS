@@ -6,9 +6,9 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from caisse.core.pagination import PageRequest, newest_first
 from caisse.domain.enums import StockArticleCategory, StockMovementType
 from caisse.models.stock import ProductComponent, StockArticle, StockMovement
-from caisse.pagination import PageRequest, newest_first
 
 SALE_TYPES = (StockMovementType.SALE_OUT, StockMovementType.RETURN_IN)
 

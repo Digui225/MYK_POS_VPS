@@ -15,7 +15,7 @@ Seul le Responsable ou l'Administrateur peut visualiser les montants chiffrés.
 from decimal import Decimal
 from typing import Any, TypedDict
 
-from caisse.errors import MarketBudgetExceededError
+from caisse.core.errors import MarketBudgetExceededError
 
 
 class MarketCondimentItem(TypedDict):
@@ -127,7 +127,7 @@ def validate_market_budget(
 def get_market_budget_limits(db: Any) -> tuple[int, int, int]:
     """Retourne (total_limit, econome_limit, reserve) en interrogeant la table `settings` (AppSetting)
     avec repli sur les paramètres de configuration."""
-    from caisse.config import get_settings
+    from caisse.core.config import get_settings
     from caisse.models.settings import AppSetting
 
     cfg = get_settings()

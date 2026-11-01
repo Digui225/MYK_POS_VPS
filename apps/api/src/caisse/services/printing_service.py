@@ -4,8 +4,8 @@ from typing import Any
 from fastapi import status
 from sqlalchemy.orm import Session
 
+from caisse.core.errors import CaisseException
 from caisse.domain.payment_rules import format_receipt_text
-from caisse.errors import CaisseException
 from caisse.models.order import Order
 from caisse.models.payment import Payment
 from caisse.models.print_job import PrintJob
@@ -229,7 +229,7 @@ class PrintingService:
 
     def _require_online_printer(self) -> PrintTerminal | None:
         """Vérifie qu'un terminal s'est manifesté récemment (moins de 15 s) et que son imprimante est en ligne."""
-        from caisse.config import get_settings
+        from caisse.core.config import get_settings
         if get_settings().APP_ENV == "test":
             return None
 

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from caisse.database import Base
+from caisse.core.database import Base
 from caisse.models.base import TimestampMixin, generate_uuid
 
 

@@ -10,6 +10,7 @@ from caisse.core.database import get_db
 from caisse.core.errors import CaisseException
 from caisse.core.pagination import DEFAULT_LIMIT, MAX_LIMIT, PageRequest, decode_cursor
 from caisse.core.security import decode_token
+from caisse.domain.fne import FneProvider
 from caisse.models.user import User
 from caisse.repositories.users import UserRepository
 
@@ -90,7 +91,7 @@ def require_role(*allowed_roles: str) -> Callable[[User], User]:
     return role_dependency
 
 
-def get_fne_provider() -> Any:
+def get_fne_provider() -> FneProvider | None:
     from caisse.core.config import get_settings
     from caisse.infrastructure.fne.http_client import HttpFneProvider
     from caisse.infrastructure.fne.mock import MockFneProvider
@@ -139,7 +140,7 @@ EconomeOnly = Annotated[User, Depends(require_role("ECONOME", "RESPONSABLE", "AD
 Acheteur = Annotated[User, Depends(require_role("ECONOME", "RESPONSABLE", "ADMIN"))]
 Ctx = Annotated[RequestContext, Depends(get_request_context)]
 Paging = Annotated[PageRequest, Depends(page_request)]
-FneProviderDep = Annotated[Any, Depends(get_fne_provider)]
+FneProviderDep = Annotated[FneProvider | None, Depends(get_fne_provider)]
 
 
 def get_current_terminal(

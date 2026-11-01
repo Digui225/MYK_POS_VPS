@@ -6,17 +6,17 @@ from fastapi import status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from caisse import idempotency
+from caisse.core import idempotency
 
 logger = logging.getLogger(__name__)
 
+from caisse.core.errors import CaisseException
 from caisse.domain.enums import OrderStatus
 from caisse.domain.payment_rules import (
     calculate_change,
     should_open_drawer,
     validate_payment_amount,
 )
-from caisse.errors import CaisseException
 from caisse.models.order import Order
 from caisse.models.payment import Payment
 from caisse.models.user import User
@@ -161,7 +161,7 @@ class PaymentService:
             # Facturation normalisée (FNE) : uniquement si expressément demandée par le client
             if payload.request_fne:
                 try:
-                    from caisse.deps import get_fne_provider
+                    from caisse.core.deps import get_fne_provider
                     from caisse.domain.fne import FneTemplate
                     from caisse.models.customer import Customer
                     from caisse.services import fne_service

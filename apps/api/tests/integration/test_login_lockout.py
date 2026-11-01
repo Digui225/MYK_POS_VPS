@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from caisse.core.config import get_settings
-from caisse.security_rate_limit import login_lockout
+from caisse.core.security_rate_limit import login_lockout
 
 
 def _login(client: TestClient, pin: str):
