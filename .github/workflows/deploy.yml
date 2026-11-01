@@ -51,6 +51,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e "./apps/api[dev]"
 
+      - name:  Vérifier le style et le code avec Ruff
+        working-directory: apps/api
+        run: |
+          ruff check src tests
+
+      - name:  Vérifier les types avec mypy
+        working-directory: apps/api
+        run: |
+          mypy src
+
       - name:  Lancer tous les tests (unitaires, intégration, e2e)
         working-directory: apps/api
         run: |
