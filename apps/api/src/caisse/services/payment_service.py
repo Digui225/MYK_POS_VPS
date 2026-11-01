@@ -7,7 +7,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from caisse import idempotency
-from caisse.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +101,7 @@ class PaymentService:
                 code="EMPTY_ORDER_PAYMENT",
                 title="Commande vide",
                 detail="Impossible d'encaisser une commande ne contenant aucun article.",
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             )
 
         # 5. Validation du montant et calcul du rendu de monnaie

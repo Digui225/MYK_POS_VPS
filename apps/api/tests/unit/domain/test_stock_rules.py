@@ -40,7 +40,7 @@ def test_value_and_threshold() -> None:
 
 
 def test_is_stock_low():
-    assert is_stock_low(current_qty := 3.0, alert_threshold := 5.0) is True
+    assert is_stock_low(3.0, 5.0) is True
     assert is_stock_low(5.0, 5.0) is True
     assert is_stock_low(-1.0, 5.0) is True
     assert is_stock_low(10.0, 5.0) is False

@@ -7,7 +7,6 @@ from caisse.deps import CurrentUser, DbSession, Responsable
 from caisse.schemas.production import (
     DailyPreparationCreate,
     DailyPreparationOut,
-    MarketBudgetStatusOut,
     MarketProteinAnalysisOut,
     MarketPurchaseListCreate,
     MarketPurchaseListOut,

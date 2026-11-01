@@ -190,7 +190,7 @@ class OrderService:
                 code="INVALID_ITEM_SPECIFICATION",
                 title="Produit non spécifié",
                 detail="Veuillez fournir un product_id valide ou (custom_name et unit_price_xof).",
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             )
 
         line_total = calculate_line_total(unit_price, payload.quantity)

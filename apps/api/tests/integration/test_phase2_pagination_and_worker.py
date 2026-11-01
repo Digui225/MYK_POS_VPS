@@ -1,21 +1,18 @@
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
-from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from caisse import cli
-from caisse.deps import get_fne_provider
-from caisse.domain.enums import FneDocumentType, FneStatus, OrderStatus
-from caisse.domain.ports import FneUnavailableError, FneUncertainError
+from caisse.domain.enums import FneDocumentType, FneStatus
 from caisse.infrastructure.fne.mock import MockFneProvider
 from caisse.models.audit import AuditLog
+from caisse.models.cash_session import CashRegister, CashSession
 from caisse.models.fne import FneDocument
 from caisse.models.order import Order
-from caisse.models.cash_session import CashSession, CashRegister
-from caisse.pagination import encode_cursor, decode_cursor
+from caisse.pagination import decode_cursor, encode_cursor
 from caisse.services import fne_service
 
 

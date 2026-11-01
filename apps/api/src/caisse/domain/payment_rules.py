@@ -67,14 +67,14 @@ def validate_payment_amount(amount_xof: int, due_xof: int) -> None:
             code="INVALID_PAYMENT_AMOUNT",
             title="Montant de paiement invalide",
             detail="Le montant du paiement doit être strictement supérieur à 0 XOF.",
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         )
     if amount_xof > due_xof:
         raise CaisseException(
             code="OVERPAYMENT_NOT_ALLOWED",
             title="Montant supérieur au reste dû",
             detail=f"Le montant ({amount_xof} XOF) ne peut pas excéder le reste dû ({due_xof} XOF).",
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             meta={"amount_xof": amount_xof, "due_xof": due_xof},
         )
 
@@ -88,7 +88,7 @@ def calculate_change(tendered_xof: int | None, amount_xof: int, method: str) -> 
                     code="INSUFFICIENT_TENDERED_AMOUNT",
                     title="Montant remis insuffisant",
                     detail=f"Le montant remis ({tendered_xof} XOF) est inférieur au montant à payer ({amount_xof} XOF).",
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     meta={"tendered_xof": tendered_xof, "amount_xof": amount_xof},
                 )
             return tendered_xof - amount_xof

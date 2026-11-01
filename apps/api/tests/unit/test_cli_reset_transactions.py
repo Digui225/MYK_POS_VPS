@@ -1,6 +1,7 @@
 import argparse
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from caisse.cli import cmd_reset_transactions
 from caisse.config import Settings

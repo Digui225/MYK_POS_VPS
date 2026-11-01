@@ -1,7 +1,6 @@
 """Approvisionnement : demande de l'acheteur (sans prix) → validation → décaissement →
 réception (entrées de stock)."""
 
-from decimal import Decimal
 from typing import Any
 
 import pytest

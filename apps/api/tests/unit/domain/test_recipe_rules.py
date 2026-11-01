@@ -1,7 +1,6 @@
 from decimal import Decimal
-import pytest
 
-from caisse.domain.recipe_rules import match_protein_for_product, PROTEIN_PORTIONS
+from caisse.domain.recipe_rules import match_protein_for_product
 
 
 def test_match_protein_boeuf_variations():

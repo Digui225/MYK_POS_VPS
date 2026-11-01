@@ -31,14 +31,14 @@ def calculate_line_total(unit_price_xof: int, quantity: int) -> int:
             code="INVALID_UNIT_PRICE",
             title="Prix unitaire négatif",
             detail="Le prix unitaire ne peut pas être inférieur à 0 XOF.",
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         )
     if quantity <= 0:
         raise CaisseException(
             code="INVALID_QUANTITY",
             title="Quantité invalide",
             detail="La quantité doit être supérieure ou égale à 1.",
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         )
     return unit_price_xof * quantity
 

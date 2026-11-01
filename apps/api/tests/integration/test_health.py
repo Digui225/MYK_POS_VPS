@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+
 from caisse.main import app
 
 client = TestClient(app)

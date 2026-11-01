@@ -1,10 +1,12 @@
 from decimal import Decimal
+
 import pytest
+
 from caisse.domain.production_rules import (
-    calculate_item_total,
-    calculate_theoretical_dishes,
     calculate_dish_variance,
     calculate_financial_impact,
+    calculate_item_total,
+    calculate_theoretical_dishes,
 )
 
 

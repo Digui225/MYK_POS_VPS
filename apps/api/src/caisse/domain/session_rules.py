@@ -15,7 +15,7 @@ def validate_business_date(business_date_str: str) -> date:
             code="INVALID_BUSINESS_DATE_FORMAT",
             title="Format de date comptable invalide",
             detail="La date comptable doit respecter le format YYYY-MM-DD.",
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         )
     try:
         return date.fromisoformat(business_date_str)
@@ -24,7 +24,7 @@ def validate_business_date(business_date_str: str) -> date:
             code="INVALID_BUSINESS_DATE",
             title="Date comptable invalide",
             detail=str(err),
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         ) from err
 
 
@@ -35,7 +35,7 @@ def validate_opening_float(opening_float_xof: int) -> None:
             code="NEGATIVE_OPENING_FLOAT",
             title="Fonds de caisse négatif",
             detail="Le fonds de caisse initial ne peut pas être inférieur à 0 XOF.",
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         )
 
 
@@ -51,7 +51,7 @@ def calculate_counted_cash(breakdown: dict[str, int]) -> int:
                 code="INVALID_DENOMINATION",
                 title="Dénomination inconnue",
                 detail=f"La dénomination '{denom_str}' n'est pas un nombre valide.",
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             ) from err
 
         if count < 0:
@@ -59,7 +59,7 @@ def calculate_counted_cash(breakdown: dict[str, int]) -> int:
                 code="NEGATIVE_DENOMINATION_COUNT",
                 title="Quantité de coupures négative",
                 detail=f"Le nombre de coupures pour {denom} XOF ne peut pas être négatif.",
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             )
         total_xof += denom * count
     return total_xof

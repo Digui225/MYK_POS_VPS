@@ -1,9 +1,10 @@
 from decimal import Decimal
+
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from caisse.models.catalog import Category, Product
-from caisse.models.stock import StockArticle, ProductComponent
+from caisse.models.stock import ProductComponent, StockArticle
 
 
 def test_production_and_market_purchases_workflow(client: TestClient, db_session: Session) -> None:
@@ -498,6 +499,7 @@ def test_auto_validate_preparations_on_session_close(client: TestClient, db_sess
     # 3. Création article protéine en base avec fiche technique (1 pintade = 4 plats, portion = 0.25)
     from datetime import date
     from decimal import Decimal
+
     from caisse.domain.enums import StockArticleCategory, StockOutMode
     from caisse.models.production import DailyPreparation
     from caisse.models.stock import ProductComponent, StockArticle

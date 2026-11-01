@@ -4,9 +4,7 @@ from pydantic import ValidationError
 
 from caisse.config import get_settings
 from caisse.main import app
-from caisse.schemas.auth import LoginRequest, CreateUserRequest
-from caisse.schemas.payments import PaymentRequest
-from caisse.domain.enums import PaymentMethod
+from caisse.schemas.auth import CreateUserRequest, LoginRequest
 
 
 def test_schema_extra_forbid_unit() -> None:

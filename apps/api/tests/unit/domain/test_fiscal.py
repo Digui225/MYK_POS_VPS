@@ -1,13 +1,13 @@
-import json
 import pytest
+
 from caisse.domain.fiscal import (
     build_fne_payload,
     generate_fne_number,
     generate_fne_token,
     generate_qr_url,
 )
-from caisse.infrastructure.fne.mock_provider import MockFneProvider
 from caisse.infrastructure.fne.manual_provider import ManualFneProvider
+from caisse.infrastructure.fne.mock_provider import MockFneProvider
 
 
 def test_generate_fne_number():

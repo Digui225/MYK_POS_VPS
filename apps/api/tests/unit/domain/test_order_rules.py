@@ -1,10 +1,12 @@
-import pytest
 from types import SimpleNamespace
+
+import pytest
+
 from caisse.domain.enums import OrderStatus
 from caisse.domain.order_rules import (
-    generate_order_number,
     assert_order_editable,
     calculate_line_total,
+    generate_order_number,
     recalculate_order_totals,
 )
 from caisse.errors import CaisseException

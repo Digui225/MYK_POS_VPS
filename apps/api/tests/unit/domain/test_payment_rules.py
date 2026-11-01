@@ -1,13 +1,14 @@
 import pytest
+
 from caisse.domain.enums import PaymentMethod
 from caisse.domain.payment_rules import (
-    validate_payment_amount,
-    calculate_change,
-    should_open_drawer,
-    build_esc_pos_bytes,
-    format_receipt_text,
-    ESC_DRAWER_KICK,
     ESC_CUT_PAPER,
+    ESC_DRAWER_KICK,
+    build_esc_pos_bytes,
+    calculate_change,
+    format_receipt_text,
+    should_open_drawer,
+    validate_payment_amount,
 )
 from caisse.errors import CaisseException
 
@@ -140,7 +141,7 @@ def test_esc_pos_contains_chinese_cancellation_and_qr():
     assert FS_CANCEL_CHINESE in raw
     assert b"Theatre" in raw
     assert b"\xc3\xa9" not in raw  # No UTF-8 é that causes Chinese ideograms!
-    
+
     # Test QR code generator
     qr_bytes = build_esc_pos_qr("https://dgi.ci/fne/123", size=4)
     assert b"\x1d\x28\x6b" in qr_bytes

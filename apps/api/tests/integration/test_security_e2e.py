@@ -1,4 +1,3 @@
-import pytest
 from fastapi.testclient import TestClient
 
 from caisse.security_rate_limit import rate_limiter

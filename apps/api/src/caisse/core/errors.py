@@ -29,7 +29,7 @@ class ValidationError(CaisseException):
             code="VALIDATION_ERROR",
             title="Données invalides",
             detail=detail,
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             meta=meta or {},
         )
 
@@ -129,7 +129,7 @@ class FneRefundExceedsError(CaisseException):
             code="FNE_REFUND_EXCEEDS",
             title="Quantité d'avoir excessive",
             detail=detail,
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             meta=meta or {},
         )
 
@@ -140,7 +140,7 @@ class FneInvalidDataError(CaisseException):
             code=code,
             title="Données insuffisantes pour la FNE",
             detail=detail,
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             meta=meta or {},
         )
 
@@ -216,7 +216,7 @@ async def validation_exception_handler(
         )
 
     return problem_json_response(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         code="VALIDATION_ERROR",
         title="Données de requête invalides",
         detail="Une ou plusieurs erreurs de validation ont été détectées.",

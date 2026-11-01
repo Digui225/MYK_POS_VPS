@@ -1,19 +1,17 @@
 from datetime import date
 from decimal import Decimal
+
 from sqlalchemy.orm import Session
 
 from caisse.domain.enums import (
     CashSessionStatus,
     OrderStatus,
-    PaymentMethod,
-    PaymentStatus,
     StockArticleCategory,
     StockMovementType,
     StockOutMode,
 )
 from caisse.models.cash_session import CashRegister, CashSession
 from caisse.models.order import Order
-from caisse.models.payment import Payment
 from caisse.models.stock import StockArticle, StockMovement
 from caisse.models.user import User
 from caisse.security import hash_pin

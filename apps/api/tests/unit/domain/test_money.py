@@ -1,5 +1,4 @@
-import pytest
-from caisse.domain.money import calculate_vat_split, calculate_change
+from caisse.domain.money import calculate_change, calculate_vat_split
 
 
 def test_calculate_vat_split_zero_or_negative():

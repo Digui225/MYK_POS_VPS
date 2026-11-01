@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+
 from sqlalchemy.orm import Session
 
 from caisse.domain.enums import (
@@ -9,8 +10,8 @@ from caisse.domain.enums import (
     StockMovementType,
     StockOutMode,
 )
-from caisse.models.catalog import Category, Product
 from caisse.models.cash_session import CashRegister, CashSession
+from caisse.models.catalog import Category, Product
 from caisse.models.order import Order, OrderItem
 from caisse.models.stock import ProductComponent, StockArticle, StockMovement
 from caisse.models.user import User

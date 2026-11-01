@@ -1,8 +1,8 @@
 from datetime import date
+
 from sqlalchemy.orm import Session
 
 from caisse.models.cash_session import CashRegister, CashSession
-from caisse.models.finance import BankDeposit, CashExpense
 from caisse.models.user import User
 from caisse.schemas.finance import BankDepositCreate, CashExpenseCreate
 from caisse.security import hash_pin

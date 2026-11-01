@@ -34,12 +34,11 @@ from caisse.models.user import User
 from caisse.schemas.production import (
     DailyPreparationCreate,
     DailyPreparationOut,
-    MarketBudgetStatusOut,
+    MarketProteinAnalysisOut,
     MarketPurchaseItemOut,
     MarketPurchaseListCreate,
     MarketPurchaseListOut,
     MarketPurchaseListUpdate,
-    MarketProteinAnalysisOut,
     ProteinComparisonRow,
     WeeklyDayData,
     WeeklyMatrixReportOut,

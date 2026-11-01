@@ -1,9 +1,9 @@
 from datetime import date
 from decimal import Decimal
+
 import pytest
 from fastapi.testclient import TestClient
 
-import caisse.models  # Assure que tous les modèles ORM sont enregistrés sur Base.metadata
 from caisse.deps import get_current_user
 from caisse.domain.enums import (
     CashSessionStatus,

@@ -1,8 +1,8 @@
 import logging
+
 import pytest
 from fastapi.testclient import TestClient
 
-from caisse.main import app
 from caisse.security_rate_limit import InMemoryRateLimiter, rate_limiter
 
 

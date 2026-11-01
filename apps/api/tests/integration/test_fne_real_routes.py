@@ -1,10 +1,7 @@
-import uuid
-from typing import Any
-from fastapi.testclient import TestClient
 import pytest
+from fastapi.testclient import TestClient
 
 from caisse.deps import get_fne_provider
-from caisse.domain.ports import FneRejectedError, FneUnavailableError, FneUncertainError
 from caisse.infrastructure.fne import MockFneProvider
 from caisse.main import app
 

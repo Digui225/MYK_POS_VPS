@@ -1,7 +1,6 @@
 import argparse
 import json
 import logging
-import signal
 import sys
 import threading
 from datetime import datetime, timezone
@@ -9,8 +8,6 @@ from decimal import Decimal
 from pathlib import Path
 
 from caisse.core.config import get_settings
-from caisse.core.database import SessionLocal
-from caisse.core.deps import get_fne_provider
 
 PROBE_LINES = [
     # TTC attendu : 2 x 3 500 + 1 x 1 000 = 8 000 XOF

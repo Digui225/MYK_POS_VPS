@@ -1,9 +1,10 @@
 import pytest
+
 from caisse.domain.session_rules import (
-    validate_business_date,
-    validate_opening_float,
     calculate_counted_cash,
     calculate_variance,
+    validate_business_date,
+    validate_opening_float,
 )
 from caisse.errors import CaisseException
 

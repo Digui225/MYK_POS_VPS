@@ -1,13 +1,12 @@
-from datetime import datetime, timezone
 import pytest
 from sqlalchemy.orm import Session
 
-from caisse.models.outbox import OutboxEvent
-from caisse.models.print_job import PrintJob
 from caisse.infrastructure.outbox.dispatcher import (
     dispatch_event,
     dispatch_pending_outbox_events,
 )
+from caisse.models.outbox import OutboxEvent
+from caisse.models.print_job import PrintJob
 
 
 def test_dispatch_pending_outbox_events_empty(db_session: Session) -> None:
@@ -75,10 +74,10 @@ def test_fne_service_has_retry_document_alias() -> None:
 
 
 def test_dispatch_fne_certification_event(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
-    from caisse.models.user import User
-    from caisse.models.fne import FneDocument
-    from caisse.domain.enums import FneDocumentType, FneStatus
     from caisse.config import get_settings
+    from caisse.domain.enums import FneDocumentType, FneStatus
+    from caisse.models.fne import FneDocument
+    from caisse.models.user import User
 
     # Créer un admin user
     user = User(id="user-admin-1", full_name="Admin", role="ADMIN", pin_hash="dummy")
@@ -114,10 +113,10 @@ def test_dispatch_fne_certification_event(db_session: Session, monkeypatch: pyte
 
 
 def test_dispatch_pending_fne_retries(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
-    from caisse.models.user import User
-    from caisse.models.fne import FneDocument
-    from caisse.domain.enums import FneDocumentType, FneStatus
     from caisse.config import get_settings
+    from caisse.domain.enums import FneDocumentType, FneStatus
+    from caisse.models.fne import FneDocument
+    from caisse.models.user import User
 
     user = User(id="user-admin-2", full_name="Admin", role="ADMIN", pin_hash="dummy")
     db_session.add(user)
@@ -143,10 +142,10 @@ def test_dispatch_pending_fne_retries(db_session: Session, monkeypatch: pytest.M
 def test_dispatch_leaves_pending_fne_to_the_payment(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     """Un document PENDING est envoyé par l'encaissement qui l'a créé : le renvoi de fond ne
     doit pas l'envoyer une seconde fois (deux factures DGI pour une vente)."""
-    from caisse.models.user import User
-    from caisse.models.fne import FneDocument
-    from caisse.domain.enums import FneDocumentType, FneStatus
     from caisse.config import get_settings
+    from caisse.domain.enums import FneDocumentType, FneStatus
+    from caisse.models.fne import FneDocument
+    from caisse.models.user import User
 
     db_session.add(User(id="user-admin-3", full_name="Admin", role="ADMIN", pin_hash="dummy"))
     fne_doc = FneDocument(

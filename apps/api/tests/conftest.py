@@ -1,4 +1,5 @@
 import os
+
 POSTGRES_TEST_URL = os.environ.get(
     "DATABASE_URL",
     "postgresql+psycopg://caisse_user:caisse_pass@127.0.0.1:5441/caisse_test"
@@ -8,15 +9,16 @@ os.environ["DATABASE_URL"] = POSTGRES_TEST_URL
 os.environ["FNE_PROVIDER"] = "mock"
 
 from collections.abc import Generator
-import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from fastapi.testclient import TestClient
 
-from caisse.main import app
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
 from caisse.database import Base, get_db
-from caisse.models.user import User
+from caisse.main import app
 from caisse.models.cash_session import CashRegister
+from caisse.models.user import User
 from caisse.security import hash_pin
 
 test_engine = create_engine(

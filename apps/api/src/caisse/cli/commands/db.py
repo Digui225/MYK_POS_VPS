@@ -5,7 +5,6 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from caisse.core.config import get_settings
 from caisse.models.table import RestaurantTable
 from caisse.repositories.sessions import CashSessionRepository
 from caisse.seeds.demo_data import seed_catalog_and_tables

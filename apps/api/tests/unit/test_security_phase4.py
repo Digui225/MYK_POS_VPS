@@ -1,13 +1,13 @@
 import pytest
-from sqlalchemy.orm import Session
 from fastapi import status
+from sqlalchemy.orm import Session
 
+from caisse.database import engine
 from caisse.domain.enums import OrderStatus
 from caisse.domain.order_rules import assert_order_editable
 from caisse.errors import CaisseException
 from caisse.models.customer import Customer
 from caisse.repositories.customers import CustomerRepository
-from caisse.database import engine
 
 
 def test_sql_injection_resilience_in_customer_search(db_session: Session) -> None:

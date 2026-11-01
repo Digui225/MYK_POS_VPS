@@ -36,19 +36,16 @@ from caisse.repositories import stock as stock_repo
 from caisse.schemas.reports import (
     CashierSalesResponse,
     ClosingStatusResponse,
-    DashboardKpiResponse,
-    HourlySalesItem,
-    PaymentMethodSplit,
-    TopProductReport,
-)
-from caisse.schemas.reports import (
     DashboardCashier,
     DashboardFne,
     DashboardHour,
+    DashboardKpiResponse,
     DashboardOut,
     DashboardPayment,
     DashboardProduct,
     DashboardSession,
+    HourlySalesItem,
+    PaymentMethodSplit,
     ProteinYieldItem,
     ProteinYieldReportOut,
     ProteinYieldTotals,
@@ -62,6 +59,7 @@ from caisse.schemas.reports import (
     StockReportArticle,
     StockReportOut,
     StockTotals,
+    TopProductReport,
 )
 
 MAX_DAYS = 366

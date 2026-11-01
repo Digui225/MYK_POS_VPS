@@ -176,7 +176,7 @@ class CashSessionService:
                 code="INVALID_AMOUNT",
                 title="Montant invalide",
                 detail="Le montant du mouvement doit être supérieur à 0 XOF.",
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             )
 
         movement = CashMovement(
