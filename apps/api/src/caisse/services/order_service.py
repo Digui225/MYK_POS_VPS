@@ -1,9 +1,10 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import status
 from sqlalchemy.orm import Session
 
 from caisse.core.errors import CaisseException
+from caisse.core.pagination import PageRequest, split
 from caisse.domain.order_rules import (
     assert_order_editable,
     calculate_line_total,
@@ -131,12 +132,20 @@ class OrderService:
 
     def list_orders(
         self,
+        *,
+        page: PageRequest,
         session_id: str | None = None,
         status: str | None = None,
-        limit: int = 50,
-    ) -> list[OrderResponse]:
-        orders = self.order_repo.list_orders(session_id=session_id, status=status, limit=limit)
-        return [self._to_order_response(o) for o in orders]
+        business_date: date | None = None,
+    ) -> tuple[list[OrderResponse], str | None]:
+        rows = self.order_repo.list_orders(
+            session_id=session_id,
+            status=status,
+            business_date=business_date,
+            page=page,
+        )
+        items, next_cursor = split(rows, page, lambda o: (o.opened_at, o.id))
+        return [self._to_order_response(o) for o in items], next_cursor
 
     def get_order(self, order_id: str) -> OrderResponse:
         order = self.order_repo.get_by_id_with_items(order_id)

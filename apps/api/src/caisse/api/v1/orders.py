@@ -8,7 +8,6 @@ from caisse.core import idempotency
 from caisse.core.database import get_db
 from caisse.core.deps import Paging, require_device_id, require_role
 from caisse.core.idempotency import OptionalIdempotencyKey
-from caisse.core.pagination import split
 from caisse.models.user import User
 from caisse.schemas.common import Page
 from caisse.schemas.orders import (
@@ -44,17 +43,13 @@ async def list_orders(
     db: Session = Depends(get_db),
 ) -> Page[OrderResponse]:
     service = OrderService(db)
-    rows = service.order_repo.list_orders(
+    items, next_cursor = service.list_orders(
+        page=page,
         session_id=session_id,
         status=status,
         business_date=business_date,
-        page=page,
     )
-    items, next_cursor = split(rows, page, lambda o: (o.opened_at, o.id))
-    return Page(
-        items=[service._to_order_response(o) for o in items],
-        next_cursor=next_cursor,
-    )
+    return Page(items=items, next_cursor=next_cursor)
 
 
 @router.get("/{id}", response_model=OrderResponse, summary="Détail d'une commande")

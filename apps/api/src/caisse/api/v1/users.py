@@ -3,8 +3,6 @@ from sqlalchemy.orm import Session
 
 from caisse.core.database import get_db
 from caisse.core.deps import require_role
-from caisse.core.errors import CaisseException
-from caisse.core.security import hash_pin
 from caisse.models.user import User
 from caisse.repositories.users import UserRepository
 from caisse.schemas.auth import (
@@ -53,35 +51,13 @@ async def update_user(
     db: Session = Depends(get_db),
     _current_user: User = Depends(require_role("ADMIN")),
 ) -> UserResponse:
-    user_repo = UserRepository(db)
-    user = user_repo.get_by_id(user_id)
-    if not user:
-        raise CaisseException(
-            code="USER_NOT_FOUND",
-            title="Utilisateur introuvable",
-            detail=f"Aucun utilisateur avec l'identifiant '{user_id}' n'a été trouvé.",
-            status_code=status.HTTP_404_NOT_FOUND,
-        )
-
-    if payload.full_name is not None and payload.full_name != user.full_name:
-        existing = user_repo.get_by_name(payload.full_name)
-        if existing and existing.id != user.id:
-            raise CaisseException(
-                code="USER_ALREADY_EXISTS",
-                title="Nom déjà utilisé",
-                detail=f"Un utilisateur avec le nom '{payload.full_name}' existe déjà.",
-                status_code=status.HTTP_409_CONFLICT,
-            )
-        user.full_name = payload.full_name
-
-    if payload.role is not None:
-        user.role = payload.role
-
-    if payload.is_active is not None:
-        user.is_active = payload.is_active
-
-    db.commit()
-    db.refresh(user)
+    auth_service = AuthService(db)
+    user = auth_service.update_user(
+        user_id,
+        full_name=payload.full_name,
+        role=payload.role,
+        is_active=payload.is_active,
+    )
     return UserResponse.model_validate(user)
 
 
@@ -92,18 +68,6 @@ async def reset_user_pin(
     db: Session = Depends(get_db),
     _current_user: User = Depends(require_role("ADMIN")),
 ) -> dict[str, str]:
-    user_repo = UserRepository(db)
-    user = user_repo.get_by_id(user_id)
-    if not user:
-        raise CaisseException(
-            code="USER_NOT_FOUND",
-            title="Utilisateur introuvable",
-            detail=f"Aucun utilisateur avec l'identifiant '{user_id}' n'a été trouvé.",
-            status_code=status.HTTP_404_NOT_FOUND,
-        )
-
-    user.pin_hash = hash_pin(payload.new_pin)
-    user.failed_attempts = 0
-    user.locked_until = None
-    db.commit()
+    auth_service = AuthService(db)
+    user = auth_service.reset_user_pin(user_id, payload.new_pin)
     return {"message": f"Code PIN de '{user.full_name}' mis à jour avec succès"}

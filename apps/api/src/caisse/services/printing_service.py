@@ -425,6 +425,10 @@ class PrintingService:
         self.db.commit()
         return job
 
+    def get_job(self, job_id: str) -> PrintJob | None:
+        """Récupère un travail d'impression par son identifiant."""
+        return self.repo.get(job_id)
+
     def retry_job(self, job_id: str, user_id: str | None = None, device_id: str | None = None) -> PrintJob:
         job = self.repo.get_for_update(job_id)
         if not job:

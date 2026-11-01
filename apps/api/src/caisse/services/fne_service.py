@@ -283,6 +283,23 @@ def issue_for_order(
     return doc, True
 
 
+def resolve_template_for_customer(
+    db: Session,
+    customer_id: str | None,
+    requested_template: fne.FneTemplate | None = None,
+) -> fne.FneTemplate:
+    """Détermine le gabarit FNE adéquat à partir du client ou d'un gabarit demandé explicitement."""
+    if requested_template:
+        return requested_template
+    if customer_id:
+        cust = db.get(Customer, str(customer_id))
+        if cust and cust.ncc:
+            return fne.FneTemplate.B2B
+        if cust and cust.tax_regime in ("B2G", "B2F", "B2C"):
+            return fne.FneTemplate(cust.tax_regime)
+    return fne.FneTemplate.B2C
+
+
 def _customer_for(
     db: Session, template: fne.FneTemplate, customer_id: str | None
 ) -> Customer | None:

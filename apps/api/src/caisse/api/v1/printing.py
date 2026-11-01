@@ -53,7 +53,7 @@ def get_print_job(
     current_user: CurrentUser,
 ) -> PrintJobOut:
     service = PrintingService(db)
-    job = service.repo.get(job_id)
+    job = service.get_job(job_id)
     if not job:
         raise CaisseException(
             code="PRINT_JOB_NOT_FOUND",

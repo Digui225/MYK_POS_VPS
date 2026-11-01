@@ -375,9 +375,6 @@ def legacy_generate(
     user: User = Depends(get_current_user),
     provider: FneProviderDep = None,
 ) -> dict[str, Any]:
-    from caisse.domain.fne import FneTemplate
-    from caisse.models.customer import Customer
-
     request_hash = idempotency.hash_request(payload)
     if idempotency_key:
         replay = idempotency.find_replay(
@@ -387,18 +384,9 @@ def legacy_generate(
             idempotency.apply_replay_headers(response)
             return replay
 
-    if payload.template:
-        template = payload.template
-    elif payload.customer_id:
-        cust = db.get(Customer, str(payload.customer_id))
-        if cust and cust.ncc:
-            template = FneTemplate.B2B
-        elif cust and cust.tax_regime in ("B2G", "B2F", "B2C"):
-            template = FneTemplate(cust.tax_regime)
-        else:
-            template = FneTemplate.B2C
-    else:
-        template = FneTemplate.B2C
+    template = fne_service.resolve_template_for_customer(
+        db, payload.customer_id, payload.template
+    )
     doc, submitted = fne_service.issue_for_order(
         db,
         payload.order_id,

@@ -210,3 +210,57 @@ class AuthService:
         created = self.user_repo.add(user)
         self.db.commit()
         return created
+
+    def update_user(
+        self,
+        user_id: str,
+        *,
+        full_name: str | None = None,
+        role: str | None = None,
+        is_active: bool | None = None,
+    ) -> User:
+        user = self.user_repo.get_by_id(user_id)
+        if not user:
+            raise CaisseException(
+                code="USER_NOT_FOUND",
+                title="Utilisateur introuvable",
+                detail=f"Aucun utilisateur avec l'identifiant '{user_id}' n'a été trouvé.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        if full_name is not None and full_name != user.full_name:
+            existing = self.user_repo.get_by_name(full_name)
+            if existing and existing.id != user.id:
+                raise CaisseException(
+                    code="USER_ALREADY_EXISTS",
+                    title="Nom déjà utilisé",
+                    detail=f"Un utilisateur avec le nom '{full_name}' existe déjà.",
+                    status_code=status.HTTP_409_CONFLICT,
+                )
+            user.full_name = full_name
+
+        if role is not None:
+            user.role = role
+
+        if is_active is not None:
+            user.is_active = is_active
+
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
+    def reset_user_pin(self, user_id: str, new_pin: str) -> User:
+        user = self.user_repo.get_by_id(user_id)
+        if not user:
+            raise CaisseException(
+                code="USER_NOT_FOUND",
+                title="Utilisateur introuvable",
+                detail=f"Aucun utilisateur avec l'identifiant '{user_id}' n'a été trouvé.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        user.pin_hash = hash_pin(new_pin)
+        user.failed_attempts = 0
+        user.locked_until = None
+        self.db.commit()
+        return user
