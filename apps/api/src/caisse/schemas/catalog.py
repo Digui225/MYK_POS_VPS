@@ -62,3 +62,15 @@ class ProductCreateRequest(BaseModel):
 class ProductPriceUpdateRequest(BaseModel):
     new_price_xof: int = Field(..., ge=0)
     reason: str = Field(..., min_length=3)
+
+
+class ProductUpdateRequest(BaseModel):
+    category_id: str | None = None
+    name: str | None = None
+    short_name: str | None = Field(default=None, max_length=20)
+    track_stock: bool | None = None
+    color: str | None = None
+    sku: str | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
+

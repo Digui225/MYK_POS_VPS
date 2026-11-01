@@ -26,13 +26,17 @@ def test_match_protein_poissons():
     assert match_protein_for_product("Tchep + Sosso 3500") == ("Sosso", Decimal("1.000"))
     assert match_protein_for_product("Carpe 5000") == ("Carpe", Decimal("1.000"))
     assert match_protein_for_product("Attiéké + Poisson braisé") == ("Carpe", Decimal("1.000"))
-    assert match_protein_for_product("Tchep + Poisson") == ("Carpe", Decimal("1.000"))
+    assert match_protein_for_product("Attiéké + Poisson braise") == ("Carpe", Decimal("1.000"))
+    assert match_protein_for_product("Tchep + Poisson") is None
+    assert match_protein_for_product("Couscous + Poisson") is None
+    assert match_protein_for_product("Couscous + Loss") == ("Loss", Decimal("1.000"))
     assert match_protein_for_product("Igname bouillie + Poisson braisé") == ("Carpe", Decimal("1.000"))
     assert match_protein_for_product("Foufou sauce claire + Poisson fumé") is None
     assert match_protein_for_product("Riz graine + Poisson fumé") is None
     assert match_protein_for_product("Foufou/foutou faux brochet") == ("Faux brochet", Decimal("1.000"))
     assert match_protein_for_product("Loss 3500") == ("Loss", Decimal("1.000"))
     assert match_protein_for_product("Faux saumon") == ("Faux saumon", Decimal("1.000"))
+
 
 
 def test_match_protein_no_protein():

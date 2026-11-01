@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 
 def test_catalog_lifecycle(client: TestClient) -> None:
@@ -67,6 +68,23 @@ def test_catalog_lifecycle(client: TestClient) -> None:
     assert price_res.status_code == 200
     updated_prod = price_res.json()
     assert updated_prod["price_xof"] == 6500
+
+    # 6. Modifier les attributs du produit (nom, nom court, suivi de stock)
+    edit_res = client.patch(
+        f"/api/v1/catalog/products/{prod_id}",
+        headers=headers,
+        json={
+            "name": "Capitaine Braisé Grand",
+            "short_name": "CAPITAINE GD",
+            "track_stock": True,
+        },
+    )
+    assert edit_res.status_code == 200
+    edited_prod = edit_res.json()
+    assert edited_prod["name"] == "Capitaine Braisé Grand"
+    assert edited_prod["short_name"] == "CAPITAINE GD"
+    assert edited_prod["track_stock"] is True
+
 
 
 def test_caissier_cannot_create_category(client: TestClient) -> None:
@@ -144,3 +162,72 @@ def test_static_swagger_docs_available(client: TestClient) -> None:
     assert res.status_code == 200
     assert "/docs/static/swagger-ui-bundle.js" in res.text
     assert "/docs/static/swagger-ui.css" in res.text
+
+
+def test_update_product_recipe_rematching(client: TestClient, db_session: Session) -> None:
+    from decimal import Decimal
+
+    from caisse.domain.enums import StockArticleCategory, StockOutMode
+    from caisse.models.stock import ProductComponent, StockArticle
+
+    # 1. Créer un article de stock Loss avec 15 pièces
+    loss_article = StockArticle(
+        name="Loss",
+        category=StockArticleCategory.PROTEINE,
+        unit="pièce",
+        out_mode=StockOutMode.RECIPE,
+        quantity=Decimal(15),
+        avg_cost_xof=Decimal(550),
+        is_active=True,
+    )
+    db_session.add(loss_article)
+    db_session.commit()
+
+    # 2. Login responsable
+    login_res = client.post(
+        "/api/v1/auth/login",
+        json={"pin": "654321", "device_id": "pos-terminal-01"},
+    )
+    headers = {
+        "Authorization": f"Bearer {login_res.json()['access_token']}",
+        "X-Device-Id": "pos-terminal-01",
+    }
+
+    # 3. Créer une catégorie
+    cat_res = client.post(
+        "/api/v1/catalog/categories",
+        headers=headers,
+        json={"name": "Spécial Oriental", "kind": "FOOD"},
+    )
+    cat_id = cat_res.json()["id"]
+
+    # 4. Créer le produit "Couscous + Poisson" (non braisé -> aucune protéine Carpe rattachée)
+    prod_res = client.post(
+        "/api/v1/catalog/products",
+        headers=headers,
+        json={
+            "category_id": cat_id,
+            "name": "Couscous + Poisson",
+            "price_xof": 3500,
+        },
+    )
+    prod_id = prod_res.json()["id"]
+    assert prod_res.json()["stock_quantity"] is None
+
+    # 5. Modifier le produit en "Couscous + Loss"
+    update_res = client.patch(
+        f"/api/v1/catalog/products/{prod_id}",
+        headers=headers,
+        json={"name": "Couscous + Loss"},
+    )
+    assert update_res.status_code == 200
+    updated_data = update_res.json()
+    assert updated_data["name"] == "Couscous + Loss"
+    # Les portions de Loss (15.0) sont immédiatement reconnues et retournées !
+    assert updated_data["stock_quantity"] == 15.0
+
+    # 6. Vérifier que la fiche technique (ProductComponent) est bien persistée
+    comp = db_session.query(ProductComponent).filter(ProductComponent.product_id == prod_id).first()
+    assert comp is not None
+    assert comp.article_id == loss_article.id
+

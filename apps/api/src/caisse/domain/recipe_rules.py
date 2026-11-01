@@ -47,10 +47,10 @@ def match_protein_for_product(product_name: str) -> tuple[str, Decimal] | None:
     # Poissons
     if "sosso" in norm:
         return ("Sosso", PROTEIN_PORTIONS["Sosso"])
-    # Carpe : correspond à "carpe", ainsi qu'à "poisson" / "poisson braisé" (hors poisson fumé)
+    # Carpe : la carpe sert uniquement au poisson braisé ou à la mention explicite "carpe"
     if "carpe" in norm:
         return ("Carpe", PROTEIN_PORTIONS["Carpe"])
-    if "poisson" in norm and "fumé" not in norm and "fume" not in norm:
+    if "poisson" in norm and ("braisé" in norm or "braise" in norm):
         return ("Carpe", PROTEIN_PORTIONS["Carpe"])
     if "brochet" in norm:
         return ("Faux brochet", PROTEIN_PORTIONS["Faux brochet"])
@@ -60,3 +60,4 @@ def match_protein_for_product(product_name: str) -> tuple[str, Decimal] | None:
         return ("Faux saumon", PROTEIN_PORTIONS["Faux saumon"])
 
     return None
+

@@ -11,6 +11,7 @@ from caisse.schemas.catalog import (
     ProductCreateRequest,
     ProductPriceUpdateRequest,
     ProductResponse,
+    ProductUpdateRequest,
 )
 from caisse.services.audit_service import AuditService
 
@@ -322,6 +323,127 @@ class CatalogService:
             color=product.color,
             sku=product.sku,
         )
+
+    def update_product(
+        self,
+        product_id: str,
+        payload: ProductUpdateRequest,
+        user_id: str,
+        device_id: str | None = None,
+    ) -> ProductResponse:
+        product = self.repo.get_product_by_id(product_id)
+        if not product:
+            raise CaisseException(
+                code="PRODUCT_NOT_FOUND",
+                title="Produit introuvable",
+                detail=f"Aucun produit trouvé avec l'ID {product_id}.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        before = {
+            "name": product.name,
+            "short_name": product.short_name,
+            "category_id": product.category_id,
+            "track_stock": product.track_stock,
+            "color": product.color,
+            "sku": product.sku,
+            "sort_order": product.sort_order,
+            "is_active": product.is_active,
+        }
+
+        old_name = product.name
+        name_changed = False
+
+        if payload.name is not None and payload.name.strip():
+            new_name = payload.name.strip()
+            if new_name != product.name:
+                product.name = new_name
+                name_changed = True
+
+        if payload.short_name is not None and payload.short_name.strip():
+            product.short_name = payload.short_name.strip()
+        elif name_changed and (not product.short_name or product.short_name == old_name[:20]):
+            product.short_name = product.name[:20]
+
+        if payload.category_id is not None:
+            category = self.repo.get_category_by_id(payload.category_id)
+            if not category:
+                raise CaisseException(
+                    code="CATEGORY_NOT_FOUND",
+                    title="Catégorie introuvable",
+                    detail=f"Aucune catégorie trouvée avec l'ID {payload.category_id}.",
+                    status_code=status.HTTP_404_NOT_FOUND,
+                )
+            product.category_id = payload.category_id
+
+        if payload.track_stock is not None:
+            product.track_stock = payload.track_stock
+
+        if payload.color is not None:
+            product.color = payload.color
+
+        if payload.sku is not None:
+            product.sku = payload.sku
+
+        if payload.sort_order is not None:
+            product.sort_order = payload.sort_order
+
+        if payload.is_active is not None:
+            product.is_active = payload.is_active
+
+        # Ré-alignement automatique de la fiche technique si le nom a changé
+        if name_changed:
+            from caisse.domain.recipe_rules import match_protein_for_product
+            from caisse.models.stock import ProductComponent, StockArticle
+
+            new_protein = match_protein_for_product(product.name)
+            old_protein = match_protein_for_product(old_name)
+
+            if new_protein:
+                art_name, qty = new_protein
+                article = (
+                    self.db.query(StockArticle)
+                    .filter(StockArticle.name == art_name)
+                    .first()
+                )
+                if article:
+                    self.db.query(ProductComponent).filter(
+                        ProductComponent.product_id == product.id
+                    ).delete()
+                    comp = ProductComponent(
+                        product_id=product.id,
+                        article_id=article.id,
+                        quantity=qty,
+                    )
+                    self.db.add(comp)
+                    self.db.flush()
+            elif old_protein:
+                self.db.query(ProductComponent).filter(
+                    ProductComponent.product_id == product.id
+                ).delete()
+                self.db.flush()
+
+        self.audit.log(
+            action="PRODUCT_UPDATED",
+            entity="PRODUCT",
+            entity_id=product.id,
+            user_id=user_id,
+            before=before,
+            after={
+                "name": product.name,
+                "short_name": product.short_name,
+                "category_id": product.category_id,
+                "track_stock": product.track_stock,
+                "color": product.color,
+                "sku": product.sku,
+                "sort_order": product.sort_order,
+                "is_active": product.is_active,
+            },
+            device_id=device_id,
+        )
+        self.db.commit()
+
+        return self.get_product(product.id)
 
     def get_product(self, product_id: str) -> ProductResponse:
         p = self.repo.get_product_by_id(product_id)

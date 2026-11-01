@@ -11,6 +11,7 @@ from caisse.schemas.catalog import (
     ProductCreateRequest,
     ProductPriceUpdateRequest,
     ProductResponse,
+    ProductUpdateRequest,
 )
 from caisse.services.catalog_service import CatalogService
 
@@ -143,3 +144,25 @@ async def update_product_price(
 ) -> ProductResponse:
     service = CatalogService(db)
     return service.update_product_price(id, payload, user_id=current_user.id, device_id=device_id)
+
+
+@router.patch(
+    "/products/{id}",
+    response_model=ProductResponse,
+    summary="Modifier un produit (Responsable/Admin)",
+)
+@router.patch(
+    "/catalog/products/{id}",
+    response_model=ProductResponse,
+    summary="Modifier un produit (alias)",
+)
+async def update_product(
+    id: str,
+    payload: ProductUpdateRequest,
+    current_user: User = Depends(require_role("RESPONSABLE", "ADMIN")),
+    device_id: str = Depends(require_device_id),
+    db: Session = Depends(get_db),
+) -> ProductResponse:
+    service = CatalogService(db)
+    return service.update_product(id, payload, user_id=current_user.id, device_id=device_id)
+
