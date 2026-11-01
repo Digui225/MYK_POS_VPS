@@ -29,8 +29,12 @@ def test_only_a_certified_sale_fne_reaches_the_ticket() -> None:
 
 
 def test_qr_only_from_the_dgi_link() -> None:
-    assert receipt_fne_info(_doc(qr_payload=None))["qr_url"] is None  # certification manuelle sans lien
+    manual = receipt_fne_info(_doc(qr_payload=None))
+    assert manual is not None
+    assert manual["qr_url"] is None  # certification manuelle sans lien
+
     simulated = receipt_fne_info(_doc(qr_payload="mock://fne/verification/x"))
+    assert simulated is not None
     assert simulated["qr_url"] is None and simulated["simulated"] is True
 
 
@@ -87,10 +91,13 @@ def _pay_with_fne(client: TestClient, key: str) -> dict:
 
 def test_simulated_fne_is_labelled_on_the_ticket(client: TestClient, db_session: Session) -> None:
     pay = _pay_with_fne(client, "fne-sim")
-    content = db_session.get(PrintJob, pay["print_job_id"]).content
+    job = db_session.get(PrintJob, pay["print_job_id"])
+    assert job is not None
+    content = job.content
     doc = db_session.query(FneDocument).filter(FneDocument.order_id == pay["order_id"]).one()
 
     assert doc.status == FneStatus.CERTIFIED
+    assert doc.external_number is not None
     assert doc.external_number in content
     assert "SANS VALEUR FISCALE" in content and "Signature DGI" not in content
 
@@ -107,7 +114,9 @@ def test_unavailable_dgi_prints_no_fiscal_block(
 
     monkeypatch.setattr("caisse.core.deps.get_fne_provider", lambda: DgiDown())
     pay = _pay_with_fne(client, "fne-down")
-    content = db_session.get(PrintJob, pay["print_job_id"]).content
+    job = db_session.get(PrintJob, pay["print_job_id"])
+    assert job is not None
+    content = job.content
     doc = db_session.query(FneDocument).filter(FneDocument.order_id == pay["order_id"]).one()
 
     assert doc.status == FneStatus.QUEUED  # renvoyée plus tard par le worker

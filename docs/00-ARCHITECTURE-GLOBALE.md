@@ -11,20 +11,20 @@
 | Périmètre | Point de vente (POS) restaurant : commandes à table, encaissement, stock boissons, clôture de caisse, facturation normalisée (FNE) |
 | Stack imposée | React + shadcn/ui + Radix UI (front) · FastAPI (back) |
 | Équipe | 2 développeurs : 1 backend, 1 frontend |
-| Version du doc | **1.1** — intègre les réponses client du 24/09/2026 et la mutualisation d'infrastructure avec le PMS |
+| Version du doc | **1.2** — intègre la bascule de l'API et de la base sur le VPS OVH dédié (27/10/2026), avec impression en mode pull |
 
-### Ce qui a changé depuis la v1.0
+### Historique des versions
 
-| Sujet | v1.0 | v1.1 |
-|---|---|---|
-| Fiscal | RNE par ticket **ou** récapitulatif journalier (indécis) | **FNE par ticket** → refonte du §8, mode dégradé obligatoire |
-| Serveur | Mini-PC dédié | **Ordinateur portable sous Windows 10/11** existant (Docker Desktop / WSL2), mutualisable avec le PMS |
-| Imprimante | USB **ou** Ethernet | **USB sous Windows** → agent d'impression sur Spooler Windows / `win32print` (ADR-13) |
-| Tiroir-caisse | Non spécifié | **Ouverture au clic sur « Payer »**, simultanée avec le reçu |
-| Écran | Tactile | **Clavier + souris d'abord**, tactile plus tard → priorités front inversées |
-| Zones de salle | Salle / terrasse / VIP | **Salle uniquement** |
-| Saisie | Caissier seul | Les serveurs remettent des **bons papier** à la caissière |
-| Infrastructure | Isolée | **§4 — mutualisation Docker/PostgreSQL avec le PMS Hôtel Résidence de la Paix** |
+| Sujet | v1.0 | v1.1 | v1.2 (actuel) |
+|---|---|---|---|
+| Fiscal | RNE par ticket **ou** récapitulatif journalier | **FNE par ticket** → mode dégradé outbox | FNE par ticket + outbox DGI |
+| Serveur | Mini-PC dédié | Portable Windows (Docker Desktop) | **VPS OVH dédié (Ubuntu, `148.113.149.10`)** |
+| Mode réseau | Local-first obligatoire | Local-first sur portable | **Online-only sur VPS**, risque coupure assumé |
+| Imprimante | USB ou Ethernet | Agent d'impression local push | **Agent d'impression local en mode PULL** (polling/WebSocket `/print-agent/jobs/next`) |
+| Tiroir-caisse | Non spécifié | Ouverture au clic « Payer » | Ouverture au clic « Payer » (ESC/POS) |
+| Écran | Tactile | Clavier + souris d'abord | Clavier + souris d'abord (raccourcis F1-F12) |
+| Zones de salle | Salle / terrasse / VIP | Salle uniquement | Salle uniquement |
+| Infrastructure | Isolée | Mutualisée localement avec PMS | **VPS dédié à la caisse** (aucun PMS sur le VPS) |
 
 ---
 
@@ -67,9 +67,9 @@ Issues du compte rendu (§15) et des réponses du 24/09/2026.
 | 10 | Ventes à emporter | **Oui** | `table_id` nullable + « ticket comptoir » dédié |
 | 11 | Zones de salle | **Salle uniquement** | Pas d'onglets de zones au MVP, champ `zone` conservé |
 | 12 | Saisie des commandes | Les serveurs prennent la commande et **remettent le bon à la caissière** | La saisie est centralisée → **la vitesse de saisie est le critère UX n°1** |
-| 13 | Facturation | **FNE par ticket** | → refonte complète du §8 : mode dégradé obligatoire |
-| 14 | Coupure Internet | **Doit fonctionner** | → ADR-01 : tout tourne en local sur site |
-| 15 | Matériel | **Ordinateur portable** existant, écran tactile **plus tard**, imprimante à reçu + tiroir | Le portable sert de serveur (§3.2) ; le front doit être **clavier/souris d'abord** |
+| 13 | Facturation | **FNE par ticket** | Mode dégradé avec attente max 4s puis outbox asynchrone |
+| 14 | Coupure Internet | **Risque accepté (21/10/2026)** | Tout tourne sur le VPS dédié ; connexion Internet requise sur le poste de caisse (ADR-01 amendé) |
+| 15 | Matériel | **Ordinateur portable** existant, écran tactile plus tard, imprimante à reçu + tiroir | Le portable est client web PWA (clavier/souris) et héberge l'agent local d'impression USB |
 | 16 | Droits | Caissier / Responsable / Admin | Matrice §9 |
 | 17 | Sauvegarde / historique | Nécessaire | Sauvegarde locale + copie externe (§`04-EXPLOITATION`) |
 | 18 | Tableau de bord | Oui | Module `reporting` dès le MVP |
@@ -291,9 +291,9 @@ Trois précautions :
 
 | ID | Décision | Pourquoi | Alternative écartée |
 |---|---|---|---|
-| **ADR-01** | Déploiement **local-first** sur la machine de la caisse | Répond à la coupure réseau sans complexité de synchronisation | SaaS cloud pur (inutilisable sans Internet) |
-| **ADR-02** | **PostgreSQL** (même en local, via Docker) | Transactions sérialisables, contraintes fortes, mutualisation avec le PMS | SQLite : verrouillage global, migration douloureuse ensuite |
-| **ADR-03** | **Impression pilotée par le serveur** (`python-escpos`) | Le navigateur ne sait ni piloter un ticket ESC/POS ni ouvrir un tiroir | `window.print()` : rendu imprévisible, pas de tiroir, pas de rejeu |
+| **ADR-01** | **Hébergement sur VPS OVH dédié** (amendé 21/10/2026, acté 27/10/2026) | Centralisation sécurisée des données, exploitation et sauvegardes unifiées. Le risque de coupure Internet sur site est accepté par le client au profit de la robustesse serveur | Local-first pur sur portable Windows (abandonné en prod) |
+| **ADR-02** | **PostgreSQL** (sur le VPS, port non exposé) | Transactions sérialisables, contraintes fortes, intégrité stricte | SQLite : verrouillage global, concurrence limitée |
+| **ADR-03** | **Impression pilotée par le serveur** (`python-escpos` / raw) | Le navigateur ne sait ni piloter un ticket ESC/POS ni ouvrir un tiroir | `window.print()` : rendu imprévisible, pas de tiroir, pas de rejeu |
 | **ADR-04** | **Montants en entiers XOF** partout | Le FCFA n'a pas de sous-unité ; zéro erreur d'arrondi | `float` / `decimal` |
 | **ADR-05** | **Immutabilité fiscale** après encaissement | Contrôle fiscal et confiance interne | UPDATE/DELETE libres |
 | **ADR-06** | **Port + adaptateur** pour la FNE, avec outbox et rejeu | Réseau instable, mode d'intégration DGI à finaliser | Appel synchrone bloquant à l'encaissement |
@@ -303,8 +303,8 @@ Trois précautions :
 | **ADR-10** | Front **PWA plein écran** | Un seul code base, déploiement instantané | Electron/Tauri |
 | **ADR-11** | **Monolithe modulaire** côté backend | 2 développeurs, 1 site | Microservices |
 | **ADR-12** | **Journée comptable** portée par la session de caisse | Un service peut finir après minuit | `DATE(created_at)` |
-| **ADR-13** | **Agent d'impression séparé**, exposé en HTTP local (port 8090) | L'imprimante est en **USB sous Windows** : l'agent tourne en natif (service Windows / NSSM) et utilise l'API Spooler Windows (`win32print` / raw ESC/POS). Cela élimine les conflits de pilotes, fiabilise les déconnexions/reconnexions USB et découple le conteneur API de l'hôte physique | Driver USB direct dans le conteneur API (impossible sous Windows Docker sans VM/USB-IP complexe) ou pilote libusb/Zadig (qui casse les pilotes officiels Windows) |
-| **ADR-14** | **Une instance PostgreSQL, deux bases** (caisse / PMS) | Mutualise l'exploitation sans coupler les données ni les migrations | Base commune (collision de migrations, restauration impossible séparément) |
+| **ADR-13** | **Agent d'impression en mode PULL** (amendé 27/10/2026) | L'API étant sur VPS distant, le serveur ne peut pas appeler le réseau local. L'agent Windows tourne en local (NSSM) et tire les jobs via `GET /api/v1/print-agent/jobs/next` ou WebSocket, puis imprime en USB (`win32print`) | Push direct HTTP depuis le cloud vers la caisse locale (impossible sans IP publique ou VPN) |
+| **ADR-14** | **VPS dédié à la caisse** (amendé 27/10/2026) | Le serveur OVH `148.113.149.10` est dédié exclusivement à OsisPos Caisse, sans PMS hôtelier | Instance partagée avec le PMS |
 | **ADR-15** | **Certification FNE à l'encaissement, avec attente bornée puis repli** | La FNE est requise par ticket, mais le client ne peut pas attendre le réseau | Attente illimitée (caisse bloquée) · aucune attente (ticket toujours sans QR) |
 
 ---

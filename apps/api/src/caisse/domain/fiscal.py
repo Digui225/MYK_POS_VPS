@@ -1,4 +1,5 @@
 import hashlib
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any
 
@@ -22,12 +23,12 @@ def generate_qr_url(fne_number: str, token: str) -> str:
 
 
 def build_fne_payload(
-    seller_info: dict[str, str],
+    seller_info: Mapping[str, str],
     order_number: str,
     items: list[dict[str, Any]],
     payments: list[dict[str, Any]],
-    totals: dict[str, int],
-    buyer_info: dict[str, str | None] | None = None,
+    totals: Mapping[str, int],
+    buyer_info: Mapping[str, str | None] | None = None,
     document_type: str = "FNE",
     original_fne_number: str | None = None,
 ) -> dict[str, Any]:

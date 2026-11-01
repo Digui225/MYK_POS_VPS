@@ -22,6 +22,11 @@ Notes de reprise : ce qui a été analysé et décidé. À tenir à jour à chaq
 | 27/10/2026 | Un seul circuit de déploiement : `deploy/vps/update.sh` (sauvegarde, santé, retour arrière), lancé par le workflow GitHub ou `deploy/vps/deploy.sh`. Anciens `redeploy.sh`/`server.sh` de `main` retirés (ils visaient `/opt/caisse`) |
 | 27/10/2026 | **Blocage après PIN erronés : 5 PIN faux consécutifs depuis un poste (son IP) bloquent ses connexions 5 min** (`PIN_MAX_FAILED_ATTEMPTS`, `LOCKOUT_DURATION_MINUTES`). Il n'existait pas (ces réglages n'étaient lus nulle part) : connexion par PIN seul, sans identifiant, donc blocage par poste et non par compte. Nginx transmet l'IP vue par lui (`X-Forwarded-For $remote_addr`), sinon un client contournait la limite avec un en-tête inventé |
 | 27/10/2026 | WebSocket : `?token=<access_token>` ; sans jeton, toléré (`WS_REQUIRE_AUTH=false`) mais seulement le type des événements. Passer `WS_REQUIRE_AUTH=true` quand le front envoie le jeton |
+| 01/11/2026 | **D1 — Sécurité des dumps SQL** : Retrait des dumps de base complets de Git (`backup_caisse_avant_reset_*.sql`), déplacés hors git. Conservation de `restore_real_data.sql` comme outil opérationnel de catalogue |
+| 01/11/2026 | **D2 — Sécurité JWT** : Jetons d'accès et de rafraîchissement strictement conservés en mémoire JavaScript (non persistés dans `sessionStorage`). Verrouillage PIN automatique au rechargement de page |
+| 01/11/2026 | **D3 — Montants entiers & exception taux unitaires** : Montants globaux et totaux strictement entiers en XOF. Exception documentée : les coûts moyens pondérés (CMP) et prix unitaires d'achat acceptent 2 décimales pour les fiches techniques (grammes, centilitres) |
+| 01/11/2026 | **D4 — Architecture VPS OVH & impression PULL** : Formalisation de l'architecture cible : VPS OVH dédié (`148.113.149.10`), base isolée, agent d'impression local Windows en mode PULL (`GET /api/v1/print-agent/jobs/next`) |
+| 01/11/2026 | **D5 — Imports directs, fin des barils & caisse.core** : Frontend : suppression des 10 barils `features/*/index.ts` au profit d'imports explicites (code-splitting par route). Backend : migration complète des imports vers `caisse.core.*`, protocole unifié `FneProvider` et typage strict |
 
 ## Corrections faites le 27/10/2026 (revue de `aziz`)
 
