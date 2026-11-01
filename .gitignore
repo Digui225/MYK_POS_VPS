@@ -13,6 +13,7 @@ __pycache__/
 *.egg
 
 # Environnements virtuels
+.venv
 .venv/
 venv/
 ENV/
@@ -31,6 +32,13 @@ fne-probe/
 Dossier_Homologation_FNE/
 Dossier_Homologation_FNE.zip
 *.zip
+
+# Sauvegardes et dumps SQL
+*.sql
+!scripts/reset_production_data.sql
+!deploy/vps/restore_real_data.sql
+backups/
+apps/api/backups/
 
 # IDE
 .idea/
