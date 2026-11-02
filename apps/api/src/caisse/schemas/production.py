@@ -80,7 +80,7 @@ class MarketBudgetStatusOut(BaseSchema):
 class DailyPreparationCreate(BaseModel):
     business_date: date = Field(..., description="Date du jour de préparation")
     article_id: str = Field(..., description="ID de l'article protéine")
-    prepared_quantity: float = Field(..., gt=0, description="Quantité sortie en cuisine")
+    prepared_quantity: float = Field(..., ge=0, description="Quantité sortie en cuisine (0 pour annuler/effacer)")
     yield_portions_per_unit: float = Field(
         ..., gt=0, description="Rendement en plats par unité de matière (ex: 4 plats/poulet)"
     )

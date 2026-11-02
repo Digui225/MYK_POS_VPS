@@ -802,6 +802,73 @@ def test_weekly_matrix_foufou_and_foutou_breakdown(client: TestClient, db_sessio
     assert day_res["foutou_dishes_sold"] == 2
 
 
+def test_delete_or_reset_daily_prep_with_zero(client: TestClient, db_session: Session) -> None:
+    """Vérifie que la saisie d'une quantité préparée de 0 supprime l'enregistrement existant."""
+    from caisse.domain.enums import StockArticleCategory, StockOutMode
+    from caisse.models.production import DailyPreparation
+    from caisse.models.stock import StockArticle
+
+    resp_login = client.post(
+        "/api/v1/auth/login",
+        json={"pin": "654321", "device_id": "pos-terminal-01"},
+    )
+    assert resp_login.status_code == 200
+    resp_headers = {"Authorization": f"Bearer {resp_login.json()['access_token']}", "X-Device-Id": "pos-terminal-01"}
+
+    art = StockArticle(
+        name="Canard Laqué Test",
+        category=StockArticleCategory.PROTEINE,
+        unit="pièce",
+        out_mode=StockOutMode.RECIPE,
+        quantity=Decimal("10.0"),
+        avg_cost_xof=5000,
+    )
+    db_session.add(art)
+    db_session.commit()
+    db_session.refresh(art)
+
+    # 1. Enregistrer une première préparation de 2 pièces
+    res1 = client.post(
+        "/api/v1/production/daily-preparations",
+        headers=resp_headers,
+        json={
+            "business_date": "2026-11-02",
+            "article_id": art.id,
+            "prepared_quantity": 2,
+            "yield_portions_per_unit": 4,
+        },
+    )
+    assert res1.status_code == 200
+    assert res1.json()["prepared_quantity"] == 2.0
+    assert res1.json()["theoretical_dishes"] == 8
+
+    # Vérifier en DB
+    prep = db_session.query(DailyPreparation).filter(DailyPreparation.article_id == art.id).first()
+    assert prep is not None
+    assert prep.prepared_quantity == Decimal("2.0")
+
+    # 2. Corriger l'erreur en saisissant 0
+    res2 = client.post(
+        "/api/v1/production/daily-preparations",
+        headers=resp_headers,
+        json={
+            "business_date": "2026-11-02",
+            "article_id": art.id,
+            "prepared_quantity": 0,
+            "yield_portions_per_unit": 4,
+        },
+    )
+    assert res2.status_code == 200
+    assert res2.json()["prepared_quantity"] == 0.0
+    assert res2.json()["theoretical_dishes"] == 0
+
+    # Vérifier que l'enregistrement a bien été supprimé en DB
+    db_session.expire_all()
+    prep_deleted = db_session.query(DailyPreparation).filter(DailyPreparation.article_id == art.id).first()
+    assert prep_deleted is None
+
+
+
 
 
 

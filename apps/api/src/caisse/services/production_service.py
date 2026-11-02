@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
 
@@ -575,6 +575,26 @@ def save_daily_preparation(
         )
         .first()
     )
+
+    if prep_qty <= 0:
+        created_at_val = prep.created_at if prep else datetime.now(timezone.utc)
+        if prep:
+            db.delete(prep)
+            db.commit()
+        return DailyPreparationOut(
+            id=str(prep.id) if prep else "",
+            business_date=data.business_date,
+            article_id=str(art.id),
+            article_name=art.name,
+            unit=art.unit,
+            prepared_quantity=0.0,
+            yield_portions_per_unit=float(yield_portions),
+            theoretical_dishes=0,
+            user_id=str(user.id),
+            user_name=user.full_name,
+            notes=data.notes,
+            created_at=created_at_val,
+        )
 
     if prep:
         prep.prepared_quantity = prep_qty

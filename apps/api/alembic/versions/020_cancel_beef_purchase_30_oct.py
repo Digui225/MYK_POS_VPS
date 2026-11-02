@@ -118,6 +118,15 @@ def upgrade() -> None:
         {"price": item_price},
     )
 
+    # 9. Supprimer la fausse préparation de Poulet pondeuse (2 pièces saisies par erreur)
+    bind.execute(
+        sa.text(
+            "DELETE FROM daily_preparations "
+            "WHERE article_id IN (SELECT id FROM stock_articles WHERE name ILIKE '%pondeuse%') "
+            "  AND prepared_quantity = 2"
+        )
+    )
+
 
 def downgrade() -> None:
     pass
