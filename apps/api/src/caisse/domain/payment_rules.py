@@ -548,39 +548,35 @@ def format_z_report_text(
             lines.append(row(str(cat_name), fmt_money(amt)))
         lines.append(sep_line)
 
-    # 6. Espèces & Écart
-    lines.append(center("BILAN TIROIR ESPECES"))
-    lines.append(row("Fond initial", fmt_money(z_data.get("opening_float_xof", 0))))
+    # 6. Réconciliation Recettes & Caisse (Bloc Unique)
+    lines.append(center("RECONCILIATION RECETTES & CAISSE"))
+    lines.append(row("Ventes Totales TTC", fmt_money(ttc)))
+    lines.append(sep_line)
+    op_float = z_data.get("opening_float_xof", 0)
+    lines.append(row("Fond initial", fmt_money(op_float)))
     m_in = z_data.get("cash_movements_in_xof", 0)
     m_out = z_data.get("cash_movements_out_xof", 0)
     if m_in:
         lines.append(row("Entrees caisse", f"+{fmt_money(m_in)}"))
     if m_out:
         lines.append(row("Sorties caisse", f"-{fmt_money(m_out)}"))
-    lines.append(row("Especes attendues", fmt_money(z_data.get("expected_cash_in_drawer_xof", 0))))
-    lines.append(row("Especes comptees", fmt_money(z_data.get("counted_cash_xof", 0))))
-    var = z_data.get("variance_xof", 0)
-    lines.append(row("ECART DE CAISSE", fmt_money(var)))
-    notes = z_data.get("notes")
-    if notes:
-        lines.append(f"Motif ecart: {notes}")
-    lines.append(sep_line)
-
-    # 6b. Réconciliation Recettes du Jour (Vision Patron / Direction)
-    lines.append(center("RECONCILIATION RECETTES (PATRON)"))
-    lines.append(row("Ventes Totales TTC", fmt_money(ttc)))
     counted = z_data.get("counted_cash_xof", 0)
-    op_float = z_data.get("opening_float_xof", 0)
+    lines.append(row("Especes tiroir", fmt_money(counted)))
     net_cash_sales = counted - op_float - (m_in - m_out)
-    lines.append(row("Especes nettes", fmt_money(net_cash_sales)))
+    lines.append(row(". Especes nettes", fmt_money(net_cash_sales)))
     non_cash_tot = sum(v for k, v in pm.items() if k != "CASH")
     if non_cash_tot:
         for k, v in pm.items():
             if k != "CASH":
-                lines.append(row(f"+ {k}", fmt_money(v)))
+                lines.append(row(f". {k}", fmt_money(v)))
+    lines.append(sep_line)
     tot_recettes = net_cash_sales + non_cash_tot
     lines.append(row("Recettes totales", fmt_money(tot_recettes)))
+    var = z_data.get("variance_xof", 0)
     lines.append(row("ECART NET JOURNEE", fmt_money(var)))
+    notes = z_data.get("notes")
+    if notes:
+        lines.append(f"Motif ecart: {notes}")
     lines.append(double_sep)
 
     # 7. Contrôle commandes
