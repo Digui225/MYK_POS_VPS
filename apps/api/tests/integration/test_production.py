@@ -910,6 +910,19 @@ def test_weekly_matrix_picks_up_custom_main_libre_sales(client: TestClient, db_s
     # 2. Utilisateur, Caisse et Session
     from caisse.models.cash_session import CashRegister
     user = db_session.query(User).filter(User.role == "RESPONSABLE").first()
+    if not user:
+        from caisse.core.security import hash_pin
+
+        user = User(
+            id="usr-resp-01",
+            full_name="Kouassi Responsable",
+            pin_hash=hash_pin("654321"),
+            role="RESPONSABLE",
+            is_active=True,
+        )
+        db_session.add(user)
+        db_session.flush()
+    assert user is not None
     register = db_session.query(CashRegister).first()
     if not register:
         register = CashRegister(name="Caisse Principale")

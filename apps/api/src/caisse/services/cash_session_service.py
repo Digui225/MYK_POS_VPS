@@ -220,6 +220,42 @@ class CashSessionService:
             created_at=created.created_at.isoformat(),
         )
 
+    def _compute_sales_by_category_and_item(
+        self, settled_orders: list[Order]
+    ) -> tuple[dict[str, int], list[ItemSalesDetail]]:
+        # Regroupement strict par clé composite (catégorie, nom_produit) avec normalisation typographique
+        items_map: dict[tuple[str, str], dict[str, Any]] = {}
+
+        for o in settled_orders:
+            for item in o.items:
+                if item.removed_at is None:
+                    cat = item.category_snapshot or "Autre"
+                    p_name = item.product_name_snapshot.replace("œ", "oe").replace("Œ", "OE").strip()
+                    key = (cat, p_name)
+
+                    if key not in items_map:
+                        items_map[key] = {
+                            "product_name": p_name,
+                            "category": cat,
+                            "quantity": 0,
+                            "unit_price_xof": item.unit_price_xof,
+                            "total_ttc_xof": 0,
+                        }
+                    items_map[key]["quantity"] += item.quantity
+                    items_map[key]["total_ttc_xof"] += item.line_total_xof
+
+        # L'en-tête de catégorie est STRICTEMENT et mathématiquement la somme de ses articles
+        sales_by_category: dict[str, int] = {}
+        for it in items_map.values():
+            c = it["category"]
+            sales_by_category[c] = sales_by_category.get(c, 0) + it["total_ttc_xof"]
+
+        sales_by_item = [
+            ItemSalesDetail(**data)
+            for data in sorted(items_map.values(), key=lambda x: x["total_ttc_xof"], reverse=True)
+        ]
+        return sales_by_category, sales_by_item
+
     def get_x_report(self, session_id: str) -> XReportResponse:
         session = self.repo.get_by_id(session_id)
         if not session:
@@ -255,32 +291,8 @@ class CashSessionService:
 
         cash_sales = payments_by_method.get("CASH", 0)
 
-        # 4. Ventes par catégorie et par article
-        sales_by_category: dict[str, int] = {}
-        items_map: dict[str, dict[str, Any]] = {}
-
-        for o in settled_orders:
-            for item in o.items:
-                if item.removed_at is None:
-                    cat = item.category_snapshot or "Autre"
-                    sales_by_category[cat] = sales_by_category.get(cat, 0) + item.line_total_xof
-
-                    p_name = item.product_name_snapshot
-                    if p_name not in items_map:
-                        items_map[p_name] = {
-                            "product_name": p_name,
-                            "category": cat,
-                            "quantity": 0,
-                            "unit_price_xof": item.unit_price_xof,
-                            "total_ttc_xof": 0,
-                        }
-                    items_map[p_name]["quantity"] += item.quantity
-                    items_map[p_name]["total_ttc_xof"] += item.line_total_xof
-
-        sales_by_item = [
-            ItemSalesDetail(**data)
-            for data in sorted(items_map.values(), key=lambda x: x["total_ttc_xof"], reverse=True)
-        ]
+        # 4. Ventes par catégorie et par article (garantie mathématique stricte)
+        sales_by_category, sales_by_item = self._compute_sales_by_category_and_item(settled_orders)
 
         # 5. Espèces théoriques dans le tiroir = Fonds d'ouverture + Ventes espèces + Entrées - Sorties
         expected_cash_xof = session.opening_float_xof + cash_sales + in_xof - out_xof
@@ -470,7 +482,25 @@ class CashSessionService:
                 status_code=status.HTTP_409_CONFLICT,
             )
 
-        snap = session.totals_snapshot
+        snap = session.totals_snapshot or {}
+
+        # Recalcul dynamique sur les commandes réelles pour garantir la cohérence absolue
+        # y compris pour les sessions clôturées avant ce correctif
+        orders = self.db.query(Order).filter(Order.cash_session_id == session_id).all()
+        settled_orders = [o for o in orders if o.status == "PAID"]
+        if settled_orders:
+            sales_by_category, sales_by_item = self._compute_sales_by_category_and_item(settled_orders)
+        else:
+            raw_items = [ItemSalesDetail(**it) for it in snap.get("sales_by_item", [])]
+            if raw_items:
+                sales_by_category = {}
+                for it in raw_items:
+                    sales_by_category[it.category] = sales_by_category.get(it.category, 0) + it.total_ttc_xof
+                sales_by_item = raw_items
+            else:
+                sales_by_category = snap.get("sales_by_category", {})
+                sales_by_item = []
+
         return ZReportResponse(
             z_number=session.z_number or 0,
             cash_session_id=session.id,
@@ -482,8 +512,8 @@ class CashSessionService:
             total_sales_ht_xof=snap.get("total_sales_ht_xof", 0),
             total_sales_vat_xof=snap.get("total_sales_vat_xof", 0),
             payments_by_method=snap.get("payments_by_method", {}),
-            sales_by_category=snap.get("sales_by_category", {}),
-            sales_by_item=[ItemSalesDetail(**it) for it in snap.get("sales_by_item", [])],
+            sales_by_category=sales_by_category,
+            sales_by_item=sales_by_item,
             cash_movements_in_xof=snap.get("cash_movements_in_xof", 0),
             cash_movements_out_xof=snap.get("cash_movements_out_xof", 0),
             expected_cash_in_drawer_xof=snap.get("expected_cash_xof", 0),

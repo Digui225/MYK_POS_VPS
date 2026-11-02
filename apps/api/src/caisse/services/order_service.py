@@ -191,7 +191,13 @@ class OrderService:
             vat_rate = float(product.vat_rate)
         elif payload.custom_name and payload.unit_price_xof is not None:
             name_snapshot = payload.custom_name
-            category_snapshot = "Hors Menu"
+            if payload.category_id:
+                cat_obj = self.catalog_repo.get_category_by_id(payload.category_id)
+                category_snapshot = cat_obj.name if cat_obj else (payload.category_name or "Hors Menu")
+            elif payload.category_name:
+                category_snapshot = payload.category_name
+            else:
+                category_snapshot = "Hors Menu"
             unit_price = payload.unit_price_xof
             vat_rate = 0.00
         else:
@@ -201,6 +207,9 @@ class OrderService:
                 detail="Veuillez fournir un product_id valide ou (custom_name et unit_price_xof).",
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             )
+
+        # Normalisation automatique des ligatures et espaces pour éviter les doublons typographiques
+        name_snapshot = name_snapshot.replace("œ", "oe").replace("Œ", "OE").strip()
 
         line_total = calculate_line_total(unit_price, payload.quantity)
 

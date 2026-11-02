@@ -53,6 +53,8 @@ class OrderItemAddRequest(BaseRequestSchema):
     unit_price_xof: int | None = None
     quantity: int = Field(1, ge=1)
     note: str | None = None
+    category_id: str | None = None
+    category_name: str | None = None
 
 
 class OrderItemRemoveRequest(BaseRequestSchema):
