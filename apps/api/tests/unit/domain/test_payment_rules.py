@@ -173,7 +173,7 @@ def test_format_z_report_text():
     assert "CLOTURE DEFINITIVE" in txt
     assert "TOTAL VENTES TTC" in txt
     assert "93 300 F" in txt
-    assert "ECART DE CAISSE" in txt
+    assert "ECART NET JOURNEE" in txt
     assert "[LOGO]" not in txt
 
 
