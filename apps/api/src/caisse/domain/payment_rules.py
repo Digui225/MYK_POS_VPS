@@ -550,18 +550,20 @@ def format_z_report_text(
 
     # 6. Réconciliation Recettes & Caisse (Bloc Unique)
     lines.append(center("RECONCILIATION RECETTES & CAISSE"))
-    lines.append(row("Ventes Totales TTC", fmt_money(ttc)))
-    lines.append(sep_line)
     op_float = z_data.get("opening_float_xof", 0)
-    lines.append(row("Fond initial", fmt_money(op_float)))
+    total_attendu = op_float + ttc
+    lines.append(row("TOTAL ATTENDU (Fond+CA)", fmt_money(total_attendu)))
+    lines.append(row(". Fond initial", fmt_money(op_float)))
+    lines.append(row(". Ventes Totales TTC", fmt_money(ttc)))
     m_in = z_data.get("cash_movements_in_xof", 0)
     m_out = z_data.get("cash_movements_out_xof", 0)
     if m_in:
-        lines.append(row("Entrees caisse", f"+{fmt_money(m_in)}"))
+        lines.append(row(". Entrees caisse", f"+{fmt_money(m_in)}"))
     if m_out:
-        lines.append(row("Sorties caisse", f"-{fmt_money(m_out)}"))
+        lines.append(row(". Sorties caisse", f"-{fmt_money(m_out)}"))
+    lines.append(sep_line)
+    lines.append(center("RECETTES PERCUES"))
     counted = z_data.get("counted_cash_xof", 0)
-    lines.append(row("Especes tiroir", fmt_money(counted)))
     net_cash_sales = counted - op_float - (m_in - m_out)
     lines.append(row(". Especes nettes", fmt_money(net_cash_sales)))
     non_cash_tot = sum(v for k, v in pm.items() if k != "CASH")
