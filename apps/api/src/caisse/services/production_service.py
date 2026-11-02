@@ -20,6 +20,8 @@ from caisse.domain.production_rules import (
     calculate_financial_impact,
     calculate_item_total,
     calculate_theoretical_dishes,
+    match_protein_keyword,
+    normalize_dish_name,
 )
 from caisse.domain.stock_rules import weighted_average_cost
 from caisse.models.cash_session import CashMovement, CashSession
@@ -635,6 +637,32 @@ def save_daily_preparation(
 AUTO_VALIDATED_NOTE = "Auto-validé à la clôture de caisse"
 
 
+def _build_protein_by_key(articles: list[StockArticle]) -> dict[str, StockArticle]:
+    """Associe chaque clé canonique de protéine ('POULET', 'SOSSO', etc.) à l'article StockArticle correspondant."""
+    result: dict[str, StockArticle] = {}
+    for a in articles:
+        a_norm = normalize_dish_name(a.name)
+        if "pondeuse" in a_norm:
+            result["POULET_PONDEUSE"] = a
+        elif "poulet" in a_norm:
+            result["POULET"] = a
+        elif "brochet" in a_norm or "machoiran" in a_norm:
+            result["FAUX_BROCHET"] = a
+        elif "saumon" in a_norm:
+            result["FAUX_SAUMON"] = a
+        elif "sosso" in a_norm:
+            result["SOSSO"] = a
+        elif "loss" in a_norm:
+            result["LOSS"] = a
+        elif "mouton" in a_norm:
+            result["MOUTON"] = a
+        elif "boeuf" in a_norm:
+            result["BOEUF"] = a
+        elif "carpe" in a_norm:
+            result["CARPE"] = a
+    return result
+
+
 def auto_validate_daily_preparations_from_sales(
     db: Session,
     business_date: date,
@@ -649,6 +677,7 @@ def auto_validate_daily_preparations_from_sales(
     - Si une sortie a déjà été auto-validée plus tôt dans la journée (ex: clôture service midi),
       elle est mise à jour avec le cumul des ventes du jour (service midi + soir).
     - Si aucun plat associé n'a été vendu, aucune sortie n'est créée.
+    - Filet de sécurité : les plats saisis en main libre contenant une protéine sont également comptabilisés.
     """
     if isinstance(business_date, str):
         business_date = date.fromisoformat(business_date)
@@ -670,13 +699,18 @@ def auto_validate_daily_preparations_from_sales(
         .all()
     )
     article_components: dict[str, list[ProductComponent]] = {}
+    all_linked_product_ids: set[str] = set()
     for c in components:
         article_components.setdefault(str(c.article_id), []).append(c)
+        all_linked_product_ids.add(str(c.product_id))
 
-    # 3. Ventes cumulées de la journée pour tous les plats associés
+    protein_by_key = _build_protein_by_key(articles)
+
+    # 3. Ventes cumulées de la journée pour tous les plats associés (fiches et main libre)
     sales_rows = db.execute(
         select(
             OrderItem.product_id,
+            OrderItem.product_name_snapshot,
             func.sum(OrderItem.quantity),
         )
         .join(Order, Order.id == OrderItem.order_id)
@@ -686,9 +720,25 @@ def auto_validate_daily_preparations_from_sales(
             CashSession.business_date == business_date,
             OrderItem.removed_at.is_(None),
         )
-        .group_by(OrderItem.product_id)
+        .group_by(OrderItem.product_id, OrderItem.product_name_snapshot)
     ).all()
-    sales_by_prod: dict[str, int] = {str(pid): int(q or 0) for pid, q in sales_rows}
+
+    sales_by_prod: dict[str, int] = {}
+    unmapped_sales_by_art: dict[str, int] = {}
+    for pid, name_snap, q in sales_rows:
+        pid_str = str(pid) if pid else None
+        qty = int(q or 0)
+        name_str = name_snap or ""
+
+        if pid_str and pid_str in all_linked_product_ids:
+            sales_by_prod[pid_str] = sales_by_prod.get(pid_str, 0) + qty
+        else:
+            prot_key = match_protein_keyword(name_str)
+            if prot_key and prot_key in protein_by_key:
+                target_art = protein_by_key[prot_key]
+                unmapped_sales_by_art[str(target_art.id)] = (
+                    unmapped_sales_by_art.get(str(target_art.id), 0) + qty
+                )
 
     # 4. Sorties déjà enregistrées pour cette journée
     existing_preps = {
@@ -702,15 +752,12 @@ def auto_validate_daily_preparations_from_sales(
 
     for a in articles:
         comps = article_components.get(str(a.id), [])
-        if not comps:
-            continue
-
         standard_portion = float(comps[0].quantity) if comps else 1.0
         default_yield = round(1.0 / standard_portion, 2) if standard_portion > 0 else 1.0
         if default_yield <= 0:
             continue
 
-        day_sold = sum(sales_by_prod.get(str(c.product_id), 0) for c in comps)
+        day_sold = sum(sales_by_prod.get(str(c.product_id), 0) for c in comps) + unmapped_sales_by_art.get(str(a.id), 0)
         if day_sold <= 0:
             continue
 
@@ -798,8 +845,12 @@ def get_weekly_matrix(
         .all()
     )
     article_components: dict[str, list[ProductComponent]] = {}
+    all_linked_product_ids: set[str] = set()
     for c in components:
         article_components.setdefault(str(c.article_id), []).append(c)
+        all_linked_product_ids.add(str(c.product_id))
+
+    protein_by_key = _build_protein_by_key(articles)
 
     # 5. Achats validés sur la période
     purchases_rows = db.execute(
@@ -833,11 +884,12 @@ def get_weekly_matrix(
         (str(p.article_id), p.business_date): p for p in prep_rows
     }
 
-    # 7. Ventes journalières par produit issues de la caisse
+    # 7. Ventes journalières par produit issues de la caisse (fiches et main libre)
     sales_rows = db.execute(
         select(
             CashSession.business_date,
             OrderItem.product_id,
+            OrderItem.product_name_snapshot,
             func.sum(OrderItem.quantity),
             func.sum(OrderItem.line_total_xof),
         )
@@ -849,12 +901,34 @@ def get_weekly_matrix(
             CashSession.business_date <= date_to,
             OrderItem.removed_at.is_(None),
         )
-        .group_by(CashSession.business_date, OrderItem.product_id)
+        .group_by(
+            CashSession.business_date,
+            OrderItem.product_id,
+            OrderItem.product_name_snapshot,
+        )
     ).all()
     # (date, product_id) -> (qty_sold, revenue)
     sales_by_day_prod: dict[tuple[date, str], tuple[int, int]] = {}
-    for b_date, pid, q, rev in sales_rows:
-        sales_by_day_prod[(b_date, str(pid))] = (int(q or 0), int(rev or 0))
+    # (date, article_id) -> list of (quantity, revenue, product_name)
+    unmapped_sales_by_day_art: dict[tuple[date, str], list[tuple[int, int, str]]] = {}
+
+    for b_date, pid, name_snap, q, rev in sales_rows:
+        pid_str = str(pid) if pid else None
+        qty = int(q or 0)
+        revenue = int(rev or 0)
+        name_str = name_snap or ""
+
+        if pid_str and pid_str in all_linked_product_ids:
+            cur_q, cur_r = sales_by_day_prod.get((b_date, pid_str), (0, 0))
+            sales_by_day_prod[(b_date, pid_str)] = (cur_q + qty, cur_r + revenue)
+        else:
+            # Filet de sécurité : plats saisis en main libre ou hors catalogue contenant une protéine
+            prot_key = match_protein_keyword(name_str)
+            if prot_key and prot_key in protein_by_key:
+                target_art = protein_by_key[prot_key]
+                unmapped_sales_by_day_art.setdefault((b_date, str(target_art.id)), []).append(
+                    (qty, revenue, name_str)
+                )
 
     # 8. Assemblage des lignes de la matrice
     rows: list[WeeklyProductRow] = []
@@ -960,6 +1034,7 @@ def get_weekly_matrix(
             day_sold = 0
             day_rev = 0
 
+            # 1. Ventes issues des fiches techniques officielles
             for c in comps:
                 s_q, s_r = sales_by_day_prod.get((d, str(c.product_id)), (0, 0))
                 if s_q > 0:
@@ -972,6 +1047,19 @@ def get_weekly_matrix(
                         day_foutou_sold += s_q
                     else:
                         day_normal_sold += s_q
+
+            # 2. Filet de sécurité : Ventes libres ou hors catalogue rattachées à cette protéine
+            extra_sales = unmapped_sales_by_day_art.get((d, str(a.id)), [])
+            for e_q, e_r, e_name in extra_sales:
+                day_sold += e_q
+                day_rev += e_r
+                e_lower = (e_name or "").lower()
+                if "foufou" in e_lower:
+                    day_foufou_sold += e_q
+                elif "foutou" in e_lower:
+                    day_foutou_sold += e_q
+                else:
+                    day_normal_sold += e_q
 
             # Solution 2 : Quantité suggérée d'après les ventes réelles
             suggested_q = round(day_sold / day_yield, 2) if day_yield > 0 else 0.0

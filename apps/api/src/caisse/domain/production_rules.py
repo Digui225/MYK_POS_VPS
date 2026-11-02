@@ -41,3 +41,68 @@ def calculate_financial_impact(variance_dishes: int, dish_price_xof: int) -> int
     if dish_price_xof < 0:
         raise ValueError("Le prix du plat ne peut pas être négatif")
     return abs(variance_dishes) * dish_price_xof
+
+
+def normalize_dish_name(name: str) -> str:
+    """Normalise un nom de plat (minuscules, sans accents, sans ligature)."""
+    if not name:
+        return ""
+    import unicodedata
+
+    n = name.lower().replace("œ", "oe")
+    return (
+        unicodedata.normalize("NFKD", n)
+        .encode("ascii", "ignore")
+        .decode("ascii")
+    )
+
+
+def match_protein_keyword(name: str) -> str | None:
+    """Détecte le mot-clé de protéine dans un libellé de plat (saisie libre ou plat non répertorié).
+    Retourne la clé canonique de la protéine :
+    'POULET_PONDEUSE', 'POULET', 'BOEUF', 'MOUTON', 'SOSSO', 'FAUX_BROCHET', 'FAUX_SAUMON', 'LOSS', 'CARPE'
+    ou None si aucune protéine reconnue."""
+    import re
+
+    n = normalize_dish_name(name)
+    if not n:
+        return None
+
+    # 1. Pondeuse prioritaire sur Poulet
+    if "pondeuse" in n:
+        return "POULET_PONDEUSE"
+
+    # 2. Poulet chair (par défaut quand 'poulet' ou 'chair' ou 'chaire' est mentionné)
+    if "poulet" in n or "chair" in n:
+        return "POULET"
+
+    # 3. Faux brochet (machoiran, brochet)
+    if "brochet" in n or "machoiran" in n:
+        return "FAUX_BROCHET"
+
+    # 4. Faux saumon
+    if "saumon" in n:
+        return "FAUX_SAUMON"
+
+    # 5. Sosso
+    if "sosso" in n:
+        return "SOSSO"
+
+    # 6. Loss (\bloss\b pour éviter faux positifs)
+    if re.search(r"\bloss\b", n):
+        return "LOSS"
+
+    # 7. Mouton
+    if "mouton" in n:
+        return "MOUTON"
+
+    # 8. Bœuf / Boeuf
+    if "boeuf" in n:
+        return "BOEUF"
+
+    # 9. Carpe
+    if "carpe" in n:
+        return "CARPE"
+
+    return None
+

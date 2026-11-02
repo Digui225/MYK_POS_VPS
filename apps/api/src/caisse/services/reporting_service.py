@@ -23,6 +23,7 @@ from caisse.domain.enums import (
     StockOutMode,
 )
 from caisse.domain.money import to_unit_rate, to_xof
+from caisse.domain.production_rules import match_protein_keyword, normalize_dish_name
 from caisse.models.cash_session import CashSession
 from caisse.models.finance import BankDeposit, CashExpense
 from caisse.models.fne import FneDocument
@@ -712,29 +713,65 @@ def protein_yield_report(db: Session, date_from: date, date_to: date) -> Protein
     for c in components:
         article_components[c.article_id].append(c)
 
-    # 3. Ventes des produits associés sur la période
-    all_product_ids = [c.product_id for c in components]
+    # 3. Ventes des produits associés sur la période (fiches et main libre)
+    all_product_ids_set = {str(c.product_id) for c in components}
     product_sales: dict[str, tuple[int, int]] = {}
-    if all_product_ids:
-        rows = db.execute(
-            select(
-                OrderItem.product_id,
-                func.sum(OrderItem.quantity),
-                func.sum(OrderItem.line_total_xof),
-            )
-            .join(Order, Order.id == OrderItem.order_id)
-            .join(CashSession, Order.cash_session_id == CashSession.id)
-            .where(
-                Order.status == OrderStatus.PAID,
-                CashSession.business_date >= date_from,
-                CashSession.business_date <= date_to,
-                OrderItem.product_id.in_(all_product_ids),
-                OrderItem.removed_at.is_(None),
-            )
-            .group_by(OrderItem.product_id)
+    unmapped_sales_by_art: dict[str, tuple[int, int]] = {}
+
+    protein_by_key: dict[str, StockArticle] = {}
+    for a in articles:
+        a_norm = normalize_dish_name(a.name)
+        if "pondeuse" in a_norm:
+            protein_by_key["POULET_PONDEUSE"] = a
+        elif "poulet" in a_norm:
+            protein_by_key["POULET"] = a
+        elif "brochet" in a_norm or "machoiran" in a_norm:
+            protein_by_key["FAUX_BROCHET"] = a
+        elif "saumon" in a_norm:
+            protein_by_key["FAUX_SAUMON"] = a
+        elif "sosso" in a_norm:
+            protein_by_key["SOSSO"] = a
+        elif "loss" in a_norm:
+            protein_by_key["LOSS"] = a
+        elif "mouton" in a_norm:
+            protein_by_key["MOUTON"] = a
+        elif "boeuf" in a_norm:
+            protein_by_key["BOEUF"] = a
+        elif "carpe" in a_norm:
+            protein_by_key["CARPE"] = a
+
+    rows = db.execute(
+        select(
+            OrderItem.product_id,
+            OrderItem.product_name_snapshot,
+            func.sum(OrderItem.quantity),
+            func.sum(OrderItem.line_total_xof),
         )
-        for pid, qty, revenue in rows:
-            product_sales[str(pid)] = (int(qty or 0), int(revenue or 0))
+        .join(Order, Order.id == OrderItem.order_id)
+        .join(CashSession, Order.cash_session_id == CashSession.id)
+        .where(
+            Order.status == OrderStatus.PAID,
+            CashSession.business_date >= date_from,
+            CashSession.business_date <= date_to,
+            OrderItem.removed_at.is_(None),
+        )
+        .group_by(OrderItem.product_id, OrderItem.product_name_snapshot)
+    )
+    for pid, name_snap, qty, revenue in rows:
+        pid_str = str(pid) if pid else None
+        sold_q = int(qty or 0)
+        sold_rev = int(revenue or 0)
+        name_str = name_snap or ""
+
+        if pid_str and pid_str in all_product_ids_set:
+            cur_q, cur_r = product_sales.get(pid_str, (0, 0))
+            product_sales[pid_str] = (cur_q + sold_q, cur_r + sold_rev)
+        else:
+            prot_key = match_protein_keyword(name_str)
+            if prot_key and prot_key in protein_by_key:
+                target_art = protein_by_key[prot_key]
+                cur_q, cur_r = unmapped_sales_by_art.get(str(target_art.id), (0, 0))
+                unmapped_sales_by_art[str(target_art.id)] = (cur_q + sold_q, cur_r + sold_rev)
 
     # 4. Mouvements de stock sur la période
     article_ids = [a.id for a in articles]
@@ -779,6 +816,10 @@ def protein_yield_report(db: Session, date_from: date, date_to: date) -> Protein
             p_qty, p_rev = product_sales.get(c.product_id, (0, 0))
             sold_dishes += p_qty
             sold_revenue += p_rev
+
+        extra_q, extra_rev = unmapped_sales_by_art.get(str(a.id), (0, 0))
+        sold_dishes += extra_q
+        sold_revenue += extra_rev
 
         sale_qty = -movements.get((a.id, StockMovementType.SALE_OUT), 0.0)
         loss_qty = -movements.get((a.id, StockMovementType.LOSS_OUT), 0.0)

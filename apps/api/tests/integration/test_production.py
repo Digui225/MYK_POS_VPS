@@ -868,6 +868,124 @@ def test_delete_or_reset_daily_prep_with_zero(client: TestClient, db_session: Se
     assert prep_deleted is None
 
 
+def test_weekly_matrix_picks_up_custom_main_libre_sales(client: TestClient, db_session: Session) -> None:
+    """Vérifie que les plats saisis en main libre (Hors Menu / sans product_id)
+    contenant le nom d'une protéine (ex: 'Riz dah+ Sosso' et 'Attieke+Sosso')
+    sont automatiquement comptabilisés dans le Tableau Blanc."""
+    from datetime import date
+
+    from caisse.domain.enums import (
+        CashSessionStatus,
+        OrderStatus,
+        StockArticleCategory,
+        StockOutMode,
+    )
+    from caisse.models.cash_session import CashSession
+    from caisse.models.order import Order, OrderItem
+    from caisse.models.stock import StockArticle
+    from caisse.models.user import User
+
+    resp_login = client.post(
+        "/api/v1/auth/login",
+        json={"pin": "654321", "device_id": "pos-terminal-01"},
+    )
+    assert resp_login.status_code == 200
+    resp_token = resp_login.json()["access_token"]
+    resp_headers = {"Authorization": f"Bearer {resp_token}", "X-Device-Id": "pos-terminal-01"}
+
+    # 1. Récupérer ou créer l'article Sosso
+    sosso_art = db_session.query(StockArticle).filter(StockArticle.name == "Sosso").first()
+    if not sosso_art:
+        sosso_art = StockArticle(
+            name="Sosso",
+            category=StockArticleCategory.PROTEINE,
+            unit="pièce",
+            avg_cost_xof=Decimal("1540"),
+            quantity=Decimal("10"),
+            out_mode=StockOutMode.RECIPE,
+        )
+        db_session.add(sosso_art)
+        db_session.flush()
+
+    # 2. Utilisateur, Caisse et Session
+    from caisse.models.cash_session import CashRegister
+    user = db_session.query(User).filter(User.role == "RESPONSABLE").first()
+    register = db_session.query(CashRegister).first()
+    if not register:
+        register = CashRegister(name="Caisse Principale")
+        db_session.add(register)
+        db_session.flush()
+
+    session = CashSession(
+        cash_register_id=register.id,
+        opened_by_user_id=user.id,
+        business_date=date(2026, 11, 2),
+        status=CashSessionStatus.CLOSED,
+        opening_float_xof=10000,
+    )
+    db_session.add(session)
+    db_session.flush()
+
+    # 3. Commande encaissée avec 2 articles en main libre (product_id = None)
+    order = Order(
+        cash_session_id=session.id,
+        order_number="CMD-SOSSO-01",
+        opened_by_user_id=user.id,
+        status=OrderStatus.PAID,
+        total_ttc_xof=7500,
+        total_ht_xof=7500,
+        total_vat_xof=0,
+        paid_xof=7500,
+        due_xof=0,
+    )
+    db_session.add(order)
+    db_session.flush()
+
+    item1 = OrderItem(
+        order_id=order.id,
+        product_id=None,
+        product_name_snapshot="Riz dah+ Sosso",
+        category_snapshot="Hors Menu",
+        unit_price_xof=4500,
+        quantity=1,
+        vat_rate=0.0,
+        line_total_xof=4500,
+        added_by_user_id=user.id,
+    )
+    item2 = OrderItem(
+        order_id=order.id,
+        product_id=None,
+        product_name_snapshot="Attieke+Sosso",
+        category_snapshot="Hors Menu",
+        unit_price_xof=3000,
+        quantity=1,
+        vat_rate=0.0,
+        line_total_xof=3000,
+        added_by_user_id=user.id,
+    )
+    db_session.add_all([item1, item2])
+    db_session.commit()
+
+    # 4. Appel de la matrice hebdomadaire
+    matrix_res = client.get(
+        "/api/v1/production/weekly-matrix?date_from=2026-11-02&date_to=2026-11-06",
+        headers=resp_headers,
+    )
+    assert matrix_res.status_code == 200, matrix_res.text
+    matrix_data = matrix_res.json()
+
+    # 6. Vérifier la ligne Sosso pour le Lundi 2 Novembre
+    sosso_row = next((r for r in matrix_data["rows"] if r["article_id"] == sosso_art.id), None)
+    assert sosso_row is not None
+    lundi = next((d for d in sosso_row["days"] if d["business_date"] == "2026-11-02"), None)
+    assert lundi is not None
+
+    # Les 2 plats en main libre doivent être détectés et comptés comme 2 plats vendus !
+    assert lundi["sold_dishes"] == 2
+    assert lundi["actual_revenue_xof"] == 7500
+
+
+
 
 
 

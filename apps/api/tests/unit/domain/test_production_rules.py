@@ -61,3 +61,39 @@ def test_calculate_dish_variance_and_impact():
     var_positive = calculate_dish_variance(14, 12)
     assert var_positive == 2
     assert calculate_financial_impact(var_positive, 3000) == 0
+
+
+def test_match_protein_keyword():
+    from caisse.domain.production_rules import match_protein_keyword
+
+    # Plats réels du ticket Z
+    assert match_protein_keyword("Riz dah+ Sosso") == "SOSSO"
+    assert match_protein_keyword("Attieke+Sosso") == "SOSSO"
+    assert match_protein_keyword("Tchep+Saumon") == "FAUX_SAUMON"
+    assert match_protein_keyword("Foutou+ Faux brochet") == "FAUX_BROCHET"
+    assert match_protein_keyword("Riz graine+ Faux brochet") == "FAUX_BROCHET"
+    assert match_protein_keyword("Dah+Faux brochet") == "FAUX_BROCHET"
+    assert match_protein_keyword("Alloco + Mouton") == "MOUTON"
+    assert match_protein_keyword("Tchep+Loss") == "LOSS"
+    assert match_protein_keyword("Légumes riz + Loss") == "LOSS"
+
+    # Poulet par défaut = POULET (chair), pondeuse = POULET_PONDEUSE
+    assert match_protein_keyword("Riz graine + Poulet") == "POULET"
+    assert match_protein_keyword("Poulet chair braisé") == "POULET"
+    assert match_protein_keyword("Poulet chaire") == "POULET"
+    assert match_protein_keyword("Poulet pondeuse braisé") == "POULET_PONDEUSE"
+    assert match_protein_keyword("Pondeuse sauce graine") == "POULET_PONDEUSE"
+
+    # Boeuf avec et sans ligature
+    assert match_protein_keyword("Sauce Feuille + Boeuf") == "BOEUF"
+    assert match_protein_keyword("Sauce Feuille + Bœuf") == "BOEUF"
+
+    # Carpe
+    assert match_protein_keyword("Carpe braisée") == "CARPE"
+
+    # Boissons et accompagnements hors protéine
+    assert match_protein_keyword("Eau celeste") is None
+    assert match_protein_keyword("Riz") is None
+    assert match_protein_keyword("Expresso") is None
+    assert match_protein_keyword("") is None
+
