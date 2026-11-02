@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # Sécurité & Auth
     JWT_SECRET: str = "default_secret_key_to_be_replaced_in_env_with_at_least_64_random_characters"
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_HOURS: int = 12
     # PIN erronés consécutifs depuis un même poste (adresse IP) avant blocage de ses connexions
     PIN_MAX_FAILED_ATTEMPTS: int = 5
