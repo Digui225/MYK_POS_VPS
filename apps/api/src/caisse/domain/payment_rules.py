@@ -549,7 +549,7 @@ def format_z_report_text(
         lines.append(sep_line)
 
     # 6. Espèces & Écart
-    lines.append(center("BILAN ESPECES EN CAISSE"))
+    lines.append(center("BILAN TIROIR ESPECES"))
     lines.append(row("Fond initial", fmt_money(z_data.get("opening_float_xof", 0))))
     m_in = z_data.get("cash_movements_in_xof", 0)
     m_out = z_data.get("cash_movements_out_xof", 0)
@@ -564,6 +564,23 @@ def format_z_report_text(
     notes = z_data.get("notes")
     if notes:
         lines.append(f"Motif ecart: {notes}")
+    lines.append(sep_line)
+
+    # 6b. Réconciliation Recettes du Jour (Vision Patron / Direction)
+    lines.append(center("RECONCILIATION RECETTES (PATRON)"))
+    lines.append(row("Ventes Totales TTC", fmt_money(ttc)))
+    counted = z_data.get("counted_cash_xof", 0)
+    op_float = z_data.get("opening_float_xof", 0)
+    net_cash_sales = counted - op_float - (m_in - m_out)
+    lines.append(row("Especes nettes", fmt_money(net_cash_sales)))
+    non_cash_tot = sum(v for k, v in pm.items() if k != "CASH")
+    if non_cash_tot:
+        for k, v in pm.items():
+            if k != "CASH":
+                lines.append(row(f"+ {k}", fmt_money(v)))
+    tot_recettes = net_cash_sales + non_cash_tot
+    lines.append(row("Recettes totales", fmt_money(tot_recettes)))
+    lines.append(row("ECART NET JOURNEE", fmt_money(var)))
     lines.append(double_sep)
 
     # 7. Contrôle commandes
