@@ -998,6 +998,112 @@ def test_weekly_matrix_picks_up_custom_main_libre_sales(client: TestClient, db_s
     assert lundi["actual_revenue_xof"] == 7500
 
 
+def test_protein_analysis_uses_actual_remaining_stock_not_initial_purchase(
+    client: TestClient, db_session: Session
+) -> None:
+    """Vérifie que l'écran de contrôle des protéines utilise le vrai stock restant actuel
+    (après ventes, clôture de caisse et inventaire) et non le stock initial de la semaine passée."""
+    from caisse.domain.enums import StockArticleCategory, StockOutMode
+
+    resp_login = client.post(
+        "/api/v1/auth/login",
+        json={"pin": "654321", "device_id": "pos-terminal-01"},
+    )
+    assert resp_login.status_code == 200
+    headers = {
+        "Authorization": f"Bearer {resp_login.json()['access_token']}",
+        "X-Device-Id": "pos-terminal-01",
+    }
+
+    def _ensure_protein(name: str, unit: str, cost: int) -> StockArticle:
+        art = db_session.query(StockArticle).filter(StockArticle.name == name).first()
+        if not art:
+            art = StockArticle(
+                name=name,
+                category=StockArticleCategory.PROTEINE,
+                unit=unit,
+                out_mode=StockOutMode.RECIPE,
+                quantity=Decimal("0"),
+                avg_cost_xof=Decimal(str(cost)),
+                is_active=True,
+            )
+            db_session.add(art)
+            db_session.flush()
+        return art
+
+    brochet = _ensure_protein("Brochet", "pièce", 800)
+    saumon = _ensure_protein("Saumon", "morceau", 500)
+    poulet = _ensure_protein("Poulet", "pièce", 3000)
+    db_session.commit()
+
+    # 1. Ancien bon d'achat initial validé le vendredi précédent (2026-10-30) :
+    #    24 Brochet, 14 Saumon, 9 Poulet (stock de départ avant les ventes)
+    init_res = client.post(
+        "/api/v1/production/market-purchases",
+        headers=headers,
+        json={
+            "business_date": "2026-10-30",
+            "notes": "Stock initial vendredi",
+            "items": [
+                {"article_id": str(brochet.id), "quantity": 24.0, "unit_price_xof": 800},
+                {"article_id": str(saumon.id), "quantity": 14.0, "unit_price_xof": 500},
+                {"article_id": str(poulet.id), "quantity": 9.0, "unit_price_xof": 3000},
+            ],
+        },
+    )
+    assert init_res.status_code == 201
+    init_id = init_res.json()["id"]
+    comp_res = client.post(
+        f"/api/v1/production/market-purchases/{init_id}/complete",
+        headers=headers,
+    )
+    assert comp_res.status_code == 200
+
+    # 2. Après les ventes de lundi/mardi et inventaire de fin de journée,
+    #    le vrai stock actuel en base est tombé à : 7 Brochet, 2 Saumon, 4 Poulet
+    db_session.refresh(brochet)
+    db_session.refresh(saumon)
+    db_session.refresh(poulet)
+    brochet.quantity = Decimal("7.000")
+    saumon.quantity = Decimal("2.000")
+    poulet.quantity = Decimal("4.000")
+    db_session.commit()
+
+    # 3. Mardi 2026-11-03 : création d'un bon d'achat d'appoint demandant 15 Poulet
+    tue_res = client.post(
+        "/api/v1/production/market-purchases",
+        headers=headers,
+        json={
+            "business_date": "2026-11-03",
+            "notes": "Appoint mardi soir après clôture",
+            "items": [
+                {"article_id": str(poulet.id), "quantity": 15.0, "unit_price_xof": 3000},
+            ],
+        },
+    )
+    assert tue_res.status_code == 201
+    tue_id = tue_res.json()["id"]
+
+    # 4. Consultation de l'analyse protéines : doit prendre le VRAI stock restant (7, 2, 4)
+    #    et non l'achat initial du vendredi précédent (24, 14, 9) !
+    analysis_res = client.get(
+        f"/api/v1/production/market-purchases/{tue_id}/protein-analysis",
+        headers=headers,
+    )
+    assert analysis_res.status_code == 200
+    data = analysis_res.json()
+    assert data["week_start"] == "2026-11-02"
+    assert data["week_end"] == "2026-11-06"
+
+    by_name = {p["article_name"]: p for p in data["proteins"]}
+    assert by_name["Brochet"]["estimated_remaining_quantity"] == 7.0
+    assert by_name["Saumon"]["estimated_remaining_quantity"] == 2.0
+    assert by_name["Poulet"]["estimated_remaining_quantity"] == 4.0
+    # Besoin conseillé Poulet = 15 demandés - 4 restants réellement = 11 (et non 15 - 9 = 6)
+    assert by_name["Poulet"]["recommended_quantity"] == 11.0
+
+
+
 
 
 

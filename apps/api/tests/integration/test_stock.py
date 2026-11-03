@@ -231,3 +231,196 @@ def test_stock_idempotency_and_name_conflict(client: TestClient, db_session: Ses
     art_after = client.get(f"/api/v1/stock/articles/{art['id']}", headers=headers).json()
     assert art_after["quantity"] == 10.0
 
+
+def test_brochet_reconciliation_to_7_without_touching_saumon(
+    client: TestClient, db_session: Session
+) -> None:
+    """Vérifie que la migration 024 ramène Brochet de 21 à 7 sans altérer le stock de départ (30)
+    dans la Matrice de Contrôle ni toucher au Saumon (2), et que le filet de sécurité Brochet déstocke."""
+    import importlib.util
+    from datetime import date, datetime, timezone
+    from decimal import Decimal
+    from pathlib import Path
+    from unittest.mock import patch
+
+    from caisse.models.production import DailyPreparation
+    from caisse.models.stock import ProductComponent, StockArticle, StockMovement
+    from caisse.models.user import User
+    from caisse.services.production_service import get_weekly_matrix
+
+    resp_token = client.post(
+        "/api/v1/auth/login",
+        json={"pin": "654321", "device_id": "pos-terminal-01"},
+    ).json()["access_token"]
+    resp_headers = {"Authorization": f"Bearer {resp_token}", "X-Device-Id": "pos-terminal-01"}
+
+    caissier_token = client.post(
+        "/api/v1/auth/login",
+        json={"pin": "123456", "device_id": "pos-terminal-01"},
+    ).json()["access_token"]
+    caissier_headers = {"Authorization": f"Bearer {caissier_token}", "X-Device-Id": "pos-terminal-01"}
+
+    admin_user = db_session.query(User).first()
+    assert admin_user is not None
+
+    # 1. Créer Brochet (21 pièces après -9 de ventes sur un départ de 30) et Saumon (2 morceaux)
+    brochet = StockArticle(
+        id="art-brochet-01",
+        name="Brochet",
+        category="PROTEINE",
+        unit="pièce",
+        out_mode="RECIPE",
+        quantity=Decimal("21.000"),
+        avg_cost_xof=Decimal("800.00"),
+        is_active=True,
+    )
+    saumon = StockArticle(
+        id="art-saumon-01",
+        name="Saumon",
+        category="PROTEINE",
+        unit="morceau",
+        out_mode="RECIPE",
+        quantity=Decimal("2.000"),
+        avg_cost_xof=Decimal("500.00"),
+        is_active=True,
+    )
+    cat = Category(id="cat-sauces-bro", name="Sauces", kind="FOOD")
+    prod_unlinked = Product(
+        id="prod-sce-bro",
+        category_id="cat-sauces-bro",
+        name="Sauce Feuille + Brochet",
+        short_name="Sce Feuille+Brochet",
+        price_xof=3500,
+        is_custom=False,
+        is_active=True,
+    )
+    db_session.add_all([brochet, saumon, cat, prod_unlinked])
+    db_session.flush()
+
+    now_utc = datetime.now(timezone.utc)
+    db_session.add_all(
+        [
+            StockMovement(
+                id="mov-bro-open",
+                article_id=brochet.id,
+                type="OPENING",
+                quantity=Decimal("30.000"),
+                quantity_after=Decimal("30.000"),
+                unit_cost_xof=Decimal("800.00"),
+                business_date=date(2026, 11, 2),
+                created_at=now_utc,
+            ),
+            StockMovement(
+                id="mov-bro-sale9",
+                article_id=brochet.id,
+                type="SALE_OUT",
+                quantity=Decimal("-9.000"),
+                quantity_after=Decimal("21.000"),
+                unit_cost_xof=Decimal("800.00"),
+                business_date=date(2026, 11, 3),
+                created_at=now_utc,
+            ),
+            DailyPreparation(
+                id="prep-bro-mon",
+                business_date=date(2026, 11, 2),
+                article_id=brochet.id,
+                prepared_quantity=Decimal("12.000"),
+                yield_portions_per_unit=Decimal("1.00"),
+                theoretical_dishes=12,
+                user_id=admin_user.id,
+                notes="Auto-validé à la clôture de caisse",
+            ),
+            DailyPreparation(
+                id="prep-bro-tue",
+                business_date=date(2026, 11, 3),
+                article_id=brochet.id,
+                prepared_quantity=Decimal("11.000"),
+                yield_portions_per_unit=Decimal("1.00"),
+                theoretical_dishes=11,
+                user_id=admin_user.id,
+                notes="Auto-validé à la clôture de caisse",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    # 2. Exécuter la migration 024 sur la connexion active
+    mig_path = (
+        Path(__file__).resolve().parents[2]
+        / "alembic"
+        / "versions"
+        / "024_fix_brochet_stock.py"
+    )
+    spec = importlib.util.spec_from_file_location("mig_024", mig_path)
+    assert spec and spec.loader
+    mig_024 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mig_024)
+
+    conn = db_session.connection()
+    with patch.object(mig_024.op, "get_bind", return_value=conn), patch.object(
+        mig_024.op,
+        "bulk_insert",
+        side_effect=lambda tbl, rows: conn.execute(tbl.insert(), rows) if rows else None,
+    ):
+        mig_024.upgrade()
+        # Vérifier l'idempotence (un 2e passage ne déduit rien de plus)
+        mig_024.upgrade()
+    db_session.commit()
+    db_session.expire_all()
+
+    # 3. Vérifications : Brochet est passé à 7, Saumon reste intact à 2, fiche recette créée
+    brochet_out = client.get(f"/api/v1/stock/articles/{brochet.id}", headers=resp_headers).json()
+    saumon_out = client.get(f"/api/v1/stock/articles/{saumon.id}", headers=resp_headers).json()
+    assert brochet_out["quantity"] == 7.0
+    assert saumon_out["quantity"] == 2.0
+
+    linked_comp = (
+        db_session.query(ProductComponent)
+        .filter(
+            ProductComponent.product_id == prod_unlinked.id,
+            ProductComponent.article_id == brochet.id,
+        )
+        .first()
+    )
+    assert linked_comp is not None
+    assert float(linked_comp.quantity) == 1.0
+
+    # La Matrice de Contrôle conserve bien 30 au départ et 7 restant mercredi
+    matrix = get_weekly_matrix(db_session, date(2026, 11, 2), date(2026, 11, 6))
+    brochet_matrix_row = [r for r in matrix.rows if r.article_id == brochet.id][0]
+    assert brochet_matrix_row.opening_stock_qty == 30.0
+    assert brochet_matrix_row.days[2].remaining_quantity == 7.0
+
+    # 4. Vérifier qu'une vente future en Plat libre Brochet décrémente Brochet (7 -> 6) sans toucher Saumon
+    client.post(
+        "/api/v1/cash-sessions",
+        headers={**caissier_headers, "Idempotency-Key": "sess-bro-024"},
+        json={"cash_register_id": "reg-01", "opening_float_xof": 5000, "business_date": "2026-11-04"},
+    )
+    order_res = client.post(
+        "/api/v1/orders",
+        headers=caissier_headers,
+        json={"table_id": "tbl-01", "guests_count": 1},
+    )
+    oid = order_res.json()["id"]
+    client.post(
+        f"/api/v1/orders/{oid}/items",
+        headers=caissier_headers,
+        json={"custom_name": "Foufou brochet", "unit_price_xof": 3500, "quantity": 1},
+    )
+    client.post(
+        f"/api/v1/orders/{oid}/items",
+        headers=caissier_headers,
+        json={"custom_name": "Foutou saumon", "unit_price_xof": 3500, "quantity": 1},
+    )
+    pay_res = client.post(
+        f"/api/v1/orders/{oid}/payments",
+        headers={**caissier_headers, "Idempotency-Key": f"pay-bro-{oid}"},
+        json={"method": "CASH", "amount_xof": 7000, "tendered_xof": 7000},
+    )
+    assert pay_res.status_code == 201
+
+    assert client.get(f"/api/v1/stock/articles/{brochet.id}", headers=resp_headers).json()["quantity"] == 6.0
+    assert client.get(f"/api/v1/stock/articles/{saumon.id}", headers=resp_headers).json()["quantity"] == 2.0
+
+

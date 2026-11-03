@@ -301,20 +301,25 @@ def get_market_purchase_protein_analysis(
             status_code=status.HTTP_404_NOT_FOUND,
         )
 
-    # 1. Période de référence : Clôture du Vendredi soir (Semaine ouvrée Lundi - Vendredi)
+    # 1. Période de référence de la matrice d'activité (Semaine ouvrée Lundi - Vendredi)
     b_date = purchase.business_date
-    if b_date.weekday() < 4:
-        # Si le bon est préparé/daté en tout début de semaine suivante, référence = semaine écoulée
-        prev_monday = (b_date - timedelta(days=b_date.weekday())) - timedelta(days=7)
-        week_start = prev_monday
-        week_end = prev_monday + timedelta(days=4)
-    else:
-        # Semaine en cours clôturée ce vendredi soir
-        week_start = b_date - timedelta(days=b_date.weekday())
-        week_end = week_start + timedelta(days=4)
+    cur_monday = b_date - timedelta(days=b_date.weekday())
+    cur_friday = cur_monday + timedelta(days=4)
+    matrix = get_weekly_matrix(db, cur_monday, cur_friday)
 
-    # 2. Matrice hebdomadaire de la période (Lundi au Vendredi soir)
-    matrix = get_weekly_matrix(db, week_start, week_end)
+    has_current_week_activity = any(
+        (p.total_sold_dishes > 0 or p.total_prepared_qty > 0 or p.weekly_purchased_qty > 0)
+        for p in matrix.rows
+    )
+    if b_date.weekday() == 0 and not has_current_week_activity:
+        # Bon préparé le lundi matin avant l'activité de la semaine : vue sur la semaine écoulée
+        week_start = cur_monday - timedelta(days=7)
+        week_end = week_start + timedelta(days=4)
+        matrix = get_weekly_matrix(db, week_start, week_end)
+    else:
+        week_start = cur_monday
+        week_end = cur_friday
+
     matrix_products_map = {p.article_id: p for p in matrix.rows}
 
     # 3. Récupération des 9 protéines en base
@@ -345,13 +350,9 @@ def get_market_purchase_protein_analysis(
         weekly_prepared = m_prod.total_prepared_qty if m_prod else 0.0
         weekly_sold_dishes = m_prod.total_sold_dishes if m_prod else 0
 
-        # Stock théorique calculé par la Matrice de contrôle (Achats semaine - Sorties cuisine)
-        # S'il n'y a pas eu d'achats enregistrés cette semaine, repli sur le stock physique
-        theo_remaining = max(0.0, round(weekly_purchased - weekly_prepared, 2))
-        if weekly_purchased > 0:
-            estimated_remaining = theo_remaining
-        else:
-            estimated_remaining = max(0.0, round(current_stock, 2))
+        # Stock réel restant actuellement en cuisine/réserve (intègre ventes encaissées,
+        # clôture de caisse, pertes et inventaires contradictoires — jamais le stock initial)
+        estimated_remaining = max(0.0, round(current_stock, 2))
 
 
         # Quantité conseillée : Demande - Reste en cuisine (au minimum 0)

@@ -504,16 +504,44 @@ def _sale_balance(
     return balance
 
 
+def _find_brochet_article(db: Session) -> StockArticle | None:
+    """Retourne l'article de stock Brochet (catégorie PROTEINE) pour le filet de sécurité."""
+    from caisse.domain.enums import StockArticleCategory
+    from caisse.domain.production_rules import normalize_dish_name
+
+    for art in stock_repo.list_articles(db, category=StockArticleCategory.PROTEINE, is_active=True):
+        a_norm = normalize_dish_name(art.name)
+        if "brochet" in a_norm or "machoiran" in a_norm:
+            return art
+    return None
+
+
 def apply_sale(db: Session, order: Order, user_id: str) -> list[ApiWarning]:
     """Commande soldée : chaque ligne déstocke les articles de sa fiche technique, au coût
     moyen du moment. Sans effet si la vente est déjà déstockée. Retourne un avertissement
     par article passé sous zéro (la vente n'est jamais bloquée)."""
+    from caisse.domain.production_rules import match_protein_keyword
+
     balance = _sale_balance(stock_repo.sale_movements(db, str(order.id)))
     if any(net != 0 for net, _ in balance.values()):
         return []
     items = orders_repo.active_items(db, str(order.id))
-    recipes = stock_repo.components_by_product(db, [str(item.product_id) for item in items])
+    product_ids = [str(item.product_id) for item in items if item.product_id]
+    recipes = stock_repo.components_by_product(db, product_ids)
     article_ids = [str(article.id) for recipe in recipes.values() for _, article in recipe]
+
+    # Filet de sécurité Brochet : plats libres ou non rattachés contenant Brochet
+    brochet_fallback_article: StockArticle | None = None
+    unmapped_brochet_item_ids: set[str] = set()
+    for item in items:
+        item_recipe = recipes.get(str(item.product_id), []) if item.product_id else []
+        if not item_recipe and match_protein_keyword(item.product_name_snapshot or "") == "FAUX_BROCHET":
+            if brochet_fallback_article is None:
+                brochet_fallback_article = _find_brochet_article(db)
+            if brochet_fallback_article is not None:
+                unmapped_brochet_item_ids.add(str(item.id))
+                article_ids.append(str(brochet_fallback_article.id))
+
     if not article_ids:
         return []
     articles = stock_repo.lock_articles(db, article_ids)
@@ -527,13 +555,28 @@ def apply_sale(db: Session, order: Order, user_id: str) -> list[ApiWarning]:
             order_date = business_day(db)
 
     for item in items:
-        for per_portion, recipe_article in recipes.get(str(item.product_id), []):
-            article = articles[str(recipe_article.id)]
+        item_recipe = recipes.get(str(item.product_id), []) if item.product_id else []
+        if item_recipe:
+            for per_portion, recipe_article in item_recipe:
+                article = articles[str(recipe_article.id)]
+                move(
+                    db,
+                    article,
+                    StockMovementType.SALE_OUT,
+                    -(per_portion * Decimal(item.quantity)),
+                    unit_cost=article.avg_cost_xof,
+                    business_date=order_date,
+                    user_id=str(user_id),
+                    order_id=str(order.id),
+                    order_item_id=str(item.id),
+                )
+        elif str(item.id) in unmapped_brochet_item_ids and brochet_fallback_article is not None:
+            article = articles[str(brochet_fallback_article.id)]
             move(
                 db,
                 article,
                 StockMovementType.SALE_OUT,
-                -(per_portion * Decimal(item.quantity)),
+                -(Decimal("1.000") * Decimal(item.quantity)),
                 unit_cost=article.avg_cost_xof,
                 business_date=order_date,
                 user_id=str(user_id),
