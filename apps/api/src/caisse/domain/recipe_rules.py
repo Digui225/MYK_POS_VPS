@@ -10,8 +10,11 @@ PROTEIN_PORTIONS: dict[str, Decimal] = {
     "Poulet pondeuse": Decimal("0.250"),
     "Sosso": Decimal("1.000"),
     "Carpe": Decimal("1.000"),
-    "Faux brochet": Decimal("1.000"),
+    "Brochet": Decimal("1.000"),
     "Loss": Decimal("1.000"),
+    "Saumon": Decimal("1.000"),
+    # Rétrocompatibilité
+    "Faux brochet": Decimal("1.000"),
     "Faux saumon": Decimal("1.000"),
 }
 
@@ -53,11 +56,11 @@ def match_protein_for_product(product_name: str) -> tuple[str, Decimal] | None:
     if "poisson" in norm and ("braisé" in norm or "braise" in norm):
         return ("Carpe", PROTEIN_PORTIONS["Carpe"])
     if "brochet" in norm:
-        return ("Faux brochet", PROTEIN_PORTIONS["Faux brochet"])
+        return ("Brochet", PROTEIN_PORTIONS["Brochet"])
     if "loss" in norm:
         return ("Loss", PROTEIN_PORTIONS["Loss"])
     if "saumon" in norm:
-        return ("Faux saumon", PROTEIN_PORTIONS["Faux saumon"])
+        return ("Saumon", PROTEIN_PORTIONS["Saumon"])
 
     return None
 

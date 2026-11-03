@@ -60,28 +60,30 @@ def seed_weekly_flow(db: Session, monday_date: date | None = None) -> dict[str, 
     art_poulet = articles_map.get("Poulet")
     art_mouton = articles_map.get("Mouton")
     art_sosso = articles_map.get("Sosso")
-    art_brochet = articles_map.get("Faux brochet")
+    art_brochet = articles_map.get("Brochet") or articles_map.get("Faux brochet")
 
     assert art_boeuf and art_poulet and art_mouton and art_sosso and art_brochet, (
-        "Articles de protéines requis introuvables en base (Bœuf, Poulet, Mouton, Sosso, Faux brochet)."
+        "Articles de protéines requis introuvables en base (Bœuf, Poulet, Mouton, Sosso, Brochet)."
     )
 
     # 4. Récupération des plats réels de caisse associés
-    def get_prod(name: str) -> Product:
+    def get_prod(name: str, alt_name: str | None = None) -> Product:
         p = db.query(Product).filter(Product.name == name).first()
+        if not p and alt_name:
+            p = db.query(Product).filter(Product.name == alt_name).first()
         if not p:
             raise ValueError(f"Produit '{name}' introuvable dans le menu.")
         return p
 
-    p_plat_boeuf = get_prod("Plat bœuf")
-    p_foufou_boeuf = get_prod("Foufou/foutou bœuf")
+    p_plat_boeuf = get_prod("Plat bœuf", "Plat boeuf")
+    p_foufou_boeuf = get_prod("Foufou/foutou bœuf", "Foufou/foutou boeuf")
     p_plat_poulet = get_prod("Plat poulet")
     p_foufou_poulet = get_prod("Foufou/foutou poulet")
     p_plat_mouton = get_prod("Plat mouton")
     p_foufou_mouton = get_prod("Foufou/foutou mouton")
     p_sosso = get_prod("Sosso 3500")
-    p_plat_brochet = get_prod("Plat faux brochet")
-    p_foufou_brochet = get_prod("Foufou/foutou faux brochet")
+    p_plat_brochet = get_prod("Plat brochet", "Plat faux brochet")
+    p_foufou_brochet = get_prod("Foufou/foutou brochet", "Foufou/foutou faux brochet")
 
     # 5. Création du Bon d'Achat Marché Économe (Vendredi 16h, <= 300 000 XOF)
     # 20 kg Boeuf (80 000) + 25 Poulet (75 000) + 12 kg Mouton (66 000) + 30 Sosso (46 200) + 30 Brochet (24 000) = 291 200 XOF

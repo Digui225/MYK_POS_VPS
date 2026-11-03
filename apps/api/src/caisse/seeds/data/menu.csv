@@ -3,14 +3,14 @@ Viandes,Plat mouton,Plat mouton,4000,non,VIANDES,
 Viandes,Plat bœuf,Plat boeuf,3000,non,VIANDES,
 Viandes,Plat poulet,Plat poulet,3000,non,VIANDES,
 Viandes,Kedjenou,Kedjenou,3000,non,VIANDES,aucune vente depuis août 2026
-Poissons,Plat faux brochet,Plat faux brochet,3500,non,POISSONS,
+Poissons,Plat brochet,Plat brochet,3500,non,POISSONS,
 Poissons,Sosso 3000,Sosso 3000,3000,non,POISSONS,variante par taille (Excel 13/10)
 Poissons,Sosso 3500,Sosso 3500,3500,non,POISSONS,variante par taille (Excel 13/10)
 Poissons,Sosso 4000,Sosso 4000,4000,non,POISSONS,variante par taille (Excel 13/10)
 Poissons,Sosso 4500,Sosso 4500,4500,non,POISSONS,variante par taille (Excel 13/10)
 Poissons,Sosso 5000,Sosso 5000,5000,non,POISSONS,variante par taille (Excel 13/10)
 Poissons,Sosso 5500,Sosso 5500,5500,non,POISSONS,variante par taille (Excel 13/10)
-Poissons,Faux saumon,Faux saumon,3000,non,POISSONS,
+Poissons,Saumon,Saumon,3000,non,POISSONS,
 Poissons,Carpe 4000,Carpe 4000,4000,non,POISSONS,aucune vente depuis juin 2026
 Poissons,Carpe 5000,Carpe 5000,5000,non,POISSONS,aucune vente depuis juin 2026
 Poissons,Loss 3000,Loss 3000,3000,non,POISSONS,aucune vente depuis août 2026
@@ -19,7 +19,7 @@ Poissons,Loss 4000,Loss 4000,4000,non,POISSONS,aucune vente depuis août 2026
 Foufou / foutou,Foufou/foutou mouton,Foufou mouton,4000,non,PLATS,
 Foufou / foutou,Foufou/foutou bœuf,Foufou boeuf,3500,non,PLATS,
 Foufou / foutou,Foufou/foutou poulet,Foufou poulet,3500,non,PLATS,
-Foufou / foutou,Foufou/foutou faux brochet,Foufou faux brochet,3500,non,PLATS,
+Foufou / foutou,Foufou/foutou brochet,Foufou brochet,3500,non,PLATS,
 Foufou / foutou,Complément foufou/foutou,Complement foufou,1000,non,PLATS,
 Accompagnements,Alloco,Alloco,1000,non,PLATS,Excel : ligne unique ALLOCO/ATTIEKE/igname
 Accompagnements,Attiéké,Attieke,1000,non,PLATS,Excel : ligne unique ALLOCO/ATTIEKE/igname

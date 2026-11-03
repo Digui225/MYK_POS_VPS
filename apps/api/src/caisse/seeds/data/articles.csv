@@ -3,9 +3,9 @@ PROTEINE,Mouton,kg,5500,FICHE,8,,
 PROTEINE,Bœuf,kg,4000,FICHE,0,,fournisseur M. Yapi (4 000 F/kg)
 PROTEINE,Poulet,pièce,3000,FICHE,1.5,,
 PROTEINE,Poulet pondeuse,pièce,4000,FICHE,0,,
-PROTEINE,Faux brochet,pièce,800,FICHE,22,,
+PROTEINE,Brochet,pièce,800,FICHE,22,,
 PROTEINE,Sosso,pièce,1540,FICHE,8,,
-PROTEINE,Faux saumon,morceau,500,FICHE,1,oui,"acheté entier à 2 500 F jusqu'en août, au morceau depuis"
+PROTEINE,Saumon,morceau,500,FICHE,1,oui,"acheté entier à 2 500 F jusqu'en août, au morceau depuis"
 PROTEINE,Carpe,pièce,960,FICHE,0,,
 PROTEINE,Loss,pièce,556,FICHE,0.5,oui,"0,5 poisson par plat observé"
 BOISSON,"Eau Celeste 0,5 L",bouteille,111.11,FICHE,7,,
