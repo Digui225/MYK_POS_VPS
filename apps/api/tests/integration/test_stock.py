@@ -421,6 +421,189 @@ def test_brochet_reconciliation_to_7_without_touching_saumon(
     assert pay_res.status_code == 201
 
     assert client.get(f"/api/v1/stock/articles/{brochet.id}", headers=resp_headers).json()["quantity"] == 6.0
-    assert client.get(f"/api/v1/stock/articles/{saumon.id}", headers=resp_headers).json()["quantity"] == 2.0
+    assert client.get(f"/api/v1/stock/articles/{saumon.id}", headers=resp_headers).json()["quantity"] == 1.0
+
+
+def test_sync_all_proteins_migration_025_and_freehand_sales(
+    client: TestClient, db_session: Session
+) -> None:
+    """Vérifie que la migration 025 aligne toutes les protéines (Brochet 13->7, Bœuf 7.2->7,
+    Loss 15->13, Sosso 14->12, Mouton 5.424->5.43, Poulet 0.25) sur la Matrice sans toucher
+    Saumon (2), et que les ventes Hors Menu futures déstockent bien les 9 protéines."""
+    import importlib.util
+    from datetime import date, datetime, timezone
+    from decimal import Decimal
+    from pathlib import Path
+    from unittest.mock import patch
+
+    from caisse.models.production import DailyPreparation, MarketPurchaseItem, MarketPurchaseList
+    from caisse.models.stock import StockArticle, StockMovement
+    from caisse.models.user import User
+    from caisse.services.production_service import (
+        get_market_purchase_protein_analysis,
+        get_weekly_matrix,
+    )
+
+    resp_token = client.post(
+        "/api/v1/auth/login",
+        json={"pin": "654321", "device_id": "pos-terminal-01"},
+    ).json()["access_token"]
+    resp_headers = {"Authorization": f"Bearer {resp_token}", "X-Device-Id": "pos-terminal-01"}
+
+    caissier_token = client.post(
+        "/api/v1/auth/login",
+        json={"pin": "123456", "device_id": "pos-terminal-01"},
+    ).json()["access_token"]
+    caissier_headers = {"Authorization": f"Bearer {caissier_token}", "X-Device-Id": "pos-terminal-01"}
+
+    admin_user = db_session.query(User).first()
+    assert admin_user is not None
+    now_utc = datetime.now(timezone.utc)
+
+    # 1. État réel observé en production avant 025 :
+    #    - Brochet : stock 13, mouvements net -17 -> départ 30, sortis 23 -> cible 7
+    #    - Bœuf    : stock 7.2, mouvements net +3.8 (+10 achat - 6.2 ventes) -> départ 3.4 + 10 = 13.4, sortis 6.4 -> cible 7
+    #    - Loss    : stock 15, mouvements net -3 -> départ 18, sortis 5 -> cible 13
+    #    - Mouton  : stock 5.424, mouvements net -4.576 -> départ 10, sortis 4.57 -> cible 5.43
+    #    - Poulet  : stock 0.25, mouvements net -11.75 -> départ 12, sortis 11.75 -> cible 0.25
+    #    - Saumon  : stock 2.0, mouvements net -18 (-11 ventes - 7 inventaire) -> départ 20, sortis 10 -> DOIT RESTER 2.0
+    #    - Sosso   : stock 14, mouvements net +1 (+5 achat - 4 ventes) -> départ 13 + 5 = 18, sortis 6 -> cible 12
+    articles = [
+        StockArticle(id="p025-brochet", name="Brochet", category="PROTEINE", unit="pièce", out_mode="RECIPE", quantity=Decimal("13.000"), avg_cost_xof=Decimal("800.00"), is_active=True),
+        StockArticle(id="p025-boeuf", name="Bœuf", category="PROTEINE", unit="kg", out_mode="RECIPE", quantity=Decimal("7.200"), avg_cost_xof=Decimal("4000.00"), is_active=True),
+        StockArticle(id="p025-loss", name="Loss", category="PROTEINE", unit="pièce", out_mode="RECIPE", quantity=Decimal("15.000"), avg_cost_xof=Decimal("556.00"), is_active=True),
+        StockArticle(id="p025-mouton", name="Mouton", category="PROTEINE", unit="kg", out_mode="RECIPE", quantity=Decimal("5.424"), avg_cost_xof=Decimal("6000.00"), is_active=True),
+        StockArticle(id="p025-poulet", name="Poulet", category="PROTEINE", unit="pièce", out_mode="RECIPE", quantity=Decimal("0.250"), avg_cost_xof=Decimal("3000.00"), is_active=True),
+        StockArticle(id="p025-saumon", name="Saumon", category="PROTEINE", unit="morceau", out_mode="RECIPE", quantity=Decimal("2.000"), avg_cost_xof=Decimal("500.00"), is_active=True),
+        StockArticle(id="p025-sosso", name="Sosso", category="PROTEINE", unit="pièce", out_mode="RECIPE", quantity=Decimal("14.000"), avg_cost_xof=Decimal("1540.00"), is_active=True),
+    ]
+    db_session.add_all(articles)
+    db_session.flush()
+
+    mp = MarketPurchaseList(
+        id="mp-025-completed",
+        business_date=date(2026, 11, 2),
+        total_budget_xof=47700,
+        status="COMPLETED",
+        created_by_user_id=admin_user.id,
+        validated_by_user_id=admin_user.id,
+    )
+    mp_draft = MarketPurchaseList(
+        id="mp-025-draft",
+        business_date=date(2026, 11, 3),
+        total_budget_xof=45000,
+        status="DRAFT",
+        created_by_user_id=admin_user.id,
+    )
+    db_session.add_all([mp, mp_draft])
+    db_session.flush()
+
+    db_session.add_all(
+        [
+            MarketPurchaseItem(id="mpi-boeuf", purchase_list_id=mp.id, article_id="p025-boeuf", quantity=Decimal("10.000"), unit_price_xof=4000, total_price_xof=40000),
+            MarketPurchaseItem(id="mpi-sosso", purchase_list_id=mp.id, article_id="p025-sosso", quantity=Decimal("5.000"), unit_price_xof=1540, total_price_xof=7700),
+            MarketPurchaseItem(id="mpi-draft-poulet", purchase_list_id=mp_draft.id, article_id="p025-poulet", quantity=Decimal("15.000"), unit_price_xof=3000, total_price_xof=45000),
+            StockMovement(id="m025-bro", article_id="p025-brochet", type="SALE_OUT", quantity=Decimal("-17.000"), quantity_after=Decimal("13.000"), unit_cost_xof=Decimal("800"), business_date=date(2026, 11, 3), created_at=now_utc),
+            StockMovement(id="m025-boeuf-in", article_id="p025-boeuf", type="PURCHASE_IN", quantity=Decimal("10.000"), quantity_after=Decimal("13.400"), unit_cost_xof=Decimal("4000"), business_date=date(2026, 11, 2), created_at=now_utc),
+            StockMovement(id="m025-boeuf-out", article_id="p025-boeuf", type="SALE_OUT", quantity=Decimal("-6.200"), quantity_after=Decimal("7.200"), unit_cost_xof=Decimal("4000"), business_date=date(2026, 11, 3), created_at=now_utc),
+            StockMovement(id="m025-loss", article_id="p025-loss", type="SALE_OUT", quantity=Decimal("-3.000"), quantity_after=Decimal("15.000"), unit_cost_xof=Decimal("556"), business_date=date(2026, 11, 3), created_at=now_utc),
+            StockMovement(id="m025-mouton", article_id="p025-mouton", type="SALE_OUT", quantity=Decimal("-4.576"), quantity_after=Decimal("5.424"), unit_cost_xof=Decimal("6000"), business_date=date(2026, 11, 3), created_at=now_utc),
+            StockMovement(id="m025-poulet", article_id="p025-poulet", type="SALE_OUT", quantity=Decimal("-11.750"), quantity_after=Decimal("0.250"), unit_cost_xof=Decimal("3000"), business_date=date(2026, 11, 3), created_at=now_utc),
+            StockMovement(id="m025-saumon-inv", article_id="p025-saumon", type="INVENTORY_COUNT", quantity=Decimal("-18.000"), quantity_after=Decimal("2.000"), unit_cost_xof=Decimal("500"), business_date=date(2026, 11, 2), created_at=now_utc),
+            StockMovement(id="m025-sosso-in", article_id="p025-sosso", type="PURCHASE_IN", quantity=Decimal("5.000"), quantity_after=Decimal("18.000"), unit_cost_xof=Decimal("1540"), business_date=date(2026, 11, 2), created_at=now_utc),
+            StockMovement(id="m025-sosso-out", article_id="p025-sosso", type="SALE_OUT", quantity=Decimal("-4.000"), quantity_after=Decimal("14.000"), unit_cost_xof=Decimal("1540"), business_date=date(2026, 11, 3), created_at=now_utc),
+            DailyPreparation(id="dp025-bro", business_date=date(2026, 11, 2), article_id="p025-brochet", prepared_quantity=Decimal("23.000"), yield_portions_per_unit=Decimal("1.00"), theoretical_dishes=23, user_id=admin_user.id, notes="Auto-validé à la clôture de caisse"),
+            DailyPreparation(id="dp025-boeuf", business_date=date(2026, 11, 2), article_id="p025-boeuf", prepared_quantity=Decimal("6.400"), yield_portions_per_unit=Decimal("5.00"), theoretical_dishes=32, user_id=admin_user.id, notes="Auto-validé à la clôture de caisse"),
+            DailyPreparation(id="dp025-loss", business_date=date(2026, 11, 2), article_id="p025-loss", prepared_quantity=Decimal("5.000"), yield_portions_per_unit=Decimal("1.00"), theoretical_dishes=5, user_id=admin_user.id, notes="Auto-validé à la clôture de caisse"),
+            DailyPreparation(id="dp025-mouton", business_date=date(2026, 11, 2), article_id="p025-mouton", prepared_quantity=Decimal("4.570"), yield_portions_per_unit=Decimal("3.50"), theoretical_dishes=16, user_id=admin_user.id, notes="Auto-validé à la clôture de caisse"),
+            DailyPreparation(id="dp025-poulet", business_date=date(2026, 11, 2), article_id="p025-poulet", prepared_quantity=Decimal("11.750"), yield_portions_per_unit=Decimal("4.00"), theoretical_dishes=47, user_id=admin_user.id, notes="Auto-validé à la clôture de caisse"),
+            DailyPreparation(id="dp025-saumon", business_date=date(2026, 11, 2), article_id="p025-saumon", prepared_quantity=Decimal("10.000"), yield_portions_per_unit=Decimal("1.00"), theoretical_dishes=10, user_id=admin_user.id, notes="Auto-validé à la clôture de caisse"),
+            DailyPreparation(id="dp025-sosso", business_date=date(2026, 11, 2), article_id="p025-sosso", prepared_quantity=Decimal("6.000"), yield_portions_per_unit=Decimal("1.00"), theoretical_dishes=6, user_id=admin_user.id, notes="Auto-validé à la clôture de caisse"),
+        ]
+    )
+    db_session.commit()
+
+    # 2. Exécuter la migration 025 (et vérifier qu'un 2e passage est idempotent)
+    mig_path = (
+        Path(__file__).resolve().parents[2]
+        / "alembic"
+        / "versions"
+        / "025_sync_protein_stock.py"
+    )
+    spec = importlib.util.spec_from_file_location("mig_025", mig_path)
+    assert spec and spec.loader
+    mig_025 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mig_025)
+
+    conn = db_session.connection()
+    with patch.object(mig_025.op, "get_bind", return_value=conn), patch.object(
+        mig_025.op,
+        "bulk_insert",
+        side_effect=lambda tbl, rows: conn.execute(tbl.insert(), rows) if rows else None,
+    ):
+        mig_025.upgrade()
+        mig_025.upgrade()
+    db_session.commit()
+    db_session.expire_all()
+
+    # 3. Vérifier l'alignement exact entre Bon d'achat, Stock et Matrice (Saumon restant à 2)
+    analysis = get_market_purchase_protein_analysis(db_session, mp_draft.id)
+    by_name = {p.article_name: p for p in analysis.proteins}
+    assert by_name["Brochet"].estimated_remaining_quantity == 7.0
+    assert by_name["Bœuf"].estimated_remaining_quantity == 7.0
+    assert by_name["Loss"].estimated_remaining_quantity == 13.0
+    assert by_name["Mouton"].estimated_remaining_quantity == 5.43
+    assert by_name["Poulet"].estimated_remaining_quantity == 0.25
+    assert by_name["Poulet"].recommended_quantity == 14.75
+    assert by_name["Saumon"].estimated_remaining_quantity == 2.0
+    assert by_name["Sosso"].estimated_remaining_quantity == 12.0
+
+    matrix = get_weekly_matrix(db_session, date(2026, 11, 2), date(2026, 11, 6))
+    m_by_name = {r.article_name: r for r in matrix.rows}
+    assert m_by_name["Brochet"].total_available_qty == 30.0
+    assert m_by_name["Bœuf"].total_available_qty == 13.4
+    assert m_by_name["Loss"].total_available_qty == 18.0
+    assert m_by_name["Mouton"].total_available_qty == 10.0
+    assert m_by_name["Poulet"].total_available_qty == 12.0
+    assert m_by_name["Sosso"].total_available_qty == 18.0
+
+    # 4. Vérifier que les ventes futures en saisie libre (« Hors Menu ») déstockent bien Sosso, Loss et Bœuf
+    client.post(
+        "/api/v1/cash-sessions",
+        headers={**caissier_headers, "Idempotency-Key": "sess-025"},
+        json={"cash_register_id": "reg-01", "opening_float_xof": 5000, "business_date": "2026-11-04"},
+    )
+    order_res = client.post(
+        "/api/v1/orders",
+        headers=caissier_headers,
+        json={"table_id": "tbl-01", "guests_count": 3},
+    )
+    oid = order_res.json()["id"]
+    client.post(
+        f"/api/v1/orders/{oid}/items",
+        headers=caissier_headers,
+        json={"custom_name": "Riz dah+ Sosso", "unit_price_xof": 4000, "quantity": 1},
+    )
+    client.post(
+        f"/api/v1/orders/{oid}/items",
+        headers=caissier_headers,
+        json={"custom_name": "Attiéké + Loss", "unit_price_xof": 3500, "quantity": 1},
+    )
+    client.post(
+        f"/api/v1/orders/{oid}/items",
+        headers=caissier_headers,
+        json={"custom_name": "Placali + Boeuf", "unit_price_xof": 3000, "quantity": 1},
+    )
+    pay_res = client.post(
+        f"/api/v1/orders/{oid}/payments",
+        headers={**caissier_headers, "Idempotency-Key": f"pay-025-{oid}"},
+        json={"method": "CASH", "amount_xof": 10500, "tendered_xof": 10500},
+    )
+    assert pay_res.status_code == 201
+
+    assert client.get("/api/v1/stock/articles/p025-sosso", headers=resp_headers).json()["quantity"] == 11.0
+    assert client.get("/api/v1/stock/articles/p025-loss", headers=resp_headers).json()["quantity"] == 12.0
+    assert client.get("/api/v1/stock/articles/p025-boeuf", headers=resp_headers).json()["quantity"] == 6.8
+
 
 

@@ -504,22 +504,80 @@ def _sale_balance(
     return balance
 
 
-def _find_brochet_article(db: Session) -> StockArticle | None:
-    """Retourne l'article de stock Brochet (catégorie PROTEINE) pour le filet de sécurité."""
+_DEFAULT_PROTEIN_PORTION: dict[str, Decimal] = {
+    "BOEUF": Decimal("0.200"),
+    "MOUTON": Decimal("0.286"),
+    "POULET": Decimal("0.250"),
+    "POULET_PONDEUSE": Decimal("0.250"),
+    "FAUX_BROCHET": Decimal("1.000"),
+    "FAUX_SAUMON": Decimal("1.000"),
+    "SOSSO": Decimal("1.000"),
+    "LOSS": Decimal("1.000"),
+    "CARPE": Decimal("1.000"),
+}
+
+
+def _build_protein_fallback_map(
+    db: Session,
+) -> dict[str, tuple[StockArticle, Decimal]]:
+    """Associe chaque clé canonique des 9 protéines à son article de stock actif et à sa
+    portion standard (issue d'une fiche technique existante ou du barème par défaut)."""
     from caisse.domain.enums import StockArticleCategory
     from caisse.domain.production_rules import normalize_dish_name
 
-    for art in stock_repo.list_articles(db, category=StockArticleCategory.PROTEINE, is_active=True):
+    protein_articles = stock_repo.list_articles(
+        db, category=StockArticleCategory.PROTEINE, is_active=True
+    )
+    if not protein_articles:
+        return {}
+
+    art_ids = [str(a.id) for a in protein_articles]
+    comp_rows = (
+        db.query(ProductComponent)
+        .filter(ProductComponent.article_id.in_(art_ids))
+        .all()
+    )
+    portion_by_article: dict[str, Decimal] = {}
+    for c in comp_rows:
+        aid = str(c.article_id)
+        if aid not in portion_by_article and c.quantity and c.quantity > Decimal(0):
+            portion_by_article[aid] = Decimal(str(c.quantity))
+
+    result: dict[str, tuple[StockArticle, Decimal]] = {}
+    for art in protein_articles:
         a_norm = normalize_dish_name(art.name)
-        if "brochet" in a_norm or "machoiran" in a_norm:
-            return art
-    return None
+        key: str | None = None
+        if "pondeuse" in a_norm:
+            key = "POULET_PONDEUSE"
+        elif "poulet" in a_norm:
+            key = "POULET"
+        elif "brochet" in a_norm or "machoiran" in a_norm:
+            key = "FAUX_BROCHET"
+        elif "saumon" in a_norm:
+            key = "FAUX_SAUMON"
+        elif "sosso" in a_norm:
+            key = "SOSSO"
+        elif "loss" in a_norm:
+            key = "LOSS"
+        elif "mouton" in a_norm:
+            key = "MOUTON"
+        elif "boeuf" in a_norm:
+            key = "BOEUF"
+        elif "carpe" in a_norm:
+            key = "CARPE"
+
+        if key and key not in result:
+            portion = portion_by_article.get(str(art.id), _DEFAULT_PROTEIN_PORTION[key])
+            result[key] = (art, portion)
+    return result
 
 
 def apply_sale(db: Session, order: Order, user_id: str) -> list[ApiWarning]:
     """Commande soldée : chaque ligne déstocke les articles de sa fiche technique, au coût
-    moyen du moment. Sans effet si la vente est déjà déstockée. Retourne un avertissement
-    par article passé sous zéro (la vente n'est jamais bloquée)."""
+    moyen du moment. Pour les plats saisis en main libre (« Hors Menu ») ou dépourvus de
+    composant protéine, applique le filet de sécurité sur les 9 protéines (aligné sur la
+    Matrice de Contrôle). Sans effet si la vente est déjà déstockée."""
+    from caisse.domain.enums import StockArticleCategory
     from caisse.domain.production_rules import match_protein_keyword
 
     balance = _sale_balance(stock_repo.sale_movements(db, str(order.id)))
@@ -530,17 +588,24 @@ def apply_sale(db: Session, order: Order, user_id: str) -> list[ApiWarning]:
     recipes = stock_repo.components_by_product(db, product_ids)
     article_ids = [str(article.id) for recipe in recipes.values() for _, article in recipe]
 
-    # Filet de sécurité Brochet : plats libres ou non rattachés contenant Brochet
-    brochet_fallback_article: StockArticle | None = None
-    unmapped_brochet_item_ids: set[str] = set()
+    # Filet de sécurité sur les 9 protéines : plats « Hors Menu » ou sans fiche protéine
+    protein_fallback_map: dict[str, tuple[StockArticle, Decimal]] | None = None
+    fallback_by_item_id: dict[str, tuple[str, Decimal]] = {}
     for item in items:
         item_recipe = recipes.get(str(item.product_id), []) if item.product_id else []
-        if not item_recipe and match_protein_keyword(item.product_name_snapshot or "") == "FAUX_BROCHET":
-            if brochet_fallback_article is None:
-                brochet_fallback_article = _find_brochet_article(db)
-            if brochet_fallback_article is not None:
-                unmapped_brochet_item_ids.add(str(item.id))
-                article_ids.append(str(brochet_fallback_article.id))
+        has_protein_comp = any(
+            art.category == StockArticleCategory.PROTEINE for _, art in item_recipe
+        )
+        if not has_protein_comp:
+            prot_key = match_protein_keyword(item.product_name_snapshot or "")
+            if prot_key:
+                if protein_fallback_map is None:
+                    protein_fallback_map = _build_protein_fallback_map(db)
+                matched = protein_fallback_map.get(prot_key)
+                if matched is not None:
+                    target_art, per_portion = matched
+                    fallback_by_item_id[str(item.id)] = (str(target_art.id), per_portion)
+                    article_ids.append(str(target_art.id))
 
     if not article_ids:
         return []
@@ -556,27 +621,28 @@ def apply_sale(db: Session, order: Order, user_id: str) -> list[ApiWarning]:
 
     for item in items:
         item_recipe = recipes.get(str(item.product_id), []) if item.product_id else []
-        if item_recipe:
-            for per_portion, recipe_article in item_recipe:
-                article = articles[str(recipe_article.id)]
-                move(
-                    db,
-                    article,
-                    StockMovementType.SALE_OUT,
-                    -(per_portion * Decimal(item.quantity)),
-                    unit_cost=article.avg_cost_xof,
-                    business_date=order_date,
-                    user_id=str(user_id),
-                    order_id=str(order.id),
-                    order_item_id=str(item.id),
-                )
-        elif str(item.id) in unmapped_brochet_item_ids and brochet_fallback_article is not None:
-            article = articles[str(brochet_fallback_article.id)]
+        for per_portion, recipe_article in item_recipe:
+            article = articles[str(recipe_article.id)]
             move(
                 db,
                 article,
                 StockMovementType.SALE_OUT,
-                -(Decimal("1.000") * Decimal(item.quantity)),
+                -(per_portion * Decimal(item.quantity)),
+                unit_cost=article.avg_cost_xof,
+                business_date=order_date,
+                user_id=str(user_id),
+                order_id=str(order.id),
+                order_item_id=str(item.id),
+            )
+        fallback = fallback_by_item_id.get(str(item.id))
+        if fallback is not None:
+            fallback_art_id, fallback_portion = fallback
+            article = articles[fallback_art_id]
+            move(
+                db,
+                article,
+                StockMovementType.SALE_OUT,
+                -(fallback_portion * Decimal(item.quantity)),
                 unit_cost=article.avg_cost_xof,
                 business_date=order_date,
                 user_id=str(user_id),
