@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     ForeignKey,
@@ -9,6 +10,7 @@ from sqlalchemy import (
     Numeric,
     String,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -38,6 +40,9 @@ class MarketPurchaseList(Base, TimestampMixin):
     )
     total_budget_xof: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     notes: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    include_condiments_envelope: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
 
     items: Mapped[list["MarketPurchaseItem"]] = relationship(
         "MarketPurchaseItem",

@@ -62,6 +62,7 @@ def _format_purchase_out(purchase: MarketPurchaseList) -> MarketPurchaseListOut:
         validated_by_user_name=purchase.validated_by.full_name if purchase.validated_by else None,
         total_budget_xof=purchase.total_budget_xof,
         notes=purchase.notes,
+        include_condiments_envelope=getattr(purchase, "include_condiments_envelope", False),
         created_at=purchase.created_at,
         items=[
             MarketPurchaseItemOut(
@@ -90,6 +91,7 @@ def create_market_purchase(
         created_by_user_id=user.id,
         notes=data.notes,
         total_budget_xof=0,
+        include_condiments_envelope=data.include_condiments_envelope,
     )
     db.add(purchase)
     db.flush()
@@ -201,71 +203,76 @@ def update_market_purchase(
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Vider les anciens items pour recréer la liste mise à jour
-    db.query(MarketPurchaseItem).filter(
-        MarketPurchaseItem.purchase_list_id == purchase.id
-    ).delete(synchronize_session="fetch")
+    if payload.items is not None:
+        # Vider les anciens items pour recréer la liste mise à jour
+        db.query(MarketPurchaseItem).filter(
+            MarketPurchaseItem.purchase_list_id == purchase.id
+        ).delete(synchronize_session="fetch")
 
-    total_budget = 0
-    for item_in in payload.items:
-        art = None
-        if item_in.article_id:
-            art = db.query(StockArticle).filter(StockArticle.id == item_in.article_id).first()
+        total_budget = 0
+        for item_in in payload.items:
+            art = None
+            if item_in.article_id:
+                art = db.query(StockArticle).filter(StockArticle.id == item_in.article_id).first()
 
-        if not art and item_in.custom_article_name:
-            art_name = item_in.custom_article_name.strip()
-            existing_art = (
-                db.query(StockArticle)
-                .filter(func.lower(StockArticle.name) == art_name.lower())
-                .first()
-            )
-            if existing_art:
-                art = existing_art
-            else:
-                cat_str = (item_in.category or "EPICERIE").upper()
-                try:
-                    cat_enum = StockArticleCategory(cat_str)
-                except ValueError:
-                    cat_enum = StockArticleCategory.EPICERIE
-
-                unit_str = (item_in.unit or "kg").strip()
-                art = StockArticle(
-                    name=art_name,
-                    category=cat_enum,
-                    unit=unit_str,
-                    out_mode=StockOutMode.INVENTORY,
-                    quantity=Decimal(0),
-                    avg_cost_xof=Decimal(item_in.unit_price_xof),
-                    is_active=True,
-                    note="Créé automatiquement par l'Économe (Bon d'achat marché)",
+            if not art and item_in.custom_article_name:
+                art_name = item_in.custom_article_name.strip()
+                existing_art = (
+                    db.query(StockArticle)
+                    .filter(func.lower(StockArticle.name) == art_name.lower())
+                    .first()
                 )
-                db.add(art)
-                db.flush()
+                if existing_art:
+                    art = existing_art
+                else:
+                    cat_str = (item_in.category or "EPICERIE").upper()
+                    try:
+                        cat_enum = StockArticleCategory(cat_str)
+                    except ValueError:
+                        cat_enum = StockArticleCategory.EPICERIE
 
-        if not art:
-            continue
+                    unit_str = (item_in.unit or "kg").strip()
+                    art = StockArticle(
+                        name=art_name,
+                        category=cat_enum,
+                        unit=unit_str,
+                        out_mode=StockOutMode.INVENTORY,
+                        quantity=Decimal(0),
+                        avg_cost_xof=Decimal(item_in.unit_price_xof),
+                        is_active=True,
+                        note="Créé automatiquement par l'Économe (Bon d'achat marché)",
+                    )
+                    db.add(art)
+                    db.flush()
 
-        line_total = calculate_item_total(
-            Decimal(str(item_in.quantity)), item_in.unit_price_xof
-        )
-        total_budget += line_total
-        item = MarketPurchaseItem(
-            purchase_list_id=purchase.id,
-            article_id=art.id,
-            quantity=Decimal(str(item_in.quantity)),
-            unit_price_xof=item_in.unit_price_xof,
-            total_price_xof=line_total,
-        )
-        db.add(item)
+            if not art:
+                continue
 
-    purchase.total_budget_xof = total_budget
+            line_total = calculate_item_total(
+                Decimal(str(item_in.quantity)), item_in.unit_price_xof
+            )
+            total_budget += line_total
+            item = MarketPurchaseItem(
+                purchase_list_id=purchase.id,
+                article_id=art.id,
+                quantity=Decimal(str(item_in.quantity)),
+                unit_price_xof=item_in.unit_price_xof,
+                total_price_xof=line_total,
+            )
+            db.add(item)
+
+        purchase.total_budget_xof = total_budget
+
+    if payload.include_condiments_envelope is not None:
+        purchase.include_condiments_envelope = payload.include_condiments_envelope
+
     if payload.notes is not None:
         purchase.notes = payload.notes
 
     from caisse.domain.market_budget_rules import get_market_budget_limits, validate_market_budget
     total_limit, econome_limit, _ = get_market_budget_limits(db)
     validate_market_budget(
-        total_budget,
+        purchase.total_budget_xof,
         role=user.role,
         total_limit=total_limit,
         econome_limit=econome_limit,
@@ -487,35 +494,38 @@ def complete_market_purchase(
 
         # Option 1 : Injection automatique du Kit Condiments Hebdomadaire (120 000 XOF)
         # Réapprovisionne les condiments essentiels et active la disponibilité des sauces et plats
-        for cond in DEFAULT_MARKET_CONDIMENTS_KIT:
-            c_art = db.query(StockArticle).filter(StockArticle.name == cond["name"]).first()
-            if c_art:
-                qty: Decimal = cond["quantity"]
-                unit_cost = Decimal(cond["unit_price_xof"])
-                new_qty = c_art.quantity + qty
-                new_avg = weighted_average_cost(
-                    stock_qty=c_art.quantity,
-                    stock_cost=c_art.avg_cost_xof,
-                    in_qty=qty,
-                    in_unit_cost=unit_cost,
-                )
-                c_art.quantity = new_qty
-                c_art.avg_cost_xof = new_avg
+        # Uniquement si include_condiments_envelope est activé
+        if purchase.include_condiments_envelope:
+            for cond in DEFAULT_MARKET_CONDIMENTS_KIT:
+                c_art = db.query(StockArticle).filter(StockArticle.name == cond["name"]).first()
+                if c_art:
+                    qty: Decimal = cond["quantity"]
+                    unit_cost = Decimal(cond["unit_price_xof"])
+                    new_qty = c_art.quantity + qty
+                    new_avg = weighted_average_cost(
+                        stock_qty=c_art.quantity,
+                        stock_cost=c_art.avg_cost_xof,
+                        in_qty=qty,
+                        in_unit_cost=unit_cost,
+                    )
+                    c_art.quantity = new_qty
+                    c_art.avg_cost_xof = new_avg
 
-                mov = StockMovement(
-                    article_id=c_art.id,
-                    type=StockMovementType.PURCHASE_IN,
-                    quantity=qty,
-                    quantity_after=new_qty,
-                    unit_cost_xof=unit_cost,
-                    business_date=purchase.business_date,
-                    user_id=validator_user.id,
-                    reason=f"Kit condiments marché (120 000 XOF) #{purchase.business_date}",
-                )
-                db.add(mov)
+                    mov = StockMovement(
+                        article_id=c_art.id,
+                        type=StockMovementType.PURCHASE_IN,
+                        quantity=qty,
+                        quantity_after=new_qty,
+                        unit_cost_xof=unit_cost,
+                        business_date=purchase.business_date,
+                        user_id=validator_user.id,
+                        reason=f"Kit condiments marché (120 000 XOF) #{purchase.business_date}",
+                    )
+                    db.add(mov)
 
-    # Déduction optionnelle du tiroir-caisse (Protéines ajustées + 120 000 XOF de condiments)
-    total_disbursement_xof = purchase.total_budget_xof + DEFAULT_RESERVE_XOF
+    # Déduction optionnelle du tiroir-caisse
+    condiments_xof = DEFAULT_RESERVE_XOF if purchase.include_condiments_envelope else 0
+    total_disbursement_xof = purchase.total_budget_xof + condiments_xof
     if deduct_from_cash_session and total_disbursement_xof > 0:
         open_session = (
             db.query(CashSession)
@@ -524,6 +534,11 @@ def complete_market_purchase(
             .first()
         )
         session_id = open_session.id if open_session else None
+        reason_label = (
+            f"[MARCHE_HEBDO] Achats marché {purchase.business_date} (Protéines {purchase.total_budget_xof:,} + Condiments {DEFAULT_RESERVE_XOF:,} XOF)"
+            if purchase.include_condiments_envelope
+            else f"[MARCHE_APPOINT] Achats marché {purchase.business_date} ({purchase.total_budget_xof:,} XOF)"
+        )
         if open_session:
             db.add(
                 CashMovement(
@@ -531,10 +546,15 @@ def complete_market_purchase(
                     user_id=validator_user.id,
                     type="OUT",
                     amount_xof=total_disbursement_xof,
-                    reason=f"[MARCHE_APPOINT] Achats marché {purchase.business_date} (Protéines {purchase.total_budget_xof:,} + Condiments {DEFAULT_RESERVE_XOF:,} XOF)",
+                    reason=reason_label,
                 )
             )
 
+        expense_reason = (
+            f"Achats viandes ({purchase.total_budget_xof:,} XOF) et condiments ({DEFAULT_RESERVE_XOF:,} XOF) {purchase.business_date}"
+            if purchase.include_condiments_envelope
+            else f"Achats viandes ({purchase.total_budget_xof:,} XOF) {purchase.business_date}"
+        )
         db.add(
             CashExpense(
                 business_date=purchase.business_date,
@@ -543,7 +563,7 @@ def complete_market_purchase(
                 category="MARCHE_APPOINT",
                 amount_xof=total_disbursement_xof,
                 recipient="Marché d'approvisionnement",
-                reason=f"Achats viandes ({purchase.total_budget_xof:,} XOF) et condiments ({DEFAULT_RESERVE_XOF:,} XOF) {purchase.business_date}",
+                reason=expense_reason,
             )
         )
 

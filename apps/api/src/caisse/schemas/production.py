@@ -40,12 +40,20 @@ class MarketPurchaseItemOut(BaseSchema):
 class MarketPurchaseListCreate(BaseModel):
     business_date: date = Field(..., description="Date des achats")
     notes: str | None = Field(None, max_length=255)
+    include_condiments_envelope: bool = Field(
+        False, description="Inclure la dotation hebdomadaire de condiments"
+    )
     items: list[MarketPurchaseItemCreate] = Field(..., min_length=1)
 
 
 class MarketPurchaseListUpdate(BaseModel):
     notes: str | None = Field(None, max_length=255)
-    items: list[MarketPurchaseItemCreate] = Field(..., min_length=1)
+    include_condiments_envelope: bool | None = Field(
+        None, description="Inclure la dotation hebdomadaire de condiments"
+    )
+    items: list[MarketPurchaseItemCreate] | None = Field(
+        None, description="Liste mise à jour des articles"
+    )
 
 
 class MarketPurchaseListOut(BaseSchema):
@@ -58,6 +66,7 @@ class MarketPurchaseListOut(BaseSchema):
     validated_by_user_name: str | None
     total_budget_xof: int
     notes: str | None
+    include_condiments_envelope: bool = False
     items: list[MarketPurchaseItemOut]
     created_at: datetime
 

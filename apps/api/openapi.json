@@ -11635,6 +11635,12 @@
             ],
             "title": "Notes"
           },
+          "include_condiments_envelope": {
+            "type": "boolean",
+            "title": "Include Condiments Envelope",
+            "description": "Inclure la dotation hebdomadaire de condiments",
+            "default": false
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/MarketPurchaseItemCreate"
@@ -11711,6 +11717,11 @@
             ],
             "title": "Notes"
           },
+          "include_condiments_envelope": {
+            "type": "boolean",
+            "title": "Include Condiments Envelope",
+            "default": false
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/MarketPurchaseItemOut"
@@ -11754,19 +11765,35 @@
             ],
             "title": "Notes"
           },
+          "include_condiments_envelope": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Include Condiments Envelope",
+            "description": "Inclure la dotation hebdomadaire de condiments"
+          },
           "items": {
-            "items": {
-              "$ref": "#/components/schemas/MarketPurchaseItemCreate"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Items"
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MarketPurchaseItemCreate"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Items",
+            "description": "Liste mise \u00e0 jour des articles"
           }
         },
         "type": "object",
-        "required": [
-          "items"
-        ],
         "title": "MarketPurchaseListUpdate"
       },
       "OpenSessionInfo": {

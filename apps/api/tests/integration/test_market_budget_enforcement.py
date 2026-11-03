@@ -162,3 +162,123 @@ def test_purchase_request_creation_blocked_when_exceeding_budget(client: TestCli
     assert resp.status_code == 422, resp.text
     err = resp.json()
     assert err["code"] == "MARKET_BUDGET_EXCEEDED"
+
+
+def test_market_purchase_with_and_without_condiments_envelope(
+    client: TestClient, db_session: Session
+) -> None:
+    """Vérifie qu'un achat d'appoint (sans condiments) ne décaisse que les articles
+    et n'injecte aucun condiment, tandis qu'un grand marché avec condiments inclut les 120 000 XOF."""
+    _setup_users(db_session)
+    login_resp = client.post("/api/v1/auth/login", json={"pin": "654321", "device_id": "pos-01"})
+    assert login_resp.status_code == 200
+    token = login_resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}", "X-Device-Id": "pos-01"}
+
+    # 1. Ouvrir une session de caisse
+    client.post(
+        "/api/v1/sessions/open",
+        headers=headers,
+        json={"initial_amount_xof": 200000},
+    )
+
+    art = StockArticle(
+        name="Boeuf Appoint Test",
+        category="PROTEINE",
+        unit="kg",
+        out_mode="RECIPE",
+        quantity=Decimal("5"),
+        avg_cost_xof=Decimal("4000"),
+    )
+    db_session.add(art)
+    db_session.commit()
+
+    # 2. Création d'un bon d'achat d'appoint : 10 kg de boeuf à 4 000 = 40 000 XOF (sans condiments)
+    create_resp = client.post(
+        "/api/v1/production/market-purchases",
+        headers=headers,
+        json={
+            "business_date": "2026-11-02",
+            "notes": "Achat d'appoint 10kg boeuf",
+            "include_condiments_envelope": False,
+            "items": [{"article_id": str(art.id), "quantity": 10, "unit_price_xof": 4000}],
+        },
+    )
+    assert create_resp.status_code == 201, create_resp.text
+    purchase_data = create_resp.json()
+    purchase_id = purchase_data["id"]
+    assert purchase_data["include_condiments_envelope"] is False
+    assert purchase_data["total_budget_xof"] == 40000
+
+    # 3. Validation de l'achat d'appoint avec déduction caisse
+    complete_resp = client.post(
+        f"/api/v1/production/market-purchases/{purchase_id}/complete?deduct_from_cash_session=true",
+        headers=headers,
+    )
+    assert complete_resp.status_code == 200, complete_resp.text
+    assert complete_resp.json()["status"] == "COMPLETED"
+
+    # Vérification : le stock de boeuf a augmenté de 10 kg
+    db_session.expire_all()
+    art_after = db_session.query(StockArticle).filter(StockArticle.id == art.id).first()
+    assert art_after is not None
+    assert art_after.quantity == Decimal("15")
+
+    # Vérification : AUCUN condiment type (ex: Oignon violet) n'a été injecté
+    from datetime import date as dt_date
+
+    from caisse.models.finance import CashExpense
+
+    expenses = db_session.query(CashExpense).filter(CashExpense.business_date == dt_date(2026, 11, 2)).all()
+    # Le montant décaissé doit être STRICTEMENT de 40 000 XOF (et non 160 000 XOF)
+    assert len(expenses) == 1
+    assert expenses[0].amount_xof == 40000
+    assert "condiments" not in expenses[0].reason
+
+    # 4. Maintenant, test d'un Grand Marché Hebdo avec condiments (120 000 XOF)
+    create_hebdo = client.post(
+        "/api/v1/production/market-purchases",
+        headers=headers,
+        json={
+            "business_date": "2026-11-03",
+            "notes": "Grand marché hebdo",
+            "include_condiments_envelope": True,
+            "items": [{"article_id": str(art.id), "quantity": 5, "unit_price_xof": 4000}],
+        },
+    )
+    assert create_hebdo.status_code == 201
+    hebdo_data = create_hebdo.json()
+    assert hebdo_data["include_condiments_envelope"] is True
+    assert hebdo_data["total_budget_xof"] == 20000
+
+    # Toggle test : mise à jour du bon (ex: patron désactive puis réactive)
+    update_resp = client.put(
+        f"/api/v1/production/market-purchases/{hebdo_data['id']}",
+        headers=headers,
+        json={"include_condiments_envelope": False},
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json()["include_condiments_envelope"] is False
+
+    # Réactiver le forfait condiments
+    update_resp2 = client.put(
+        f"/api/v1/production/market-purchases/{hebdo_data['id']}",
+        headers=headers,
+        json={"include_condiments_envelope": True},
+    )
+    assert update_resp2.status_code == 200
+    assert update_resp2.json()["include_condiments_envelope"] is True
+
+    # Valider le grand marché hebdo
+    complete_hebdo = client.post(
+        f"/api/v1/production/market-purchases/{hebdo_data['id']}/complete?deduct_from_cash_session=true",
+        headers=headers,
+    )
+    assert complete_hebdo.status_code == 200
+
+    # Vérification : Décaissement = 20 000 + 120 000 = 140 000 XOF
+    db_session.expire_all()
+    expenses_hebdo = db_session.query(CashExpense).filter(CashExpense.business_date == dt_date(2026, 11, 3)).all()
+    assert len(expenses_hebdo) == 1
+    assert expenses_hebdo[0].amount_xof == 140000
+

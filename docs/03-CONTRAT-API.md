@@ -374,7 +374,7 @@ business_date,fiscal_group,quantity,gross_ht_xof,vat_xof,total_ttc_xof
 | POST | `/purchases/{id}/reject` | R / A | Refuser une demande d'achat |
 | POST | `/purchases/{id}/disburse` | R / A | Décaisser les fonds pour l'achat |
 | POST | `/purchases/{id}/receive` | R / A | Réceptionner les achats et intégrer au stock |
-| PUT | `/production/market-purchases/{id}` | R / A | Ajuster les articles et quantités d'un bon d'achat en attente (DRAFT) |
+| PUT | `/production/market-purchases/{id}` | R / A | Ajuster les articles, quantités ou l'enveloppe condiments d'un bon d'achat en attente (DRAFT) |
 | GET | `/production/market-purchases/{id}/protein-analysis` | R / A | Comparatif des 9 protéines du bon vs ventes réelles et stock de la semaine |
 
 
