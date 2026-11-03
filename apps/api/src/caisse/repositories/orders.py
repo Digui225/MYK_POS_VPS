@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from caisse.core.pagination import PageRequest, newest_first
@@ -72,12 +72,16 @@ class OrderRepository(BaseRepository[Order]):
         session_id: str | None = None,
         status: str | None = None,
         business_date: date | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        order_type: str | None = None,
+        search: str | None = None,
         page: PageRequest | None = None,
         limit: int | None = None,
     ) -> list[Order]:
         if page is not None:
             stmt = newest_first(
-                select(Order).options(joinedload(Order.items)),
+                select(Order).options(joinedload(Order.items), joinedload(Order.table)),
                 Order.opened_at,
                 Order.id,
                 page,
@@ -86,20 +90,54 @@ class OrderRepository(BaseRepository[Order]):
                 stmt = stmt.where(Order.cash_session_id == str(session_id))
             if status:
                 stmt = stmt.where(Order.status == status)
-            if business_date:
-                stmt = stmt.join(CashSession, CashSession.id == Order.cash_session_id).where(
-                    CashSession.business_date == business_date
+            if business_date or date_from or date_to:
+                stmt = stmt.join(CashSession, CashSession.id == Order.cash_session_id)
+                if business_date:
+                    stmt = stmt.where(CashSession.business_date == business_date)
+                if date_from:
+                    stmt = stmt.where(CashSession.business_date >= date_from)
+                if date_to:
+                    stmt = stmt.where(CashSession.business_date <= date_to)
+            if order_type == "TAKEAWAY":
+                stmt = stmt.where(Order.table_id.is_(None))
+            elif order_type == "DINE_IN":
+                stmt = stmt.where(Order.table_id.is_not(None))
+            if search and search.strip():
+                term = f"%{search.strip()}%"
+                stmt = stmt.where(
+                    or_(
+                        Order.order_number.ilike(term),
+                        Order.note_label.ilike(term),
+                        Order.items.any(OrderItem.product_name_snapshot.ilike(term)),
+                    )
                 )
             return list(self.db.scalars(stmt).unique().all())
 
-        query = self.db.query(Order).options(joinedload(Order.items))
+        query = self.db.query(Order).options(joinedload(Order.items), joinedload(Order.table))
         if session_id:
             query = query.filter(Order.cash_session_id == str(session_id))
         if status:
             query = query.filter(Order.status == status)
-        if business_date:
-            query = query.join(CashSession, CashSession.id == Order.cash_session_id).filter(
-                CashSession.business_date == business_date
+        if business_date or date_from or date_to:
+            query = query.join(CashSession, CashSession.id == Order.cash_session_id)
+            if business_date:
+                query = query.filter(CashSession.business_date == business_date)
+            if date_from:
+                query = query.filter(CashSession.business_date >= date_from)
+            if date_to:
+                query = query.filter(CashSession.business_date <= date_to)
+        if order_type == "TAKEAWAY":
+            query = query.filter(Order.table_id.is_(None))
+        elif order_type == "DINE_IN":
+            query = query.filter(Order.table_id.is_not(None))
+        if search and search.strip():
+            term = f"%{search.strip()}%"
+            query = query.filter(
+                or_(
+                    Order.order_number.ilike(term),
+                    Order.note_label.ilike(term),
+                    Order.items.any(OrderItem.product_name_snapshot.ilike(term)),
+                )
             )
         return query.order_by(Order.opened_at.desc(), Order.id.desc()).limit(limit or 50).all()
 

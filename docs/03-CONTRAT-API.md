@@ -228,7 +228,7 @@ GET /api/v1/tables/board
 |---|---|---|---|
 | POST | `/orders` | C | Créer (table, à emporter, ou nouvelle note sur table via `allow_multiple: true`, `note_label`) |
 | GET | `/orders/{id}` | C / R / A | Détail complet (inclut `note_label`) |
-| GET | `/orders?status=&business_date=` | R / A | Historique des commandes du restaurant |
+| GET | `/orders?status=&business_date=&date_from=&date_to=&order_type=&search=` | C / R / A | Historique des commandes du restaurant (filtrable par date, type, statut ou recherche de plat) |
 | POST | `/orders/{id}/items` | C | Ajouter une ligne |
 | PATCH | `/orders/{id}/items/{item_id}` | C | Quantité, note |
 | DELETE | `/orders/{id}/items/{item_id}` | C + override (R/A) | Retirer (motif obligatoire) |

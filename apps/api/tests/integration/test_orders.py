@@ -243,3 +243,25 @@ def test_order_lifecycle(client: TestClient) -> None:
     assert len(orders_list) >= 2
     assert any(o["id"] == order_id for o in orders_list)
     assert any(o["id"] == takeaway_order["id"] for o in orders_list)
+
+    # 16. Filtre order_type=TAKEAWAY vs DINE_IN
+    takeaway_list_res = client.get("/api/v1/orders?order_type=TAKEAWAY", headers=headers)
+    assert takeaway_list_res.status_code == 200
+    takeaway_items = takeaway_list_res.json()["items"]
+    assert all(o["table_id"] is None for o in takeaway_items)
+    assert any(o["id"] == takeaway_order["id"] for o in takeaway_items)
+
+    dine_in_list_res = client.get("/api/v1/orders?order_type=DINE_IN", headers=headers)
+    assert dine_in_list_res.status_code == 200
+    dine_in_items = dine_in_list_res.json()["items"]
+    assert all(o["table_id"] is not None for o in dine_in_items)
+
+    # 17. Filtre par recherche de plat
+    search_res = client.get("/api/v1/orders?search=Thiéboudienne", headers=headers)
+    assert search_res.status_code == 200
+    assert any(o["id"] == order_id for o in search_res.json()["items"])
+
+    # 18. Filtre par dates
+    date_res = client.get("/api/v1/orders?date_from=2026-09-01&date_to=2026-09-30", headers=headers)
+    assert date_res.status_code == 200
+    assert len(date_res.json()["items"]) >= 2

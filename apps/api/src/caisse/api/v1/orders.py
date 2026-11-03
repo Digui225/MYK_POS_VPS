@@ -40,6 +40,10 @@ async def list_orders(
     session_id: str | None = None,
     status: str | None = None,
     business_date: date | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    order_type: str | None = None,
+    search: str | None = None,
     db: Session = Depends(get_db),
 ) -> Page[OrderResponse]:
     service = OrderService(db)
@@ -48,6 +52,10 @@ async def list_orders(
         session_id=session_id,
         status=status,
         business_date=business_date,
+        date_from=date_from,
+        date_to=date_to,
+        order_type=order_type,
+        search=search,
     )
     return Page(items=items, next_cursor=next_cursor)
 

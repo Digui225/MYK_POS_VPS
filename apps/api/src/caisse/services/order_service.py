@@ -137,11 +137,19 @@ class OrderService:
         session_id: str | None = None,
         status: str | None = None,
         business_date: date | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        order_type: str | None = None,
+        search: str | None = None,
     ) -> tuple[list[OrderResponse], str | None]:
         rows = self.order_repo.list_orders(
             session_id=session_id,
             status=status,
             business_date=business_date,
+            date_from=date_from,
+            date_to=date_to,
+            order_type=order_type,
+            search=search,
             page=page,
         )
         items, next_cursor = split(rows, page, lambda o: (o.opened_at, o.id))
