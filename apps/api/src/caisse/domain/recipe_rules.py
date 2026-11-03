@@ -1,6 +1,7 @@
 """Règles pures pour les fiches techniques des plats et la détection automatique
 des portions des 9 protéines du restaurant."""
 
+import re
 from decimal import Decimal
 
 PROTEIN_PORTIONS: dict[str, Decimal] = {
@@ -55,7 +56,13 @@ def match_protein_for_product(product_name: str) -> tuple[str, Decimal] | None:
         return ("Carpe", PROTEIN_PORTIONS["Carpe"])
     if "poisson" in norm and ("braisé" in norm or "braise" in norm):
         return ("Carpe", PROTEIN_PORTIONS["Carpe"])
-    if "brochet" in norm:
+    if (
+        bool(re.search(r"\bbrochet\b", norm))
+        or "machoiran" in norm
+        or "faux bro" in norm
+        or bool(re.search(r"\bbro\b", norm))
+        or "+bro" in norm
+    ):
         return ("Brochet", PROTEIN_PORTIONS["Brochet"])
     if "loss" in norm:
         return ("Loss", PROTEIN_PORTIONS["Loss"])

@@ -3,6 +3,7 @@ import argparse
 from caisse.cli.commands.catalog import (
     cmd_import_catalog,
     cmd_import_stock,
+    cmd_rename_brochet_products,
     cmd_set_vat_rate,
 )
 from caisse.cli.commands.db import (
@@ -104,6 +105,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Date du lundi de la semaine à tester (YYYY-MM-DD, défaut: 2026-10-19)",
     )
 
+    # Commande rename-brochet-products
+    subparsers.add_parser(
+        "rename-brochet-products",
+        help="Renommer les plats du menu (Faux bro, +bro -> Brochet) et articles de stock",
+    )
+
     return parser
 
 
@@ -147,6 +154,8 @@ def main(argv: list[str] | None = None) -> None:
             cmd_reset_transactions(db, args)
         elif args.command == "seed-weekly-flow":
             cmd_seed_weekly_flow(db, args)
+        elif args.command == "rename-brochet-products":
+            cmd_rename_brochet_products(db, args)
     finally:
         db.close()
 

@@ -35,7 +35,12 @@ def test_match_protein_poissons():
     assert match_protein_for_product("Riz graine + Poisson fumé") is None
     assert match_protein_for_product("Foufou/foutou brochet") == ("Brochet", Decimal("1.000"))
     assert match_protein_for_product("Foufou/foutou faux brochet") == ("Brochet", Decimal("1.000"))
+    assert match_protein_for_product("Riz feuille+Faux bro") == ("Brochet", Decimal("1.000"))
+    assert match_protein_for_product("Sauce Feuille+bro") == ("Brochet", Decimal("1.000"))
+    assert match_protein_for_product("Riz graine+ Faux bro") == ("Brochet", Decimal("1.000"))
+    assert match_protein_for_product("Riz legume+ Faux bro") == ("Brochet", Decimal("1.000"))
     assert match_protein_for_product("Plat brochet") == ("Brochet", Decimal("1.000"))
+    assert match_protein_for_product("Brochette de boeuf") == ("Bœuf", Decimal("0.200"))
     assert match_protein_for_product("Loss 3500") == ("Loss", Decimal("1.000"))
     assert match_protein_for_product("Saumon") == ("Saumon", Decimal("1.000"))
     assert match_protein_for_product("Faux saumon") == ("Saumon", Decimal("1.000"))

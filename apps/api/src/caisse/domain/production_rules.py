@@ -76,8 +76,14 @@ def match_protein_keyword(name: str) -> str | None:
     if "poulet" in n or "chair" in n:
         return "POULET"
 
-    # 3. Faux brochet (machoiran, brochet)
-    if "brochet" in n or "machoiran" in n:
+    # 3. Faux brochet (machoiran, brochet, faux bro)
+    if (
+        bool(re.search(r"\bbrochet\b", n))
+        or "machoiran" in n
+        or "faux bro" in n
+        or bool(re.search(r"\bbro\b", n))
+        or "+bro" in n
+    ):
         return "FAUX_BROCHET"
 
     # 4. Faux saumon

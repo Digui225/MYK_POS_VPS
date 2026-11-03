@@ -84,3 +84,48 @@ def cmd_import_stock(db: Session, args: argparse.Namespace) -> None:
         f" Stock importé : {res.created} créés, {res.skipped} existants, "
         f"{res.initial_counts} comptages initiaux, {comps} fiches techniques."
     )
+
+
+def cmd_rename_brochet_products(db: Session, args: argparse.Namespace) -> None:
+    """Renomme tous les plats du catalogue contenant 'faux brochet', 'faux bro', '+bro', etc.
+    en 'Brochet' dans le nom et dans le nom court de caisse."""
+    import re
+
+    from caisse.models.stock import StockArticle
+
+    def clean_name(s: str) -> str:
+        s = re.sub(r"(?i)\bfaux[\s-]?brochet\b", "Brochet", s)
+        s = re.sub(r"(?i)\bfaux[\s-]?bro\b", "Brochet", s)
+        s = re.sub(r"\+([ \t]*)bro\b", r"+\1Brochet", s, flags=re.IGNORECASE)
+        s = re.sub(r"\-([ \t]*)bro\b", r"-\1Brochet", s, flags=re.IGNORECASE)
+        return s
+
+    def clean_short(s: str) -> str:
+        s = clean_name(s)
+        if len(s) > 20:
+            s = s.replace("Sauce ", "Sce ").replace("sauce ", "Sce ")
+        return s[:20]
+
+    count_prods = 0
+    products = db.query(Product).all()
+    for p in products:
+        new_name = clean_name(p.name)
+        new_short = clean_short(p.short_name)
+        if new_name != p.name or new_short != p.short_name:
+            print(f"Produit renommé : '{p.name}' -> '{new_name}' (court: '{p.short_name}' -> '{new_short}')")
+            p.name = new_name
+            p.short_name = new_short
+            count_prods += 1
+
+    count_arts = 0
+    articles = db.query(StockArticle).filter(StockArticle.category == "PROTEINE").all()
+    for a in articles:
+        new_art_name = clean_name(a.name)
+        if new_art_name != a.name:
+            print(f"Article de stock renommé : '{a.name}' -> '{new_art_name}'")
+            a.name = new_art_name
+            count_arts += 1
+
+    db.commit()
+    print(f"Terminé : {count_prods} produits et {count_arts} articles de stock mis à jour.")
+
