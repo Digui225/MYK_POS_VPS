@@ -109,13 +109,26 @@ def non_sale_out_by_day(db: Session, date_from: date, date_to: date) -> dict[dat
     return {d: Decimal(val) for d, val in rows}
 
 
+OFF_MENU_PREFIX = "hors-menu:"
+
+
+def _product_key() -> ColumnElement[str]:
+    """Clé de regroupement d'une ligne vendue : le produit du catalogue, ou, pour une saisie
+    libre (hors menu, sans produit), son libellé — chaque plat hors menu garde son nom."""
+    return func.coalesce(
+        OrderItem.product_id, func.concat(OFF_MENU_PREFIX, OrderItem.product_name_snapshot)
+    )
+
+
 def sales_by_product(
     db: Session, date_from: date, date_to: date
 ) -> list[tuple[str, str, str, int, int]]:
-    """(produit, nom, catégorie, quantité, chiffre d'affaires)."""
+    """(produit, nom, catégorie, quantité, chiffre d'affaires). Les saisies libres sont
+    regroupées par libellé, avec une clé `hors-menu:<libellé>`."""
+    key = _product_key()
     rows = db.execute(
         select(
-            OrderItem.product_id,
+            key,
             func.max(OrderItem.product_name_snapshot),
             func.max(OrderItem.category_snapshot),
             func.sum(OrderItem.quantity),
@@ -124,20 +137,21 @@ def sales_by_product(
         .join(Order, Order.id == OrderItem.order_id)
         .join(CashSession, Order.cash_session_id == CashSession.id)
         .where(_paid_in(date_from, date_to), OrderItem.removed_at.is_(None))
-        .group_by(OrderItem.product_id)
+        .group_by(key)
     )
     return [(str(pid), name, cat, int(qty), int(total)) for pid, name, cat, qty, total in rows]
 
 
 def recipe_cost_by_product(db: Session, date_from: date, date_to: date) -> dict[str, Decimal]:
+    key = _product_key()
     rows = db.execute(
-        select(OrderItem.product_id, -_value())
+        select(key, -_value())
         .select_from(StockMovement)
         .join(OrderItem, OrderItem.id == StockMovement.reference_order_item_id)
         .join(Order, Order.id == StockMovement.reference_order_id)
         .join(CashSession, Order.cash_session_id == CashSession.id)
         .where(StockMovement.type.in_(SALE_TYPES), _paid_in(date_from, date_to))
-        .group_by(OrderItem.product_id)
+        .group_by(key)
     )
     return {str(pid): Decimal(cost) for pid, cost in rows}
 

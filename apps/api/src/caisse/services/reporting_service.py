@@ -85,7 +85,9 @@ def sales_report(db: Session, date_from: date, date_to: date) -> SalesReportOut:
     cost_by_day = reports_repo.recipe_cost_by_day(db, date_from, date_to)
     products = reports_repo.sales_by_product(db, date_from, date_to)
     cost_by_product = reports_repo.recipe_cost_by_product(db, date_from, date_to)
-    recipes = stock_repo.components_by_product(db, [pid for pid, *_ in products])
+    recipes = stock_repo.components_by_product(
+        db, [pid for pid, *_ in products if not pid.startswith(reports_repo.OFF_MENU_PREFIX)]
+    )
     non_sale = reports_repo.non_sale_out_by_mode(db, date_from, date_to)
 
     by_product: list[SalesProduct] = []
@@ -100,6 +102,7 @@ def sales_report(db: Session, date_from: date, date_to: date) -> SalesReportOut:
                 quantity=quantity,
                 revenue_xof=revenue,
                 has_recipe=pid in recipes,
+                is_off_menu=pid.startswith(reports_repo.OFF_MENU_PREFIX),
                 recipe_cost_xof=cost,
                 recipe_margin_xof=revenue - cost,
             )
@@ -142,7 +145,9 @@ def sales_report(db: Session, date_from: date, date_to: date) -> SalesReportOut:
         average_ticket_xof=round(revenue / orders) if orders else 0,
         recipe_cost_xof=recipe_cost,
         recipe_margin_xof=revenue - recipe_cost,
-        uncosted_revenue_xof=sum(p.revenue_xof for p in by_product if not p.has_recipe),
+        uncosted_revenue_xof=sum(
+            p.revenue_xof for p in by_product if not p.has_recipe and not p.is_off_menu
+        ),
         inventory_consumption_xof=consumption,
         stock_variance_xof=variance,
         gross_margin_xof=gross_margin_total,

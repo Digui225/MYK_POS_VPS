@@ -15535,6 +15535,12 @@
             "title": "Has Recipe",
             "description": "Le produit a une fiche technique aujourd'hui"
           },
+          "is_off_menu": {
+            "type": "boolean",
+            "title": "Is Off Menu",
+            "description": "Saisie libre (hors menu, sans produit du catalogue) : pas de fiche possible ; `product_id` vaut alors `hors-menu:<libell\u00e9>`",
+            "default": false
+          },
           "recipe_cost_xof": {
             "type": "integer",
             "title": "Recipe Cost Xof",
@@ -15660,7 +15666,7 @@
           "uncosted_revenue_xof": {
             "type": "integer",
             "title": "Uncosted Revenue Xof",
-            "description": "Part du chiffre d'affaires r\u00e9alis\u00e9e par des produits sans fiche technique"
+            "description": "Part du chiffre d'affaires r\u00e9alis\u00e9e par des produits du catalogue sans fiche technique (hors saisies libres hors menu)"
           },
           "inventory_consumption_xof": {
             "type": "integer",

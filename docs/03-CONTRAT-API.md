@@ -447,6 +447,8 @@ GET /api/v1/printing/status
 | POST | `/finance/cash-regularizations` | R / A | **Régulariser un écart de caisse après la clôture** : `business_date`, `amount_xof` signé (positif = argent retrouvé, négatif = manque constaté après coup, jamais nul), `reason` obligatoire, `cash_session_id` facultatif s'il n'y a qu'une session ce jour-là. La session doit être **clôturée** ; le Z n'est **pas modifié** (la régularisation est tracée à côté et journalisée). `Idempotency-Key` obligatoire |
 | GET | `/finance/cash-regularizations?date_from=&date_to=` | R / A | **Lister les régularisations d'écart** de la période avec total |
 
+**Saisies libres (hors menu) dans `/reports/sales` (04/11/2026).** Chaque saisie libre est une ligne de `by_product` à son libellé, avec `product_id` = `hors-menu:<libellé>` et `is_off_menu: true` (auparavant toutes les saisies libres étaient regroupées sous un seul libellé). `totals.uncosted_revenue_xof` ne compte plus que les produits **du catalogue** sans fiche technique.
+
 **Total versé (ajout du 04/11/2026, rétrocompatible).** Dans `/reports/sales`, `counted_cash_xof` garde son sens historique (espèces comptées, **fond de caisse inclus**). Nouveaux champs de `by_day` : `opening_float_xof`, `non_cash_payments_xof`, `cash_regularization_xof`, `adjusted_cash_variance_xof` (écart du Z + régularisations), `has_closed_session`, et **`remitted_xof` = espèces comptées − fond de caisse + paiements hors espèces + régularisations**, sur les sessions clôturées. Sans écart, le total versé est égal au chiffre d'affaires. `totals` reçoit `remitted_xof` et `cash_regularization_xof` ; chaque élément de `cash_sessions` reçoit `opening_float_xof`, `closed_by` et `regularization_xof`.
 
 ### 4.13 Administration

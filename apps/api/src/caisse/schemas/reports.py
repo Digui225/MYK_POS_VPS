@@ -22,7 +22,10 @@ class SalesTotals(Schema):
     )
     recipe_margin_xof: int = Field(description="Chiffre d'affaires - coût matière des fiches")
     uncosted_revenue_xof: int = Field(
-        description="Part du chiffre d'affaires réalisée par des produits sans fiche technique"
+        description=(
+            "Part du chiffre d'affaires réalisée par des produits du catalogue sans fiche "
+            "technique (hors saisies libres hors menu)"
+        )
     )
     inventory_consumption_xof: int = Field(
         description="Consommation des articles suivis par inventaire (légumes, gaz…) : "
@@ -105,6 +108,13 @@ class SalesProduct(Schema):
     quantity: int = Field(description="Quantité vendue")
     revenue_xof: int = Field(description="Chiffre d'affaires")
     has_recipe: bool = Field(description="Le produit a une fiche technique aujourd'hui")
+    is_off_menu: bool = Field(
+        default=False,
+        description=(
+            "Saisie libre (hors menu, sans produit du catalogue) : pas de fiche possible ; "
+            "`product_id` vaut alors `hors-menu:<libellé>`"
+        ),
+    )
     recipe_cost_xof: int = Field(description="Coût matière (0 sans fiche)")
     recipe_margin_xof: int = Field(description="Marge sur coût matière")
 
