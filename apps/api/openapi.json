@@ -4659,6 +4659,180 @@
         }
       }
     },
+    "/api/v1/finance/cash-regularizations": {
+      "post": {
+        "tags": [
+          "Finance & D\u00e9caissements"
+        ],
+        "summary": "R\u00e9gulariser un \u00e9cart de caisse apr\u00e8s la cl\u00f4ture",
+        "description": "Argent retrouv\u00e9 (montant positif) ou manque constat\u00e9 apr\u00e8s coup (n\u00e9gatif) sur une journ\u00e9e\ncl\u00f4tur\u00e9e. Le Z n'est pas modifi\u00e9 : la r\u00e9gularisation est trac\u00e9e \u00e0 c\u00f4t\u00e9, avec son motif.",
+        "operationId": "record_cash_regularization_api_v1_finance_cash_regularizations_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Device-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Id"
+            }
+          },
+          {
+            "name": "x-request-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashRegularizationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashRegularizationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Finance & D\u00e9caissements"
+        ],
+        "summary": "Lister les r\u00e9gularisations d'\u00e9cart de caisse sur une p\u00e9riode",
+        "operationId": "get_cash_regularizations_api_v1_finance_cash_regularizations_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "date_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Premi\u00e8re journ\u00e9e incluse",
+              "title": "Date From"
+            },
+            "description": "Premi\u00e8re journ\u00e9e incluse"
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Derni\u00e8re journ\u00e9e incluse",
+              "title": "Date To"
+            },
+            "description": "Derni\u00e8re journ\u00e9e incluse"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashRegularizationListOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/production/market-purchases": {
       "post": {
         "tags": [
@@ -9239,6 +9413,136 @@
           "name"
         ],
         "title": "CashRegisterResponse"
+      },
+      "CashRegularizationCreate": {
+        "properties": {
+          "business_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Business Date",
+            "description": "Journ\u00e9e de l'\u00e9cart de caisse \u00e0 r\u00e9gulariser"
+          },
+          "amount_xof": {
+            "type": "integer",
+            "title": "Amount Xof",
+            "description": "Montant sign\u00e9 en FCFA (entier, non nul) : positif = argent retrouv\u00e9 / remis, n\u00e9gatif = manque constat\u00e9 apr\u00e8s la cl\u00f4ture"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 3,
+            "title": "Reason",
+            "description": "Motif (obligatoire)"
+          },
+          "cash_session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cash Session Id",
+            "description": "Session cl\u00f4tur\u00e9e \u00e0 r\u00e9gulariser ; facultatif s'il n'y a qu'une session ce jour-l\u00e0"
+          }
+        },
+        "type": "object",
+        "required": [
+          "business_date",
+          "amount_xof",
+          "reason"
+        ],
+        "title": "CashRegularizationCreate"
+      },
+      "CashRegularizationListOut": {
+        "properties": {
+          "total_count": {
+            "type": "integer",
+            "title": "Total Count"
+          },
+          "total_amount_xof": {
+            "type": "integer",
+            "title": "Total Amount Xof"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CashRegularizationOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_count",
+          "total_amount_xof",
+          "items"
+        ],
+        "title": "CashRegularizationListOut"
+      },
+      "CashRegularizationOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "business_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Business Date"
+          },
+          "cash_session_id": {
+            "type": "string",
+            "title": "Cash Session Id"
+          },
+          "z_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Z Number",
+            "description": "Num\u00e9ro du Z de la session r\u00e9gularis\u00e9e"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "user_name": {
+            "type": "string",
+            "title": "User Name"
+          },
+          "amount_xof": {
+            "type": "integer",
+            "title": "Amount Xof"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "business_date",
+          "cash_session_id",
+          "z_number",
+          "user_id",
+          "user_name",
+          "amount_xof",
+          "reason",
+          "created_at"
+        ],
+        "title": "CashRegularizationOut"
       },
       "CashSessionResponse": {
         "properties": {
@@ -14963,6 +15267,30 @@
             ],
             "title": "Variance Xof",
             "description": "\u00c9cart de caisse (compt\u00e9 - attendu)"
+          },
+          "opening_float_xof": {
+            "type": "integer",
+            "title": "Opening Float Xof",
+            "description": "Fonds de caisse",
+            "default": 0
+          },
+          "closed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed By",
+            "description": "Personne qui a cl\u00f4tur\u00e9 (Z)"
+          },
+          "regularization_xof": {
+            "type": "integer",
+            "title": "Regularization Xof",
+            "description": "R\u00e9gularisations d'\u00e9cart enregistr\u00e9es sur cette session (sign\u00e9)",
+            "default": 0
           }
         },
         "type": "object",
@@ -15102,6 +15430,42 @@
             "title": "Bank Deposit Xof",
             "description": "Versements en banque",
             "default": 0
+          },
+          "opening_float_xof": {
+            "type": "integer",
+            "title": "Opening Float Xof",
+            "description": "Fonds de caisse des sessions cl\u00f4tur\u00e9es du jour",
+            "default": 0
+          },
+          "non_cash_payments_xof": {
+            "type": "integer",
+            "title": "Non Cash Payments Xof",
+            "description": "Paiements hors esp\u00e8ces (Mobile Money, carte\u2026) des sessions cl\u00f4tur\u00e9es",
+            "default": 0
+          },
+          "cash_regularization_xof": {
+            "type": "integer",
+            "title": "Cash Regularization Xof",
+            "description": "R\u00e9gularisations d'\u00e9cart de caisse du jour (sign\u00e9)",
+            "default": 0
+          },
+          "adjusted_cash_variance_xof": {
+            "type": "integer",
+            "title": "Adjusted Cash Variance Xof",
+            "description": "\u00c9cart de caisse apr\u00e8s r\u00e9gularisation (\u00e9cart du Z + r\u00e9gularisations)",
+            "default": 0
+          },
+          "remitted_xof": {
+            "type": "integer",
+            "title": "Remitted Xof",
+            "description": "Total vers\u00e9 : esp\u00e8ces compt\u00e9es - fond de caisse + paiements hors esp\u00e8ces + r\u00e9gularisations (sessions cl\u00f4tur\u00e9es)",
+            "default": 0
+          },
+          "has_closed_session": {
+            "type": "boolean",
+            "title": "Has Closed Session",
+            "description": "Au moins une session de caisse cl\u00f4tur\u00e9e ce jour-l\u00e0",
+            "default": false
           }
         },
         "type": "object",
@@ -15329,6 +15693,18 @@
             "type": "integer",
             "title": "Bank Deposit Xof",
             "description": "Total des versements bancaires",
+            "default": 0
+          },
+          "remitted_xof": {
+            "type": "integer",
+            "title": "Remitted Xof",
+            "description": "Total vers\u00e9 des sessions cl\u00f4tur\u00e9es : esp\u00e8ces compt\u00e9es - fond de caisse + paiements hors esp\u00e8ces + r\u00e9gularisations d'\u00e9cart",
+            "default": 0
+          },
+          "cash_regularization_xof": {
+            "type": "integer",
+            "title": "Cash Regularization Xof",
+            "description": "Total des r\u00e9gularisations d'\u00e9cart de caisse (sign\u00e9)",
             "default": 0
           }
         },

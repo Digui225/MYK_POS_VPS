@@ -154,8 +154,20 @@ def sales_report(db: Session, date_from: date, date_to: date) -> SalesReportOut:
     non_sale_by_day = reports_repo.non_sale_out_by_day(db, date_from, date_to)
     sessions = reports_repo.cash_sessions(db, date_from, date_to)
 
+    non_cash_by_session = reports_repo.non_cash_payments_by_session(db, date_from, date_to)
+    regs_by_session = reports_repo.regularizations_by_session(db, date_from, date_to)
+
     cash_by_day: dict[date, dict[str, int]] = defaultdict(
-        lambda: {"expected": 0, "counted": 0, "variance": 0}
+        lambda: {
+            "expected": 0,
+            "counted": 0,
+            "variance": 0,
+            "float": 0,
+            "non_cash": 0,
+            "regularization": 0,
+            "remitted": 0,
+            "closed": 0,
+        }
     )
     for s in sessions:
         if s.business_date:
@@ -163,6 +175,17 @@ def sales_report(db: Session, date_from: date, date_to: date) -> SalesReportOut:
             b["expected"] += s.expected_cash_xof or 0
             b["counted"] += s.counted_cash_xof or 0
             b["variance"] += s.variance_xof or 0
+            reg = regs_by_session.get(str(s.id), 0)
+            b["regularization"] += reg
+            # Total versé : seulement les sessions clôturées (comptées), sans le fond de caisse
+            if s.status == CashSessionStatus.CLOSED and s.counted_cash_xof is not None:
+                non_cash = non_cash_by_session.get(str(s.id), 0)
+                b["closed"] += 1
+                b["float"] += s.opening_float_xof or 0
+                b["non_cash"] += non_cash
+                b["remitted"] += (
+                    s.counted_cash_xof - (s.opening_float_xof or 0) + non_cash + reg
+                )
 
     sales_map = {d: (n, total) for d, n, total in days}
     all_dates = sorted(
@@ -213,8 +236,21 @@ def sales_report(db: Session, date_from: date, date_to: date) -> SalesReportOut:
                 counted_cash_xof=cash_info["counted"],
                 cash_variance_xof=cash_info["variance"],
                 bank_deposit_xof=dep,
+                opening_float_xof=cash_info["float"],
+                non_cash_payments_xof=cash_info["non_cash"],
+                cash_regularization_xof=cash_info["regularization"],
+                adjusted_cash_variance_xof=cash_info["variance"] + cash_info["regularization"],
+                remitted_xof=cash_info["remitted"],
+                has_closed_session=cash_info["closed"] > 0,
             )
         )
+
+    totals = totals.model_copy(
+        update={
+            "remitted_xof": sum(c["remitted"] for c in cash_by_day.values()),
+            "cash_regularization_xof": sum(c["regularization"] for c in cash_by_day.values()),
+        }
+    )
 
     return SalesReportOut(
         date_from=date_from,
@@ -248,8 +284,11 @@ def sales_report(db: Session, date_from: date, date_to: date) -> SalesReportOut:
                 expected_cash_xof=s.expected_cash_xof,
                 counted_cash_xof=s.counted_cash_xof,
                 variance_xof=s.variance_xof,
+                opening_float_xof=s.opening_float_xof or 0,
+                closed_by=s.closed_by.full_name if s.closed_by else None,
+                regularization_xof=regs_by_session.get(str(s.id), 0),
             )
-            for s in reports_repo.cash_sessions(db, date_from, date_to)
+            for s in sessions
         ],
     )
 

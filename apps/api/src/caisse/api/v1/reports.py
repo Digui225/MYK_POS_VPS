@@ -102,14 +102,14 @@ def export_sales_csv(
         "Date",
         "Commandes",
         "Achats Reçus (XOF)",
-        "Achats Utilisés (Matières) (XOF)",
+        "Coût Matière (XOF)",
         "Ventes (CA) (XOF)",
         "Marge Brute (XOF)",
         "Taux Marge (%)",
         "Dépenses Caisse (XOF)",
         "Résultat Net (XOF)",
-        "Total Versé (Espèces) (XOF)",
-        "Écart Caisse (XOF)",
+        "Total Versé (sans fond de caisse) (XOF)",
+        "Écart Caisse après régularisation (XOF)",
         "Versement Banque (XOF)",
     ])
 
@@ -128,8 +128,8 @@ def export_sales_csv(
             f"{day.gross_margin_rate or 0}%",
             day.expenses_xof or 0,
             day.net_result_xof or 0,
-            day.counted_cash_xof or 0,
-            day.cash_variance_xof or 0,
+            day.remitted_xof,
+            day.adjusted_cash_variance_xof,
             day.bank_deposit_xof or 0,
         ])
 
@@ -141,8 +141,8 @@ def export_sales_csv(
         if totals.revenue_xof and totals.revenue_xof > 0
         else 0
     )
-    total_counted_cash = sum(d.counted_cash_xof or 0 for d in report.by_day)
-    total_cash_variance = sum(d.cash_variance_xof or 0 for d in report.by_day)
+    total_remitted = totals.remitted_xof
+    total_cash_variance = sum(d.adjusted_cash_variance_xof for d in report.by_day)
 
     writer.writerow([
         "TOTAL MENSUEL",
@@ -155,7 +155,7 @@ def export_sales_csv(
         f"{total_margin_rate}%",
         totals.expenses_xof or 0,
         totals.net_result_xof or 0,
-        total_counted_cash,
+        total_remitted,
         total_cash_variance,
         totals.bank_deposit_xof or 0,
     ])

@@ -18,7 +18,7 @@ Le journal des décisions et l'état de la production sont dans `MEMORY.md` (à 
 - Un seul test : `.venv/bin/pytest tests/integration/test_orders.py::nom_du_test -q` (ou `-k motif`).
 
 ### Migrations
-Les migrations vont aujourd'hui jusqu'à `026_…` (la prochaine est `027_…`). Les migrations 019 à 025 sont des **corrections de données** de production (renommages, stock, achats) ; depuis la décision D6 (`MEMORY.md`), on ne corrige plus le stock par migration mais par inventaire. La 026 ajoute l'état des sorties cuisine. Comme le schéma de test vient des modèles ORM, un modèle et sa migration doivent rester cohérents.
+Les migrations vont aujourd'hui jusqu'à `027_…` (la prochaine est `028_…`). Les migrations 019 à 025 sont des **corrections de données** de production (renommages, stock, achats) ; depuis la décision D6 (`MEMORY.md`), on ne corrige plus le stock par migration mais par inventaire. La 026 ajoute l'état des sorties cuisine, la 027 la table des régularisations d'écart de caisse. Comme le schéma de test vient des modèles ORM, un modèle et sa migration doivent rester cohérents.
 
 ### Démarrage de l'application (`caisse/main.py`)
 - Hors test, le lifespan exécute `Base.metadata.create_all` (contourne Alembic, point ouvert dans `MEMORY.md`) puis lance la boucle du worker outbox (`infrastructure/outbox/worker.py`, `ENABLE_OUTBOX_WORKER`, `OUTBOX_WORKER_INTERVAL_SECONDS`), qui renvoie les FNE différées.

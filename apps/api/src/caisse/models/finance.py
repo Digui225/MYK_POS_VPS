@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import Date, ForeignKey, Integer, String
+from sqlalchemy import CheckConstraint, Date, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from caisse.core.database import Base
@@ -45,3 +45,27 @@ class BankDeposit(Base, TimestampMixin):
 
     # Relationships
     user = relationship("User", foreign_keys=[user_id])
+
+
+class CashRegularization(Base, TimestampMixin):
+    """Régularisation d'un écart de caisse constaté à la clôture (Z).
+
+    Le Z clôturé ne change jamais (rien ne se modifie après encaissement) : quand un manque
+    est retrouvé (ou un excédent expliqué) après la clôture, on enregistre ici une opération
+    tracée, datée du jour de l'écart. Montant signé : positif = argent retrouvé / remis,
+    négatif = manque constaté après coup.
+    """
+    __tablename__ = "cash_regularizations"
+    __table_args__ = (CheckConstraint("amount_xof <> 0", name="ck_cash_regularization_amount"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    business_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    cash_session_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("cash_sessions.id"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    amount_xof: Mapped[int] = mapped_column(Integer, nullable=False)
+    reason: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    user = relationship("User", foreign_keys=[user_id])
+    cash_session = relationship("CashSession", foreign_keys=[cash_session_id])

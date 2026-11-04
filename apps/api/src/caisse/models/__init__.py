@@ -3,7 +3,7 @@ from caisse.models.base import Base, TimestampMixin, generate_uuid
 from caisse.models.cash_session import CashMovement, CashRegister, CashSession
 from caisse.models.catalog import Category, Product, ProductPriceHistory
 from caisse.models.customer import Customer
-from caisse.models.finance import BankDeposit, CashExpense
+from caisse.models.finance import BankDeposit, CashExpense, CashRegularization
 from caisse.models.fne import FneDocument
 from caisse.models.idempotency import IdempotencyRecord
 from caisse.models.order import Order, OrderItem
@@ -46,6 +46,7 @@ __all__ = [
     "OutboxEvent",
     "CashExpense",
     "BankDeposit",
+    "CashRegularization",
     "MarketPurchaseList",
     "MarketPurchaseItem",
     "DailyPreparation",

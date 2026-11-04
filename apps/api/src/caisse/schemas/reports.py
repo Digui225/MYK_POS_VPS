@@ -44,6 +44,16 @@ class SalesTotals(Schema):
     bank_deposit_xof: int = Field(
         default=0, description="Total des versements bancaires"
     )
+    remitted_xof: int = Field(
+        default=0,
+        description=(
+            "Total versé des sessions clôturées : espèces comptées - fond de caisse + paiements "
+            "hors espèces + régularisations d'écart"
+        ),
+    )
+    cash_regularization_xof: int = Field(
+        default=0, description="Total des régularisations d'écart de caisse (signé)"
+    )
 
 
 class SalesDay(Schema):
@@ -64,6 +74,28 @@ class SalesDay(Schema):
     counted_cash_xof: int = Field(default=0, description="Espèces comptées / versées")
     cash_variance_xof: int = Field(default=0, description="Écart de caisse (compté - attendu)")
     bank_deposit_xof: int = Field(default=0, description="Versements en banque")
+    opening_float_xof: int = Field(
+        default=0, description="Fonds de caisse des sessions clôturées du jour"
+    )
+    non_cash_payments_xof: int = Field(
+        default=0, description="Paiements hors espèces (Mobile Money, carte…) des sessions clôturées"
+    )
+    cash_regularization_xof: int = Field(
+        default=0, description="Régularisations d'écart de caisse du jour (signé)"
+    )
+    adjusted_cash_variance_xof: int = Field(
+        default=0, description="Écart de caisse après régularisation (écart du Z + régularisations)"
+    )
+    remitted_xof: int = Field(
+        default=0,
+        description=(
+            "Total versé : espèces comptées - fond de caisse + paiements hors espèces "
+            "+ régularisations (sessions clôturées)"
+        ),
+    )
+    has_closed_session: bool = Field(
+        default=False, description="Au moins une session de caisse clôturée ce jour-là"
+    )
 
 
 class SalesProduct(Schema):
@@ -99,6 +131,11 @@ class SalesCashSession(Schema):
     expected_cash_xof: int | None = Field(description="Espèces attendues à la clôture")
     counted_cash_xof: int | None = Field(description="Espèces comptées")
     variance_xof: int | None = Field(description="Écart de caisse (compté - attendu)")
+    opening_float_xof: int = Field(default=0, description="Fonds de caisse")
+    closed_by: str | None = Field(default=None, description="Personne qui a clôturé (Z)")
+    regularization_xof: int = Field(
+        default=0, description="Régularisations d'écart enregistrées sur cette session (signé)"
+    )
 
 
 class SalesReportOut(Schema):

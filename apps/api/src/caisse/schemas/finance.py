@@ -75,3 +75,37 @@ class BankDepositListOut(BaseSchema):
     total_count: int
     total_amount_xof: int
     items: list[BankDepositOut]
+
+
+class CashRegularizationCreate(BaseModel):
+    business_date: date = Field(..., description="Journée de l'écart de caisse à régulariser")
+    amount_xof: int = Field(
+        ...,
+        description=(
+            "Montant signé en FCFA (entier, non nul) : positif = argent retrouvé / remis, "
+            "négatif = manque constaté après la clôture"
+        ),
+    )
+    reason: str = Field(..., min_length=3, max_length=255, description="Motif (obligatoire)")
+    cash_session_id: str | None = Field(
+        None,
+        description="Session clôturée à régulariser ; facultatif s'il n'y a qu'une session ce jour-là",
+    )
+
+
+class CashRegularizationOut(BaseSchema):
+    id: str
+    business_date: date
+    cash_session_id: str
+    z_number: int | None = Field(description="Numéro du Z de la session régularisée")
+    user_id: str
+    user_name: str
+    amount_xof: int
+    reason: str
+    created_at: datetime
+
+
+class CashRegularizationListOut(BaseSchema):
+    total_count: int
+    total_amount_xof: int
+    items: list[CashRegularizationOut]

@@ -1,9 +1,10 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query, Request, Response, status
 
-from caisse.core.deps import CurrentUser, DbSession, Responsable
+from caisse.core.deps import Ctx, CurrentUser, DbSession, Responsable
+from caisse.core.idempotency import IdempotencyKey, apply_replay_headers
 from caisse.schemas.finance import (
     BankDepositCreate,
     BankDepositListOut,
@@ -11,6 +12,9 @@ from caisse.schemas.finance import (
     CashExpenseCreate,
     CashExpenseListOut,
     CashExpenseOut,
+    CashRegularizationCreate,
+    CashRegularizationListOut,
+    CashRegularizationOut,
 )
 from caisse.services import finance_service, stock_service
 
@@ -81,3 +85,45 @@ def get_bank_deposits(
     d_to = date_to or today
     d_from = date_from or d_to
     return finance_service.list_bank_deposits(db, d_from, d_to)
+
+
+@router.post(
+    "/cash-regularizations",
+    response_model=CashRegularizationOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Régulariser un écart de caisse après la clôture",
+)
+def record_cash_regularization(
+    payload: CashRegularizationCreate,
+    responsable: Responsable,
+    db: DbSession,
+    ctx: Ctx,
+    request: Request,
+    response: Response,
+    idempotency_key: IdempotencyKey,
+) -> CashRegularizationOut:
+    """Argent retrouvé (montant positif) ou manque constaté après coup (négatif) sur une journée
+    clôturée. Le Z n'est pas modifié : la régularisation est tracée à côté, avec son motif."""
+    result, replayed = finance_service.create_cash_regularization(
+        db, responsable, payload, key=idempotency_key, path=request.url.path, ctx=ctx
+    )
+    if replayed:
+        apply_replay_headers(response)
+    return result
+
+
+@router.get(
+    "/cash-regularizations",
+    response_model=CashRegularizationListOut,
+    summary="Lister les régularisations d'écart de caisse sur une période",
+)
+def get_cash_regularizations(
+    _: Responsable,
+    db: DbSession,
+    date_from: DateFrom = None,
+    date_to: DateTo = None,
+) -> CashRegularizationListOut:
+    today = stock_service.business_day(db)
+    d_to = date_to or today
+    d_from = date_from or d_to
+    return finance_service.list_cash_regularizations(db, d_from, d_to)

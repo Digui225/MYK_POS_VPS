@@ -15,6 +15,7 @@ from caisse.domain.enums import (
     StockOutMode,
 )
 from caisse.models.cash_session import CashRegister, CashSession
+from caisse.models.finance import CashRegularization
 from caisse.models.order import Order, OrderItem
 from caisse.models.payment import Payment
 from caisse.models.stock import StockArticle, StockMovement
@@ -163,6 +164,36 @@ def cash_sessions(db: Session, date_from: date, date_to: date) -> list[CashSessi
             .order_by(CashSession.business_date, CashSession.opened_at)
         )
     )
+
+
+def non_cash_payments_by_session(db: Session, date_from: date, date_to: date) -> dict[str, int]:
+    """Paiements hors espèces (Mobile Money, carte…) des commandes soldées, par session."""
+    rows = db.execute(
+        select(CashSession.id, func.sum(Payment.amount_xof))
+        .select_from(Payment)
+        .join(Order, Order.id == Payment.order_id)
+        .join(CashSession, Order.cash_session_id == CashSession.id)
+        .where(
+            Payment.status == PaymentStatus.CAPTURED,
+            Payment.method != PaymentMethod.CASH,
+            _paid_in(date_from, date_to),
+        )
+        .group_by(CashSession.id)
+    )
+    return {str(sid): int(total or 0) for sid, total in rows}
+
+
+def regularizations_by_session(db: Session, date_from: date, date_to: date) -> dict[str, int]:
+    """Régularisations d'écart de caisse (montants signés), par session régularisée."""
+    rows = db.execute(
+        select(CashRegularization.cash_session_id, func.sum(CashRegularization.amount_xof))
+        .where(
+            CashRegularization.business_date >= date_from,
+            CashRegularization.business_date <= date_to,
+        )
+        .group_by(CashRegularization.cash_session_id)
+    )
+    return {str(sid): int(total or 0) for sid, total in rows}
 
 
 def non_sale_out_by_mode(
