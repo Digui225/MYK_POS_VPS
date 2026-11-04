@@ -1,19 +1,17 @@
 name: Deploy Backend (CI/CD)
 
-# Tout push sur main part en PRODUCTION (148.113.149.10) si les tests passent.
+# Branches :
+#   aziz              -> branche de travail et de tests : vérifications seulement (Ruff, mypy, pytest),
+#                        AUCUN déploiement.
+#   main (prod-aziz)  -> PRODUCTION (148.113.149.10) si les tests passent.
 # Mise en place côté serveur : deploy/vps/update.sh (sauvegarde, santé, retour arrière).
 on:
   push:
     branches:
       - main
+      - aziz
       - prod-aziz
-    
   workflow_dispatch:
-
-# Jamais deux déploiements en même temps ; un déploiement commencé va jusqu'au bout.
-concurrency:
-  group: deploy-production
-  cancel-in-progress: false
 
 jobs:
   test:
@@ -69,7 +67,13 @@ jobs:
   deploy:
     name:  Déploiement VPS
     needs: [test]
+    # Production uniquement depuis main (ou prod-aziz) : jamais depuis aziz
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/prod-aziz'
     runs-on: ubuntu-latest
+    # Jamais deux déploiements en même temps ; un déploiement commencé va jusqu'au bout.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     steps:
       - name:  Récupérer le code
         uses: actions/checkout@v4

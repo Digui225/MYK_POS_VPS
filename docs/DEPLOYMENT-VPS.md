@@ -81,8 +81,8 @@ Les deux dépôts doivent être clonés côte-à-côte dans un même répertoire
 mkdir -p /opt/caisse && cd /opt/caisse
 
 # Cloner le backend et le frontend
-git clone -b aziz https://github.com/Abdell87/Caisse_MYK_Back.git Caisse_MYK_backend
-git clone -b aziz https://github.com/Abdell87/Caisse_MYK_frontend.git Caisse_MYK_frontend
+git clone -b main https://github.com/Abdell87/Caisse_MYK_Back.git Caisse_MYK_backend
+git clone -b main https://github.com/Abdell87/Caisse_MYK_frontend.git Caisse_MYK_frontend
 ```
 
 ---
@@ -190,7 +190,7 @@ Le restaurant n'a pas besoin d'IP fixe ni d'ouverture de port sur sa box :
   ```
 * **Mettre à jour avec la dernière version de Git :**
   ```bash
-  git pull origin aziz
-  cd ../Caisse_MYK_frontend && git pull origin aziz && cd ../Caisse_MYK_backend
+  git pull origin main
+  cd ../Caisse_MYK_frontend && git pull origin main && cd ../Caisse_MYK_backend
   docker compose -f docker-compose.prod.yml up -d --build
   ```

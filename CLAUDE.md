@@ -31,7 +31,7 @@ Les migrations vont aujourd'hui jusqu'à `026_…` (la prochaine est `027_…`).
 ### Impression
 L'agent (`apps/print-agent/`) tourne sur le poste Windows du restaurant et **tire** les travaux de l'API (mode PULL, jeton de terminal) ; l'API ne pousse jamais vers l'imprimante. Le tiroir-caisse s'ouvre avec le ticket.
 
-### Déploiement : attention, `main` part en production
-`.github/workflows/deploy.yml` : **tout push sur `main` ou `prod-aziz` est déployé en production** (`148.113.149.10`) si les tests passent (CI avec service PostgreSQL 16). Côté serveur, le seul circuit est `deploy/vps/update.sh` (sauvegarde, migration, contrôle de santé, retour arrière), également appelé par `deploy/vps/deploy.sh`. Ne jamais pousser sur `main` sans l'accord explicite de l'utilisateur.
+### Déploiement : `main` = production, `aziz` = tests
+`.github/workflows/deploy.yml` : un push sur **`aziz`** lance seulement les vérifications (Ruff, mypy, pytest), **sans déploiement**. Un push sur **`main`** (ou `prod-aziz`) est **déployé en production** (`148.113.149.10`) si les tests passent (CI avec service PostgreSQL 16). On travaille et on commite sur `aziz` ; la mise en production se fait en fusionnant `aziz` dans `main`, **uniquement avec l'accord explicite de l'utilisateur**. Seules les branches `main` et `aziz` existent. Côté serveur, le seul circuit est `deploy/vps/update.sh` (sauvegarde, migration, contrôle de santé, retour arrière), également appelé par `deploy/vps/deploy.sh`.
 
 Scripts destructeurs à ne pas lancer sans accord : `deploy/vps/restore_real_data.sql` (`TRUNCATE` des ventes) et `scripts/reset_production_data.sql`.
