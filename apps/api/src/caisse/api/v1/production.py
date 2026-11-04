@@ -7,6 +7,8 @@ from caisse.core.deps import CurrentUser, DbSession, Responsable
 from caisse.schemas.production import (
     DailyPreparationCreate,
     DailyPreparationOut,
+    DailyPreparationValidateDay,
+    DailyPreparationValidateDayOut,
     MarketProteinAnalysisOut,
     MarketPurchaseListCreate,
     MarketPurchaseListOut,
@@ -130,6 +132,21 @@ def record_daily_prep_endpoint(
     """Enregistre la quantité de viande/poisson sortie en cuisine pour la journée
     et calcule immédiatement le nombre de plats prévus."""
     return production_service.save_daily_preparation(db, current_user, payload)
+
+
+@router.post(
+    "/daily-preparations/validate-day",
+    response_model=DailyPreparationValidateDayOut,
+    summary="Valider d'un coup les sorties cuisine estimées d'une journée",
+)
+def validate_day_preparations_endpoint(
+    payload: DailyPreparationValidateDay,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> DailyPreparationValidateDayOut:
+    """La cuisine confirme les sorties estimées à la clôture de caisse (état ESTIMATED →
+    VALIDATED). Les sorties déjà validées ou ajustées ne changent pas. Sans effet sur le stock."""
+    return production_service.validate_day_preparations(db, current_user, payload.business_date)
 
 
 @router.get(

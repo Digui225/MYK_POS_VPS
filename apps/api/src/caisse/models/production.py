@@ -87,7 +87,8 @@ class MarketPurchaseItem(Base, TimestampMixin):
 
 
 class DailyPreparation(Base, TimestampMixin):
-    """Sortie de matière première en cuisine le matin pour préparation de plats.
+    """Sortie de matière première en cuisine pour préparation de plats : simple contrôle
+    (sorti contre vendu), sans effet sur le stock, qui baisse à la vente (D6).
     Ex: 3 poulets sortis avec rendement de 4 plats/poulet = 12 plats prévus."""
 
     __tablename__ = "daily_preparations"
@@ -96,6 +97,9 @@ class DailyPreparation(Base, TimestampMixin):
         CheckConstraint("prepared_quantity > 0", name="ck_daily_prep_qty_positive"),
         CheckConstraint("yield_portions_per_unit > 0", name="ck_daily_prep_yield_positive"),
         CheckConstraint("theoretical_dishes >= 0", name="ck_daily_prep_dishes_positive"),
+        CheckConstraint(
+            "status IN ('ESTIMATED', 'VALIDATED', 'ADJUSTED')", name="ck_daily_prep_status"
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
@@ -110,6 +114,14 @@ class DailyPreparation(Base, TimestampMixin):
         String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
     notes: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # D6 : ESTIMATED (pré-remplie à la clôture d'après les ventes), VALIDATED (confirmée par
+    # la cuisine), ADJUSTED (corrigée par la cuisine). Une estimation n'écrase jamais une
+    # sortie validée ou ajustée ; la sortie cuisine ne touche jamais le stock.
+    status: Mapped[str] = mapped_column(
+        String(16), default="VALIDATED", server_default=text("'VALIDATED'"), nullable=False
+    )
+    # Dernière estimation calculée d'après les ventes (gardée même après validation)
+    estimated_quantity: Mapped[Decimal | None] = mapped_column(Numeric(12, 3), nullable=True)
 
     article = relationship("StockArticle")
     user = relationship("User")

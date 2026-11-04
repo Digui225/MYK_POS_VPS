@@ -376,6 +376,31 @@ business_date,fiscal_group,quantity,gross_ht_xof,vat_xof,total_ttc_xof
 | POST | `/purchases/{id}/receive` | R / A | Réceptionner les achats et intégrer au stock |
 | PUT | `/production/market-purchases/{id}` | R / A | Ajuster les articles, quantités ou l'enveloppe condiments d'un bon d'achat en attente (DRAFT) |
 | GET | `/production/market-purchases/{id}/protein-analysis` | R / A | Comparatif des 9 protéines du bon vs ventes réelles et stock de la semaine |
+| POST | `/production/daily-preparations` | C / R / A | Saisir la sortie cuisine d'une protéine pour une journée (`prepared_quantity: 0` l'efface). Réponse : `status` (`VALIDATED` si la quantité confirme l'estimation ou s'il n'y en a pas, `ADJUSTED` sinon) et `estimated_quantity` |
+| POST | `/production/daily-preparations/validate-day` | C / R / A | **Ajout D6** — corps `{"business_date"}` : valider d'un coup les sorties `ESTIMATED` du jour. Réponse : `{business_date, validated_count, preparations[]}` |
+| GET | `/production/weekly-matrix?date_from=&date_to=` | R / A | Matrice de contrôle hebdomadaire des 9 protéines (règle universelle du stock, ci-dessous) |
+
+#### Règle universelle du stock protéines (D6, 04/11/2026)
+
+Une seule source : le journal `stock_movements`. Pour chaque protéine et chaque journée de caisse :
+
+> **Restant = Ouverture + Achats − Ventes − Pertes ± Écart d'inventaire ± Corrections**
+
+| Colonne | Mouvements |
+|---|---|
+| Achats | `PURCHASE_IN`, tous circuits (bon marché, demande d'achat, entrée manuelle) |
+| Ventes | `SALE_OUT` liés à une commande, moins les `RETURN_IN` |
+| Pertes | `LOSS_OUT` |
+| Écart d'inventaire | `INVENTORY_COUNT` (compté − théorique). Un `OPENING` (premier comptage) compte dans l'ouverture |
+| Corrections | `ADJUSTMENT` et `SALE_OUT` sans commande (rattrapages des migrations 024/025) |
+
+Le restant de fin de période (`closing_stock_qty`) est, par construction, le stock à cette date ; il est égal à `current_stock_qty` quand la période se termine aujourd'hui. Le stock baisse **à la vente** ; un plat sans fiche protéine (« Hors Menu ») déstocke la protéine citée dans son libellé, à sa portion standard. La **sortie cuisine n'est qu'un contrôle** (sorti contre vendu) : elle ne modifie jamais le stock. À la clôture de caisse elle est pré-remplie comme estimation (`ESTIMATED`), que la cuisine valide (`VALIDATED`) ou ajuste (`ADJUSTED`) ; une estimation ne remplace jamais une sortie validée ou ajustée.
+
+Champs ajoutés (rétrocompatibles) :
+- `WeeklyDayData` : `opening_quantity`, `purchased_quantity`, `stock_sold_quantity`, `loss_quantity`, `inventory_variance_quantity`, `correction_quantity`, `closing_quantity`, `preparation_status`, `estimated_quantity`, `preparation_gap_quantity` (sorti cuisine − sorti par les ventes), `non_destocked_dishes` (plats encaissés sans sortie de stock). `remaining_quantity` reste le disponible du jour (ouverture + achats du jour).
+- `WeeklyProductRow` : `total_stock_sold_qty`, `total_loss_qty`, `total_inventory_variance_qty`, `total_correction_qty`, `closing_stock_qty`, `current_stock_qty`, `total_non_destocked_dishes`. `weekly_purchased_qty`/`weekly_purchased_cost_xof` comptent désormais toutes les entrées d'achat de la période ; `quantity_variance` = sorti cuisine − sorti par les ventes.
+- `DailyPreparationOut` : `status`, `estimated_quantity`.
+- `StockReportArticle` (`/reports/stock`) : `correction_quantity`. `count_adjustment_quantity` ne compte plus que les inventaires ; `sold_quantity` exclut les sorties sans commande.
 
 
 ### 4.10 Impression

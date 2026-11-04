@@ -10,26 +10,23 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from caisse.core.errors import ValidationError
 from caisse.domain import stock_rules
 from caisse.domain.enums import (
     CashSessionStatus,
-    OrderStatus,
-    StockArticleCategory,
     StockMovementType,
     StockOutMode,
 )
 from caisse.domain.money import to_unit_rate, to_xof
-from caisse.domain.production_rules import match_protein_keyword, normalize_dish_name
 from caisse.models.cash_session import CashSession
 from caisse.models.finance import BankDeposit, CashExpense
 from caisse.models.fne import FneDocument
 from caisse.models.order import Order, OrderItem
 from caisse.models.payment import Payment
-from caisse.models.stock import ProductComponent, StockArticle, StockMovement
+from caisse.models.stock import StockArticle
 from caisse.models.table import RestaurantTable
 from caisse.models.user import User
 from caisse.repositories import fne as fne_repo
@@ -276,6 +273,8 @@ def stock_report(db: Session, date_from: date, date_to: date) -> StockReportOut:
     sale_types = (StockMovementType.SALE_OUT, StockMovementType.RETURN_IN)
     count_types = (StockMovementType.INVENTORY_COUNT, StockMovementType.ADJUSTMENT)
     out_types = (*sale_types, StockMovementType.LOSS_OUT, *count_types)
+    # D6 : les sorties « vente » sans commande sont des corrections, pas des ventes
+    orphans = reports_repo.orphan_sales_by_article(db, date_from, date_to)
 
     rows: list[StockReportArticle] = []
     totals: defaultdict[str, Decimal] = defaultdict(lambda: _ZERO)
@@ -296,11 +295,12 @@ def stock_report(db: Session, date_from: date, date_to: date) -> StockReportOut:
         consumption_value = -value(a.id, *out_types)
         current_value = stock_rules.value_xof(max(a.quantity, _ZERO), a.avg_cost_xof)
         is_low = stock_rules.is_below_threshold(a.quantity, a.alert_threshold)
-        non_sale = -value(a.id, StockMovementType.LOSS_OUT, *count_types)
+        orphan_q, orphan_v = orphans.get(str(a.id), (_ZERO, _ZERO))
+        non_sale = -value(a.id, StockMovementType.LOSS_OUT, *count_types) - orphan_v
 
         totals["stock_value"] += current_value
         totals["purchases"] += purchases
-        totals["sales_cost"] += -value(a.id, *sale_types)
+        totals["sales_cost"] += -(value(a.id, *sale_types) - orphan_v)
         totals["consumption" if a.out_mode == StockOutMode.INVENTORY else "variance"] += non_sale
         totals["low"] += 1 if is_low and a.is_active else 0
         rows.append(
@@ -313,9 +313,10 @@ def stock_report(db: Session, date_from: date, date_to: date) -> StockReportOut:
                 opening_quantity=float(opening),
                 purchased_quantity=float(purchased),
                 purchases_xof=_xof(purchases),
-                sold_quantity=float(-qty(a.id, *sale_types)),
+                sold_quantity=float(-(qty(a.id, *sale_types) - orphan_q)),
                 loss_quantity=float(-qty(a.id, StockMovementType.LOSS_OUT)),
-                count_adjustment_quantity=float(qty(a.id, *count_types)),
+                count_adjustment_quantity=float(qty(a.id, StockMovementType.INVENTORY_COUNT)),
+                correction_quantity=float(qty(a.id, StockMovementType.ADJUSTMENT) + orphan_q),
                 closing_quantity=float(closing),
                 consumption_quantity=float(opening + purchased - closing),
                 consumption_xof=_xof(consumption_value),
@@ -693,104 +694,19 @@ def protein_yield_report(db: Session, date_from: date, date_to: date) -> Protein
     aux plats réellement vendus en caisse et aux pertes déclarées."""
     check_period(date_from, date_to)
 
-    # 1. Articles de catégorie PROTEINE
-    articles = (
-        db.query(StockArticle)
-        .filter(StockArticle.category == StockArticleCategory.PROTEINE)
-        .order_by(StockArticle.name)
-        .all()
-    )
+    # Règle universelle D6 : même rattachement plat → protéine et même grand livre que le
+    # déstockage et la matrice de contrôle.
+    from caisse.services import protein_ledger
 
-    # 2. Fiches techniques (ProductComponent) liées aux articles
-    components = (
-        db.query(ProductComponent)
-        .join(StockArticle, StockArticle.id == ProductComponent.article_id)
-        .filter(StockArticle.category == StockArticleCategory.PROTEINE)
-        .all()
-    )
+    resolver = protein_ledger.build_resolver(db)
+    articles = resolver.articles
+    ledger = protein_ledger.daily_ledger(db, articles, date_from, date_to)
 
-    article_components: dict[str, list[ProductComponent]] = defaultdict(list)
-    for c in components:
-        article_components[c.article_id].append(c)
-
-    # 3. Ventes des produits associés sur la période (fiches et main libre)
-    all_product_ids_set = {str(c.product_id) for c in components}
-    product_sales: dict[str, tuple[int, int]] = {}
-    unmapped_sales_by_art: dict[str, tuple[int, int]] = {}
-
-    protein_by_key: dict[str, StockArticle] = {}
-    for a in articles:
-        a_norm = normalize_dish_name(a.name)
-        if "pondeuse" in a_norm:
-            protein_by_key["POULET_PONDEUSE"] = a
-        elif "poulet" in a_norm:
-            protein_by_key["POULET"] = a
-        elif "brochet" in a_norm or "machoiran" in a_norm:
-            protein_by_key["FAUX_BROCHET"] = a
-        elif "saumon" in a_norm:
-            protein_by_key["FAUX_SAUMON"] = a
-        elif "sosso" in a_norm:
-            protein_by_key["SOSSO"] = a
-        elif "loss" in a_norm:
-            protein_by_key["LOSS"] = a
-        elif "mouton" in a_norm:
-            protein_by_key["MOUTON"] = a
-        elif "boeuf" in a_norm:
-            protein_by_key["BOEUF"] = a
-        elif "carpe" in a_norm:
-            protein_by_key["CARPE"] = a
-
-    rows = db.execute(
-        select(
-            OrderItem.product_id,
-            OrderItem.product_name_snapshot,
-            func.sum(OrderItem.quantity),
-            func.sum(OrderItem.line_total_xof),
-        )
-        .join(Order, Order.id == OrderItem.order_id)
-        .join(CashSession, Order.cash_session_id == CashSession.id)
-        .where(
-            Order.status == OrderStatus.PAID,
-            CashSession.business_date >= date_from,
-            CashSession.business_date <= date_to,
-            OrderItem.removed_at.is_(None),
-        )
-        .group_by(OrderItem.product_id, OrderItem.product_name_snapshot)
-    )
-    for pid, name_snap, qty, revenue in rows:
-        pid_str = str(pid) if pid else None
-        sold_q = int(qty or 0)
-        sold_rev = int(revenue or 0)
-        name_str = name_snap or ""
-
-        if pid_str and pid_str in all_product_ids_set:
-            cur_q, cur_r = product_sales.get(pid_str, (0, 0))
-            product_sales[pid_str] = (cur_q + sold_q, cur_r + sold_rev)
-        else:
-            prot_key = match_protein_keyword(name_str)
-            if prot_key and prot_key in protein_by_key:
-                target_art = protein_by_key[prot_key]
-                cur_q, cur_r = unmapped_sales_by_art.get(str(target_art.id), (0, 0))
-                unmapped_sales_by_art[str(target_art.id)] = (cur_q + sold_q, cur_r + sold_rev)
-
-    # 4. Mouvements de stock sur la période
-    article_ids = [a.id for a in articles]
-    mov_rows = db.execute(
-        select(
-            StockMovement.article_id,
-            StockMovement.type,
-            func.sum(StockMovement.quantity),
-        )
-        .where(
-            StockMovement.article_id.in_(article_ids),
-            StockMovement.business_date >= date_from,
-            StockMovement.business_date <= date_to,
-        )
-        .group_by(StockMovement.article_id, StockMovement.type)
-    )
-    movements: dict[tuple[str, StockMovementType], float] = {}
-    for aid, m_type, q in mov_rows:
-        movements[(str(aid), m_type)] = float(q or 0)
+    sold_by_art: dict[str, tuple[int, int]] = {}
+    for line in protein_ledger.paid_sale_lines(db, date_from, date_to):
+        for aid, _ in resolver.protein_lines(line.product_id, line.name):
+            cur_q, cur_r = sold_by_art.get(aid, (0, 0))
+            sold_by_art[aid] = (cur_q + line.quantity, cur_r + line.revenue_xof)
 
     items: list[ProteinYieldItem] = []
     tot_consumed_cost = 0
@@ -803,33 +719,21 @@ def protein_yield_report(db: Session, date_from: date, date_to: date) -> Protein
     anomalies_count = 0
 
     for a in articles:
-        comps = article_components.get(a.id, [])
-        standard_portion = float(comps[0].quantity) if comps else 1.0
+        aid = str(a.id)
+        comps = resolver.components_by_article.get(aid, [])
+        standard_portion = float(resolver.portion(aid))
         yield_ratio = round(1.0 / standard_portion, 2) if standard_portion > 0 else 1.0
+        associated_products: list[str] = [c.product.name for c in comps if c.product]
+        sold_dishes, sold_revenue = sold_by_art.get(aid, (0, 0))
 
-        sold_dishes = 0
-        sold_revenue = 0
-        associated_products: list[str] = []
-        for c in comps:
-            if c.product:
-                associated_products.append(c.product.name)
-            p_qty, p_rev = product_sales.get(c.product_id, (0, 0))
-            sold_dishes += p_qty
-            sold_revenue += p_rev
-
-        extra_q, extra_rev = unmapped_sales_by_art.get(str(a.id), (0, 0))
-        sold_dishes += extra_q
-        sold_revenue += extra_rev
-
-        sale_qty = -movements.get((a.id, StockMovementType.SALE_OUT), 0.0)
-        loss_qty = -movements.get((a.id, StockMovementType.LOSS_OUT), 0.0)
-        inv_qty = movements.get((a.id, StockMovementType.INVENTORY_COUNT), 0.0)
-
-        # Quantité consommée totale
-        consumed_qty = max(
-            sale_qty + loss_qty - (inv_qty if inv_qty < 0 else 0),
-            float(sold_dishes * standard_portion),
-        )
+        # Consommation lue dans le grand livre : ventes + pertes + manquants d'inventaire
+        # + corrections négatives (rattrapages de ventes)
+        led = ledger.get(aid, [])
+        sale_qty = float(sum((ld.sales for ld in led), Decimal(0)))
+        loss_qty = float(sum((ld.losses for ld in led), Decimal(0)))
+        inv_qty = float(sum((ld.inventory for ld in led), Decimal(0)))
+        corr_qty = float(sum((ld.corrections for ld in led), Decimal(0)))
+        consumed_qty = sale_qty + loss_qty + max(0.0, -inv_qty) + max(0.0, -corr_qty)
         avg_cost = to_unit_rate(a.avg_cost_xof)
         consumed_cost = to_xof(Decimal(str(consumed_qty)) * a.avg_cost_xof)
 

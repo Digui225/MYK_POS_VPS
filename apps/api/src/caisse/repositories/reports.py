@@ -3,7 +3,7 @@
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import ColumnElement, func, select
+from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from caisse.domain.enums import (
@@ -29,6 +29,15 @@ NON_SALE_OUT_TYPES = (
 )
 
 _ZERO = Decimal(0)
+
+
+def _non_sale_out() -> ColumnElement[bool]:
+    """Sorties hors vente : pertes, écarts d'inventaire, ajustements, et sorties « vente » sans
+    commande (rattrapages des migrations 024/025, classés en corrections — D6)."""
+    return or_(
+        StockMovement.type.in_(NON_SALE_OUT_TYPES),
+        and_(StockMovement.type.in_(SALE_TYPES), StockMovement.reference_order_id.is_(None)),
+    )
 
 
 def _paid_in(date_from: date, date_to: date) -> ColumnElement[bool]:
@@ -90,7 +99,7 @@ def non_sale_out_by_day(db: Session, date_from: date, date_to: date) -> dict[dat
     rows = db.execute(
         select(StockMovement.business_date, -_value())
         .where(
-            StockMovement.type.in_(NON_SALE_OUT_TYPES),
+            _non_sale_out(),
             StockMovement.business_date >= date_from,
             StockMovement.business_date <= date_to,
         )
@@ -165,7 +174,7 @@ def non_sale_out_by_mode(
         .select_from(StockMovement)
         .join(StockArticle, StockArticle.id == StockMovement.article_id)
         .where(
-            StockMovement.type.in_(NON_SALE_OUT_TYPES),
+            _non_sale_out(),
             StockMovement.business_date >= date_from,
             StockMovement.business_date <= date_to,
         )
@@ -192,6 +201,24 @@ def movements_by_article_type(
         .group_by(StockMovement.article_id, StockMovement.type)
     )
     return {(str(aid), t): (Decimal(qty), Decimal(val)) for aid, t, qty, val in rows}
+
+
+def orphan_sales_by_article(
+    db: Session, date_from: date, date_to: date
+) -> dict[str, tuple[Decimal, Decimal]]:
+    """Sorties « vente » sans commande (rattrapages des migrations 024/025) : ce sont des
+    corrections, pas des ventes (D6). Article → (quantité signée, valeur signée)."""
+    rows = db.execute(
+        select(StockMovement.article_id, func.sum(StockMovement.quantity), _value())
+        .where(
+            StockMovement.business_date >= date_from,
+            StockMovement.business_date <= date_to,
+            StockMovement.type.in_((StockMovementType.SALE_OUT, StockMovementType.RETURN_IN)),
+            StockMovement.reference_order_id.is_(None),
+        )
+        .group_by(StockMovement.article_id)
+    )
+    return {str(aid): (Decimal(qty), Decimal(val)) for aid, qty, val in rows}
 
 
 def quantity_after(db: Session, day: date) -> dict[str, Decimal]:

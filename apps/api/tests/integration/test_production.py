@@ -598,7 +598,10 @@ def test_auto_validate_preparations_on_session_close(client: TestClient, db_sess
     assert float(prep_after.prepared_quantity) == 2.0
     assert float(prep_after.yield_portions_per_unit) == 4.0
     assert prep_after.theoretical_dishes == 8
-    assert "Auto-validé à la clôture de caisse" in (prep_after.notes or "")
+    # D6 : la clôture pré-remplit une ESTIMATION, que la cuisine valide ou ajuste
+    assert prep_after.status == "ESTIMATED"
+    assert float(prep_after.estimated_quantity) == 2.0
+    assert "Estimation à la clôture de caisse" in (prep_after.notes or "")
 
     # 9. Vérifier dans la matrice hebdomadaire
     matrix_res = client.get(
@@ -614,7 +617,8 @@ def test_auto_validate_preparations_on_session_close(client: TestClient, db_sess
     assert day_data["sold_dishes"] == 8
     assert day_data["theoretical_dishes"] == 8
     assert day_data["variance_dishes"] == 0
-    assert "Auto-validé" in (day_data["notes"] or "")
+    assert day_data["preparation_status"] == "ESTIMATED"
+    assert day_data["estimated_quantity"] == 2.0
 
     # 10. Protection de la saisie manuelle :
     # Création manuelle d'une sortie pour un autre article
@@ -714,6 +718,9 @@ def test_auto_validate_preparations_on_session_close(client: TestClient, db_sess
     assert float(canard_prep_2.prepared_quantity) == 5.0
     assert canard_prep_2.theoretical_dishes == 20
     assert canard_prep_2.notes == "Sortie manuelle du matin par le chef"
+    assert canard_prep_2.status == "VALIDATED"
+    # l'estimation est quand même notée pour le contrôle (4 plats / 4 = 1.0)
+    assert float(canard_prep_2.estimated_quantity) == 1.0
 
 
 def test_weekly_matrix_foufou_and_foutou_breakdown(client: TestClient, db_session: Session) -> None:

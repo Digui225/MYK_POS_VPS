@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field, field_validator
 from caisse.schemas.common import BaseSchema
 
 MarketPurchaseStatus = Literal["DRAFT", "COMPLETED", "CANCELLED"]
+# D6 : état d'une sortie cuisine (contrôle sans effet sur le stock)
+PreparationStatus = Literal["ESTIMATED", "VALIDATED", "ADJUSTED"]
 
 
 class MarketPurchaseItemCreate(BaseModel):
@@ -109,6 +111,20 @@ class DailyPreparationOut(BaseSchema):
     user_name: str
     notes: str | None
     created_at: datetime
+    status: PreparationStatus = "VALIDATED"
+    estimated_quantity: float | None = Field(
+        None, description="Dernière estimation calculée d'après les ventes de la journée"
+    )
+
+
+class DailyPreparationValidateDay(BaseModel):
+    business_date: date = Field(..., description="Journée dont on valide les estimations")
+
+
+class DailyPreparationValidateDayOut(BaseSchema):
+    business_date: date
+    validated_count: int
+    preparations: list[DailyPreparationOut]
 
 
 # Schémas pour la Matrice Hebdomadaire (Tableau Blanc du Patron)
@@ -134,6 +150,20 @@ class WeeklyDayData(BaseSchema):
     revenue_variance_xof: int = 0
     financial_impact_xof: int
     notes: str | None = None
+    # --- Grand livre du jour (D6) : identique au stock ---
+    # remaining_quantity = disponible du jour (ouverture + achats du jour)
+    opening_quantity: float = 0.0
+    purchased_quantity: float = 0.0
+    stock_sold_quantity: float = 0.0  # sorti du stock par les ventes, retours déduits
+    loss_quantity: float = 0.0
+    inventory_variance_quantity: float = 0.0  # écart d'inventaire signé
+    correction_quantity: float = 0.0  # ajustements et rattrapages (migrations 024/025)
+    closing_quantity: float = 0.0  # restant en fin de journée = stock à cette date
+    # --- Contrôle de la sortie cuisine ---
+    preparation_status: PreparationStatus | None = None
+    estimated_quantity: float | None = None
+    preparation_gap_quantity: float = 0.0  # sorti cuisine − sorti par les ventes
+    non_destocked_dishes: int = 0  # plats encaissés sans sortie de stock de cette protéine
 
 
 class WeeklyProductRow(BaseSchema):
@@ -160,8 +190,16 @@ class WeeklyProductRow(BaseSchema):
     actual_revenue_xof: int = 0
     actual_gross_margin_xof: int = 0
     actual_gross_margin_pct: float = 0.0
-    quantity_variance: float = 0.0
+    quantity_variance: float = 0.0  # sorti cuisine − sorti par les ventes (contrôle)
     dishes_variance: int = 0
+    # --- Grand livre de la période (D6) ---
+    total_stock_sold_qty: float = 0.0
+    total_loss_qty: float = 0.0
+    total_inventory_variance_qty: float = 0.0
+    total_correction_qty: float = 0.0
+    closing_stock_qty: float = 0.0  # restant de fin de période = stock à cette date
+    current_stock_qty: float = 0.0  # stock actuel de l'article
+    total_non_destocked_dishes: int = 0
 
 
 class WeeklyMatrixReportOut(BaseSchema):

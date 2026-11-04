@@ -20,23 +20,24 @@ from caisse.domain.production_rules import (
     calculate_financial_impact,
     calculate_item_total,
     calculate_theoretical_dishes,
-    match_protein_keyword,
-    normalize_dish_name,
 )
-from caisse.domain.stock_rules import weighted_average_cost
+from caisse.domain.protein_mapping import dish_variant
+from caisse.domain.stock_rules import quantize_qty, weighted_average_cost
 from caisse.models.cash_session import CashMovement, CashSession
 from caisse.models.finance import CashExpense
-from caisse.models.order import Order, OrderItem
+from caisse.models.order import Order
 from caisse.models.production import (
     DailyPreparation,
     MarketPurchaseItem,
     MarketPurchaseList,
 )
-from caisse.models.stock import ProductComponent, StockArticle, StockMovement
+from caisse.models.stock import StockArticle, StockMovement
 from caisse.models.user import User
+from caisse.repositories import stock as stock_repo
 from caisse.schemas.production import (
     DailyPreparationCreate,
     DailyPreparationOut,
+    DailyPreparationValidateDayOut,
     MarketProteinAnalysisOut,
     MarketPurchaseItemOut,
     MarketPurchaseListCreate,
@@ -47,6 +48,7 @@ from caisse.schemas.production import (
     WeeklyMatrixReportOut,
     WeeklyProductRow,
 )
+from caisse.services import protein_ledger
 
 DAY_NAMES_FR = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
 
@@ -447,9 +449,13 @@ def complete_market_purchase(
     """Valide les achats après retour du marché et met à jour le stock en créant
     les mouvements PURCHASE_IN (ce qui alimente automatiquement la colonne ACHATS REÇUS).
     Si deduct_from_cash_session est vrai, crée également un décaissement CashExpense."""
+    # Verrou sur le bon : deux validations simultanées (double clic) n'ajoutent pas deux fois
+    # les achats au stock.
     purchase = (
         db.query(MarketPurchaseList)
         .filter(MarketPurchaseList.id == purchase_id)
+        .with_for_update()
+        .populate_existing()
         .first()
     )
     if not purchase:
@@ -468,8 +474,9 @@ def complete_market_purchase(
     from caisse.domain.market_budget_rules import DEFAULT_MARKET_CONDIMENTS_KIT, DEFAULT_RESERVE_XOF
 
     if create_stock_movements:
+        locked = stock_repo.lock_articles(db, [str(item.article_id) for item in purchase.items])
         for item in purchase.items:
-            art = db.query(StockArticle).filter(StockArticle.id == item.article_id).first()
+            art = locked.get(str(item.article_id))
             if art:
                 new_qty = art.quantity + item.quantity
                 new_avg = weighted_average_cost(
@@ -573,10 +580,43 @@ def complete_market_purchase(
     return _format_purchase_out(purchase)
 
 
+# --- Sorties cuisine : simple contrôle, sans effet sur le stock (D6) ---------------------
+
+PREP_ESTIMATED = "ESTIMATED"
+PREP_VALIDATED = "VALIDATED"
+PREP_ADJUSTED = "ADJUSTED"
+
+ESTIMATED_NOTE = "Estimation à la clôture de caisse (à valider)"
+# Ancien libellé des sorties créées par la clôture (avant la migration 026)
+AUTO_VALIDATED_NOTE = "Auto-validé à la clôture de caisse"
+
+
+def _prep_out(prep: DailyPreparation, article: StockArticle, user: User | None) -> DailyPreparationOut:
+    return DailyPreparationOut(
+        id=str(prep.id),
+        business_date=prep.business_date,
+        article_id=str(prep.article_id),
+        article_name=article.name,
+        unit=article.unit,
+        prepared_quantity=float(prep.prepared_quantity),
+        yield_portions_per_unit=float(prep.yield_portions_per_unit),
+        theoretical_dishes=prep.theoretical_dishes,
+        user_id=str(prep.user_id),
+        user_name=(user.full_name if user else "") or "",
+        notes=prep.notes,
+        created_at=prep.created_at,
+        status=prep.status,  # type: ignore[arg-type]
+        estimated_quantity=(
+            float(prep.estimated_quantity) if prep.estimated_quantity is not None else None
+        ),
+    )
+
+
 def save_daily_preparation(
     db: Session, user: User, data: DailyPreparationCreate
 ) -> DailyPreparationOut:
-    """Enregistre ou met à jour la sortie cuisine d'un article pour une journée."""
+    """La cuisine enregistre sa sortie du jour : VALIDÉE si elle confirme l'estimation (ou s'il
+    n'y en a pas), AJUSTÉE si elle saisit un autre chiffre. 0 efface la sortie."""
     art = db.query(StockArticle).filter(StockArticle.id == data.article_id).first()
     if not art:
         raise CaisseException(
@@ -586,7 +626,7 @@ def save_daily_preparation(
             status_code=status.HTTP_404_NOT_FOUND,
         )
 
-    prep_qty = Decimal(str(data.prepared_quantity))
+    prep_qty = quantize_qty(Decimal(str(data.prepared_quantity)))
     yield_portions = Decimal(str(data.yield_portions_per_unit))
     theo_dishes = calculate_theoretical_dishes(prep_qty, yield_portions)
 
@@ -617,7 +657,15 @@ def save_daily_preparation(
             user_name=user.full_name,
             notes=data.notes,
             created_at=created_at_val,
+            estimated_quantity=None,
         )
+
+    estimated = prep.estimated_quantity if prep else None
+    new_status = (
+        PREP_VALIDATED
+        if estimated is None or quantize_qty(Decimal(estimated)) == prep_qty
+        else PREP_ADJUSTED
+    )
 
     if prep:
         prep.prepared_quantity = prep_qty
@@ -625,6 +673,7 @@ def save_daily_preparation(
         prep.theoretical_dishes = theo_dishes
         prep.user_id = user.id
         prep.notes = data.notes
+        prep.status = new_status
     else:
         prep = DailyPreparation(
             business_date=data.business_date,
@@ -634,206 +683,139 @@ def save_daily_preparation(
             theoretical_dishes=theo_dishes,
             user_id=user.id,
             notes=data.notes,
+            status=new_status,
         )
         db.add(prep)
 
     db.commit()
     db.refresh(prep)
-    return DailyPreparationOut(
-        id=str(prep.id),
-        business_date=prep.business_date,
-        article_id=str(prep.article_id),
-        article_name=art.name,
-        unit=art.unit,
-        prepared_quantity=float(prep.prepared_quantity),
-        yield_portions_per_unit=float(prep.yield_portions_per_unit),
-        theoretical_dishes=prep.theoretical_dishes,
-        user_id=str(prep.user_id),
-        user_name=user.full_name,
-        notes=prep.notes,
-        created_at=prep.created_at,
+    return _prep_out(prep, art, user)
+
+
+def validate_day_preparations(
+    db: Session, user: User, business_date: date
+) -> DailyPreparationValidateDayOut:
+    """« Valider la journée » : la cuisine confirme d'un coup toutes les estimations du jour."""
+    preps = (
+        db.query(DailyPreparation)
+        .options(joinedload(DailyPreparation.article), joinedload(DailyPreparation.user))
+        .filter(DailyPreparation.business_date == business_date)
+        .all()
+    )
+    validated = 0
+    for prep in preps:
+        if prep.status == PREP_ESTIMATED:
+            prep.status = PREP_VALIDATED
+            prep.user_id = user.id
+            if prep.notes == ESTIMATED_NOTE or (prep.notes or "").startswith("Auto-valid"):
+                prep.notes = None
+            validated += 1
+    db.commit()
+    for prep in preps:
+        db.refresh(prep)
+    return DailyPreparationValidateDayOut(
+        business_date=business_date,
+        validated_count=validated,
+        preparations=[
+            _prep_out(p, p.article, user if str(p.user_id) == str(user.id) else p.user)
+            for p in sorted(preps, key=lambda p: p.article.name)
+        ],
     )
 
 
-AUTO_VALIDATED_NOTE = "Auto-validé à la clôture de caisse"
-
-
-def _build_protein_by_key(articles: list[StockArticle]) -> dict[str, StockArticle]:
-    """Associe chaque clé canonique de protéine ('POULET', 'SOSSO', etc.) à l'article StockArticle correspondant."""
-    result: dict[str, StockArticle] = {}
-    for a in articles:
-        a_norm = normalize_dish_name(a.name)
-        if "pondeuse" in a_norm:
-            result["POULET_PONDEUSE"] = a
-        elif "poulet" in a_norm:
-            result["POULET"] = a
-        elif "brochet" in a_norm or "machoiran" in a_norm:
-            result["FAUX_BROCHET"] = a
-        elif "saumon" in a_norm:
-            result["FAUX_SAUMON"] = a
-        elif "sosso" in a_norm:
-            result["SOSSO"] = a
-        elif "loss" in a_norm:
-            result["LOSS"] = a
-        elif "mouton" in a_norm:
-            result["MOUTON"] = a
-        elif "boeuf" in a_norm:
-            result["BOEUF"] = a
-        elif "carpe" in a_norm:
-            result["CARPE"] = a
-    return result
-
-
-def auto_validate_daily_preparations_from_sales(
+def estimate_daily_preparations_from_sales(
     db: Session,
     business_date: date,
     user_id: str,
 ) -> list[DailyPreparation]:
-    """Valide automatiquement les sorties de matières premières en cuisine à partir
-    des ventes constatées en caisse pour la journée comptable (Option A).
+    """À la clôture de caisse : estime la sortie cuisine de chaque protéine d'après les ventes
+    soldées du jour, avec la même règle que le déstockage (fiche du plat, sinon mot-clé).
 
-    Règles de sécurité :
-    - Ne s'applique qu'aux articles de catégorie PROTEINE.
-    - Si une sortie a déjà été saisie manuellement par un utilisateur, elle n'est PAS écrasée.
-    - Si une sortie a déjà été auto-validée plus tôt dans la journée (ex: clôture service midi),
-      elle est mise à jour avec le cumul des ventes du jour (service midi + soir).
-    - Si aucun plat associé n'a été vendu, aucune sortie n'est créée.
-    - Filet de sécurité : les plats saisis en main libre contenant une protéine sont également comptabilisés.
-    """
+    - une sortie ESTIMÉE est mise à jour (service midi puis soir) ;
+    - une sortie VALIDÉE ou AJUSTÉE n'est jamais modifiée, seule l'estimation est notée ;
+    - une estimation tombée à zéro (ventes annulées) est retirée."""
     if isinstance(business_date, str):
         business_date = date.fromisoformat(business_date)
 
-    # 1. Articles catégorie PROTEINE
-    articles = (
-        db.query(StockArticle)
-        .filter(StockArticle.category == StockArticleCategory.PROTEINE)
-        .all()
-    )
-    if not articles:
+    resolver = protein_ledger.build_resolver(db)
+    if not resolver.articles:
         return []
 
-    # 2. Fiches techniques associées
-    components = (
-        db.query(ProductComponent)
-        .join(StockArticle, StockArticle.id == ProductComponent.article_id)
-        .filter(StockArticle.category == StockArticleCategory.PROTEINE)
-        .all()
-    )
-    article_components: dict[str, list[ProductComponent]] = {}
-    all_linked_product_ids: set[str] = set()
-    for c in components:
-        article_components.setdefault(str(c.article_id), []).append(c)
-        all_linked_product_ids.add(str(c.product_id))
+    expected: dict[str, Decimal] = {}
+    for line in protein_ledger.paid_sale_lines(db, business_date, business_date):
+        for aid, per_dish in resolver.protein_lines(line.product_id, line.name):
+            expected[aid] = expected.get(aid, Decimal(0)) + per_dish * line.quantity
 
-    protein_by_key = _build_protein_by_key(articles)
-
-    # 3. Ventes cumulées de la journée pour tous les plats associés (fiches et main libre)
-    sales_rows = db.execute(
-        select(
-            OrderItem.product_id,
-            OrderItem.product_name_snapshot,
-            func.sum(OrderItem.quantity),
-        )
-        .join(Order, Order.id == OrderItem.order_id)
-        .join(CashSession, CashSession.id == Order.cash_session_id)
-        .where(
-            Order.status == OrderStatus.PAID,
-            CashSession.business_date == business_date,
-            OrderItem.removed_at.is_(None),
-        )
-        .group_by(OrderItem.product_id, OrderItem.product_name_snapshot)
-    ).all()
-
-    sales_by_prod: dict[str, int] = {}
-    unmapped_sales_by_art: dict[str, int] = {}
-    for pid, name_snap, q in sales_rows:
-        pid_str = str(pid) if pid else None
-        qty = int(q or 0)
-        name_str = name_snap or ""
-
-        if pid_str and pid_str in all_linked_product_ids:
-            sales_by_prod[pid_str] = sales_by_prod.get(pid_str, 0) + qty
-        else:
-            prot_key = match_protein_keyword(name_str)
-            if prot_key and prot_key in protein_by_key:
-                target_art = protein_by_key[prot_key]
-                unmapped_sales_by_art[str(target_art.id)] = (
-                    unmapped_sales_by_art.get(str(target_art.id), 0) + qty
-                )
-
-    # 4. Sorties déjà enregistrées pour cette journée
-    existing_preps = {
+    existing = {
         str(p.article_id): p
         for p in db.query(DailyPreparation)
         .filter(DailyPreparation.business_date == business_date)
         .all()
     }
 
-    validated_preps: list[DailyPreparation] = []
-
-    for a in articles:
-        comps = article_components.get(str(a.id), [])
-        standard_portion = float(comps[0].quantity) if comps else 1.0
-        default_yield = round(1.0 / standard_portion, 2) if standard_portion > 0 else 1.0
-        if default_yield <= 0:
+    touched: list[DailyPreparation] = []
+    for a in resolver.articles:
+        aid = str(a.id)
+        est = quantize_qty(expected.get(aid, Decimal(0)))
+        prep = existing.get(aid)
+        if est <= 0:
+            if prep is not None and prep.status == PREP_ESTIMATED:
+                db.delete(prep)
             continue
 
-        day_sold = sum(sales_by_prod.get(str(c.product_id), 0) for c in comps) + unmapped_sales_by_art.get(str(a.id), 0)
-        if day_sold <= 0:
-            continue
+        portion = resolver.portion(aid)
+        yield_portions = Decimal(str(round(1.0 / float(portion), 2)))
+        theo_dishes = calculate_theoretical_dishes(est, yield_portions)
 
-        suggested_q = round(day_sold / default_yield, 2)
-        if suggested_q <= 0:
-            continue
-
-        prep_qty = Decimal(str(suggested_q))
-        yield_portions = Decimal(str(default_yield))
-        theo_dishes = calculate_theoretical_dishes(prep_qty, yield_portions)
-
-        prep = existing_preps.get(str(a.id))
-        if prep:
-            # Ne mettre à jour QUE si la sortie précédente était déjà une auto-validation
-            if prep.notes == AUTO_VALIDATED_NOTE:
-                prep.prepared_quantity = prep_qty
+        if prep is not None:
+            prep.estimated_quantity = est
+            if prep.status == PREP_ESTIMATED:
+                prep.prepared_quantity = est
                 prep.yield_portions_per_unit = yield_portions
                 prep.theoretical_dishes = theo_dishes
                 prep.user_id = user_id
-                validated_preps.append(prep)
+                prep.notes = ESTIMATED_NOTE
+            touched.append(prep)
         else:
-            # Création automatique de la sortie cuisine
             new_prep = DailyPreparation(
                 business_date=business_date,
-                article_id=str(a.id),
-                prepared_quantity=prep_qty,
+                article_id=aid,
+                prepared_quantity=est,
                 yield_portions_per_unit=yield_portions,
                 theoretical_dishes=theo_dishes,
                 user_id=user_id,
-                notes=AUTO_VALIDATED_NOTE,
+                notes=ESTIMATED_NOTE,
+                status=PREP_ESTIMATED,
+                estimated_quantity=est,
             )
             db.add(new_prep)
-            validated_preps.append(new_prep)
+            touched.append(new_prep)
+    return touched
 
-    return validated_preps
+
+# Nom historique, appelé par la clôture de caisse
+auto_validate_daily_preparations_from_sales = estimate_daily_preparations_from_sales
+
+
+# --- Matrice de contrôle (D6) : lue dans le grand livre, égale au stock -----------------
+
+
+def _f(value: Decimal) -> float:
+    return round(float(value), 3)
 
 
 def get_weekly_matrix(
     db: Session, date_from: date, date_to: date
 ) -> WeeklyMatrixReportOut:
-    """Génère la matrice hebdomadaire fidèle au tableau blanc du patron :
-    Achats de la semaine | ventilation par jour (Sorti, Prévu, Vendu caisse, Écart, Valeur) | Totaux."""
-    # 1. Calendrier des jours
-    calendar_dates: list[date] = []
-    cur = date_from
-    while cur <= date_to:
-        calendar_dates.append(cur)
-        cur += timedelta(days=1)
+    """Matrice hebdomadaire du patron, lue dans le journal du stock (règle universelle D6) :
+    Restant = Ouverture + Achats − Ventes − Pertes ± Écart d'inventaire ± Corrections.
+    Le restant de fin de période est la quantité en stock à cette date. La sortie cuisine
+    n'est qu'un contrôle (sorti contre vendu)."""
+    days = protein_ledger.calendar(date_from, date_to)
 
-    # 2. CA journalier réalisé (orders PAID)
+    # 1. CA journalier réalisé (commandes soldées)
     revenue_rows = db.execute(
-        select(
-            CashSession.business_date,
-            func.sum(Order.total_ttc_xof),
-        )
+        select(CashSession.business_date, func.sum(Order.total_ttc_xof))
         .join(Order, Order.cash_session_id == CashSession.id)
         .where(
             Order.status == OrderStatus.PAID,
@@ -842,185 +824,76 @@ def get_weekly_matrix(
         )
         .group_by(CashSession.business_date)
     ).all()
-    daily_revenues: dict[str, int] = {
-        d.isoformat(): int(amt or 0) for d, amt in revenue_rows
-    }
-    for d in calendar_dates:
-        if d.isoformat() not in daily_revenues:
-            daily_revenues[d.isoformat()] = 0
+    daily_revenues: dict[str, int] = {d.isoformat(): 0 for d in days}
+    for d, amt in revenue_rows:
+        daily_revenues[d.isoformat()] = int(amt or 0)
 
-    # 3. Articles catégorie PROTEINE
-    articles = (
-        db.query(StockArticle)
-        .filter(StockArticle.category == StockArticleCategory.PROTEINE)
-        .order_by(StockArticle.name)
-        .all()
-    )
+    # 2. Protéines, fiches techniques et grand livre
+    resolver = protein_ledger.build_resolver(db)
+    articles = resolver.articles
+    ledger = protein_ledger.daily_ledger(db, articles, date_from, date_to)
 
-    # 4. Fiches techniques pour connaître les plats associés et le rendement par défaut
-    components = (
-        db.query(ProductComponent)
-        .options(joinedload(ProductComponent.product))
-        .join(StockArticle, StockArticle.id == ProductComponent.article_id)
-        .filter(StockArticle.category == StockArticleCategory.PROTEINE)
-        .all()
-    )
-    article_components: dict[str, list[ProductComponent]] = {}
-    all_linked_product_ids: set[str] = set()
-    for c in components:
-        article_components.setdefault(str(c.article_id), []).append(c)
-        all_linked_product_ids.add(str(c.product_id))
+    # 3. Ventes soldées rattachées à chaque protéine, et contrôle du déstockage
+    lines = protein_ledger.paid_sale_lines(db, date_from, date_to)
+    destocked = protein_ledger.destocked_by_item(db, [ln.item_id for ln in lines])
+    sales: dict[tuple[str, date], dict[str, Decimal]] = {}
+    for ln in lines:
+        for aid, per_dish in resolver.protein_lines(ln.product_id, ln.name):
+            agg = sales.setdefault(
+                (aid, ln.business_date),
+                {k: Decimal(0) for k in ("dishes", "revenue", "normal", "foufou", "foutou",
+                                         "expected", "non_destocked")},
+            )
+            agg["dishes"] += ln.quantity
+            agg["revenue"] += ln.revenue_xof
+            agg[dish_variant(ln.name)] += ln.quantity
+            agg["expected"] += per_dish * ln.quantity
+            if destocked.get((ln.item_id, aid), Decimal(0)) <= 0:
+                agg["non_destocked"] += ln.quantity
 
-    protein_by_key = _build_protein_by_key(articles)
-
-    # 5. Achats validés sur la période
-    purchases_rows = db.execute(
-        select(
-            MarketPurchaseItem.article_id,
-            func.sum(MarketPurchaseItem.quantity),
-            func.sum(MarketPurchaseItem.total_price_xof),
-        )
-        .join(MarketPurchaseList, MarketPurchaseList.id == MarketPurchaseItem.purchase_list_id)
-        .where(
-            MarketPurchaseList.status == "COMPLETED",
-            MarketPurchaseList.business_date >= date_from,
-            MarketPurchaseList.business_date <= date_to,
-        )
-        .group_by(MarketPurchaseItem.article_id)
-    ).all()
-    purchases_map = {
-        str(aid): (float(q or 0), int(cost or 0)) for aid, q, cost in purchases_rows
-    }
-
-    # 6. Sorties cuisine journalières (DailyPreparation)
-    prep_rows = (
-        db.query(DailyPreparation)
+    # 4. Sorties cuisine (contrôle)
+    prep_map: dict[tuple[str, date], DailyPreparation] = {
+        (str(p.article_id), p.business_date): p
+        for p in db.query(DailyPreparation)
         .filter(
             DailyPreparation.business_date >= date_from,
             DailyPreparation.business_date <= date_to,
         )
         .all()
-    )
-    prep_map: dict[tuple[str, date], DailyPreparation] = {
-        (str(p.article_id), p.business_date): p for p in prep_rows
     }
 
-    # 7. Ventes journalières par produit issues de la caisse (fiches et main libre)
-    sales_rows = db.execute(
-        select(
-            CashSession.business_date,
-            OrderItem.product_id,
-            OrderItem.product_name_snapshot,
-            func.sum(OrderItem.quantity),
-            func.sum(OrderItem.line_total_xof),
-        )
-        .join(Order, Order.cash_session_id == CashSession.id)
-        .join(OrderItem, OrderItem.order_id == Order.id)
-        .where(
-            Order.status == OrderStatus.PAID,
-            CashSession.business_date >= date_from,
-            CashSession.business_date <= date_to,
-            OrderItem.removed_at.is_(None),
-        )
-        .group_by(
-            CashSession.business_date,
-            OrderItem.product_id,
-            OrderItem.product_name_snapshot,
-        )
-    ).all()
-    # (date, product_id) -> (qty_sold, revenue)
-    sales_by_day_prod: dict[tuple[date, str], tuple[int, int]] = {}
-    # (date, article_id) -> list of (quantity, revenue, product_name)
-    unmapped_sales_by_day_art: dict[tuple[date, str], list[tuple[int, int, str]]] = {}
-
-    for b_date, pid, name_snap, q, rev in sales_rows:
-        pid_str = str(pid) if pid else None
-        qty = int(q or 0)
-        revenue = int(rev or 0)
-        name_str = name_snap or ""
-
-        if pid_str and pid_str in all_linked_product_ids:
-            cur_q, cur_r = sales_by_day_prod.get((b_date, pid_str), (0, 0))
-            sales_by_day_prod[(b_date, pid_str)] = (cur_q + qty, cur_r + revenue)
-        else:
-            # Filet de sécurité : plats saisis en main libre ou hors catalogue contenant une protéine
-            prot_key = match_protein_keyword(name_str)
-            if prot_key and prot_key in protein_by_key:
-                target_art = protein_by_key[prot_key]
-                unmapped_sales_by_day_art.setdefault((b_date, str(target_art.id)), []).append(
-                    (qty, revenue, name_str)
-                )
-
-    # 8. Assemblage des lignes de la matrice
     rows: list[WeeklyProductRow] = []
     total_purchases_cost = 0
     total_variance_impact = 0
 
-    from caisse.repositories import reports as reports_repo
-
-    period_movements = reports_repo.movements_by_article_type(db, date_from, date_to)
-    after_movements = reports_repo.quantity_after(db, date_to)
-
     for a in articles:
-        comps = article_components.get(str(a.id), [])
-        standard_portion = float(comps[0].quantity) if comps else 1.0
-        default_yield = round(1.0 / standard_portion, 2) if standard_portion > 0 else 1.0
+        aid = str(a.id)
+        comps = resolver.components_by_article.get(aid, [])
+        portion = resolver.portion(aid)
+        default_yield = round(1.0 / float(portion), 2) if portion > 0 else 1.0
 
-        # Détection des plats associés : plat normal vs plat foufou
-        normal_comp = None
-        foufou_comp = None
-        for c in comps:
-            p_name = (c.product.name if c.product else "").lower()
-            if "foufou" in p_name or "foutou" in p_name:
-                if foufou_comp is None:
-                    foufou_comp = c
-            else:
-                if normal_comp is None:
-                    normal_comp = c
-
+        normal_comp = next((c for c in comps if dish_variant(c.product.name if c.product else "") == "normal"), None)
+        foufou_comp = next((c for c in comps if dish_variant(c.product.name if c.product else "") != "normal"), None)
         dish_selling_price = 3000
         if normal_comp and normal_comp.product and normal_comp.product.price_xof:
             dish_selling_price = int(normal_comp.product.price_xof)
         elif comps and comps[0].product and comps[0].product.price_xof:
             dish_selling_price = int(comps[0].product.price_xof)
-
         foufou_selling_price = dish_selling_price + 500
         if foufou_comp and foufou_comp.product and foufou_comp.product.price_xof:
             foufou_selling_price = int(foufou_comp.product.price_xof)
 
-        # Calcul du stock de départ (au début de la semaine) et des achats
-        closing_stock = a.quantity - after_movements.get(a.id, Decimal(0))
-        in_period_net = sum(
-            (
-                q
-                for (aid, t), (q, _) in period_movements.items()
-                if aid == a.id and t != StockMovementType.OPENING
-            ),
-            Decimal(0),
-        )
-        opening_stock_dec = max(Decimal(0), closing_stock - in_period_net)
-        opening_qty = round(float(opening_stock_dec), 3)
-
-        p_qty, p_cost = purchases_map.get(str(a.id), (0.0, 0))
-        tot_available_qty = round(opening_qty + p_qty, 3)
-
-        # Repli si aucun mouvement n'a été enregistré mais que du stock existe en base
-        if tot_available_qty <= 0 and float(a.quantity) > 0:
-            opening_qty = round(float(a.quantity), 3)
-            tot_available_qty = opening_qty
-
-        # Prix unitaire : prix d'achat si acheté, sinon coût moyen pondéré (CMP)
-        if p_qty > 0:
-            purchase_unit_price = to_xof(p_cost / p_qty)
-        else:
-            purchase_unit_price = to_xof(a.avg_cost_xof)
-
-        # Coût total de la matière première disponible (théorique)
-        tot_available_cost = to_xof(tot_available_qty * purchase_unit_price)
-        # Les achats réels de la période (dépenses décaissées de la semaine)
+        led = ledger.get(aid) or [protein_ledger.LedgerDay(business_date=d) for d in days]
+        opening = led[0].opening
+        p_qty = sum((ld.purchases for ld in led), Decimal(0))
+        p_cost = to_xof(sum((ld.purchases_value for ld in led), Decimal(0)))
+        available = opening + p_qty
         total_purchases_cost += p_cost
 
-        potential_dishes = int(round(tot_available_qty * default_yield))
+        purchase_unit_price = to_xof(Decimal(p_cost) / p_qty) if p_qty > 0 else to_xof(a.avg_cost_xof)
+        positive_available = max(Decimal(0), available)
+        tot_available_cost = to_xof(positive_available * Decimal(purchase_unit_price))
+        potential_dishes = int(round(float(positive_available) * default_yield))
         weekly_expected_rev = potential_dishes * dish_selling_price
         expected_margin_pct = (
             round(((weekly_expected_rev - tot_available_cost) * 100) / weekly_expected_rev, 2)
@@ -1029,123 +902,96 @@ def get_weekly_matrix(
         )
 
         row_days: list[WeeklyDayData] = []
-        tot_prep_qty = 0.0
-        tot_theo_dishes = 0
-        tot_sold_dishes = 0
-        tot_normal_sold = 0
-        tot_foufou_sold = 0
-        tot_foutou_sold = 0
-        tot_var_dishes = 0
-        tot_impact_xof = 0
-        tot_actual_rev = 0
+        tot = {k: 0 for k in ("theo", "sold", "var", "impact", "rev", "non_destocked")}
+        tot_prep_qty = Decimal(0)
+        tot_stock_sold = Decimal(0)
 
-        for d in calendar_dates:
-            day_name = DAY_NAMES_FR[d.weekday()]
-            remaining_q = max(0.0, round(tot_available_qty - tot_prep_qty, 3))
-
-            prep = prep_map.get((str(a.id), d))
-            prepared_q = float(prep.prepared_quantity) if prep else 0.0
+        for ld in led:
+            d = ld.business_date
+            prep = prep_map.get((aid, d))
+            prepared_q = Decimal(prep.prepared_quantity) if prep else Decimal(0)
             day_yield = float(prep.yield_portions_per_unit) if prep else default_yield
-            theo_dishes = prep.theoretical_dishes if prep else int(round(prepared_q * day_yield))
+            theo_dishes = prep.theoretical_dishes if prep else 0
 
-            # Ventes des plats liés à cet article pour ce jour
-            day_normal_sold = 0
-            day_foufou_sold = 0
-            day_foutou_sold = 0
-            day_sold = 0
-            day_rev = 0
-
-            # 1. Ventes issues des fiches techniques officielles
-            for c in comps:
-                s_q, s_r = sales_by_day_prod.get((d, str(c.product_id)), (0, 0))
-                if s_q > 0:
-                    day_sold += s_q
-                    day_rev += s_r
-                    p_name = (c.product.name if c.product else "").lower()
-                    if "foufou" in p_name:
-                        day_foufou_sold += s_q
-                    elif "foutou" in p_name:
-                        day_foutou_sold += s_q
-                    else:
-                        day_normal_sold += s_q
-
-            # 2. Filet de sécurité : Ventes libres ou hors catalogue rattachées à cette protéine
-            extra_sales = unmapped_sales_by_day_art.get((d, str(a.id)), [])
-            for e_q, e_r, e_name in extra_sales:
-                day_sold += e_q
-                day_rev += e_r
-                e_lower = (e_name or "").lower()
-                if "foufou" in e_lower:
-                    day_foufou_sold += e_q
-                elif "foutou" in e_lower:
-                    day_foutou_sold += e_q
-                else:
-                    day_normal_sold += e_q
-
-            # Solution 2 : Quantité suggérée d'après les ventes réelles
-            suggested_q = round(day_sold / day_yield, 2) if day_yield > 0 else 0.0
+            s = sales.get((aid, d))
+            day_sold = int(s["dishes"]) if s else 0
+            day_rev = int(s["revenue"]) if s else 0
+            normal_sold = int(s["normal"]) if s else 0
+            foufou_sold = int(s["foufou"]) if s else 0
+            foutou_sold = int(s["foutou"]) if s else 0
+            non_destocked = int(s["non_destocked"]) if s else 0
+            suggested_q = round(float(s["expected"]), 2) if s else 0.0
 
             variance = calculate_dish_variance(day_sold, theo_dishes)
             avg_dish_price = (day_rev // day_sold) if day_sold > 0 else dish_selling_price
             impact = calculate_financial_impact(variance, avg_dish_price)
-
             day_expected_rev = theo_dishes * dish_selling_price
-            day_actual_rev = day_rev if day_rev > 0 else (day_normal_sold * dish_selling_price + (day_foufou_sold + day_foutou_sold) * foufou_selling_price)
-            day_rev_variance = day_actual_rev - day_expected_rev
+            day_actual_rev = day_rev if day_rev > 0 else (
+                normal_sold * dish_selling_price + (foufou_sold + foutou_sold) * foufou_selling_price
+            )
 
             tot_prep_qty += prepared_q
-            tot_theo_dishes += theo_dishes
-            tot_sold_dishes += day_sold
-            tot_normal_sold += day_normal_sold
-            tot_foufou_sold += day_foufou_sold
-            tot_foutou_sold += day_foutou_sold
-            tot_var_dishes += variance
-            tot_impact_xof += impact
-            tot_actual_rev += day_actual_rev
+            tot_stock_sold += ld.sales
+            tot["theo"] += theo_dishes
+            tot["sold"] += day_sold
+            tot["var"] += variance
+            tot["impact"] += impact
+            tot["rev"] += day_actual_rev
+            tot["non_destocked"] += non_destocked
 
             row_days.append(
                 WeeklyDayData(
                     business_date=d,
-                    day_name=day_name,
-                    remaining_quantity=remaining_q,
-                    prepared_quantity=prepared_q,
+                    day_name=DAY_NAMES_FR[d.weekday()],
+                    remaining_quantity=_f(ld.available),
+                    prepared_quantity=_f(prepared_q),
                     suggested_quantity=suggested_q,
                     yield_portions_per_unit=day_yield,
                     theoretical_dishes=theo_dishes,
                     sold_dishes=day_sold,
-                    normal_dishes_sold=day_normal_sold,
-                    foufou_dishes_sold=day_foufou_sold,
-                    foutou_dishes_sold=day_foutou_sold,
+                    normal_dishes_sold=normal_sold,
+                    foufou_dishes_sold=foufou_sold,
+                    foutou_dishes_sold=foutou_sold,
                     foufou_price_xof=foufou_selling_price,
                     variance_dishes=variance,
                     dish_price_xof=dish_selling_price,
                     expected_revenue_xof=day_expected_rev,
                     actual_revenue_xof=day_actual_rev,
-                    revenue_variance_xof=day_rev_variance,
+                    revenue_variance_xof=day_actual_rev - day_expected_rev,
                     financial_impact_xof=impact,
                     notes=prep.notes if prep else None,
+                    opening_quantity=_f(ld.opening),
+                    purchased_quantity=_f(ld.purchases),
+                    stock_sold_quantity=_f(ld.sales),
+                    loss_quantity=_f(ld.losses),
+                    inventory_variance_quantity=_f(ld.inventory),
+                    correction_quantity=_f(ld.corrections),
+                    closing_quantity=_f(ld.closing),
+                    preparation_status=prep.status if prep else None,  # type: ignore[arg-type]
+                    estimated_quantity=(
+                        float(prep.estimated_quantity)
+                        if prep and prep.estimated_quantity is not None
+                        else None
+                    ),
+                    preparation_gap_quantity=_f(prepared_q - ld.sales) if prep else 0.0,
+                    non_destocked_dishes=non_destocked,
                 )
             )
 
-        total_variance_impact += tot_impact_xof
-
-        actual_margin_xof = tot_actual_rev - p_cost
+        total_variance_impact += tot["impact"]
+        actual_margin_xof = tot["rev"] - p_cost
         actual_margin_pct = (
-            round((actual_margin_xof * 100) / tot_actual_rev, 2)
-            if tot_actual_rev > 0
-            else 0.0
+            round((actual_margin_xof * 100) / tot["rev"], 2) if tot["rev"] > 0 else 0.0
         )
-        qty_variance = round(tot_prep_qty - tot_available_qty, 3)
-        dishes_variance = tot_sold_dishes - potential_dishes
 
         rows.append(
             WeeklyProductRow(
-                article_id=str(a.id),
+                article_id=aid,
                 article_name=a.name,
                 unit=a.unit,
-                opening_stock_qty=opening_qty,
-                weekly_purchased_qty=p_qty,
-                total_available_qty=tot_available_qty,
+                opening_stock_qty=_f(opening),
+                weekly_purchased_qty=_f(p_qty),
+                total_available_qty=_f(available),
                 purchase_unit_price_xof=purchase_unit_price,
                 weekly_purchased_cost_xof=p_cost,
                 total_available_cost_xof=tot_available_cost,
@@ -1155,22 +1001,27 @@ def get_weekly_matrix(
                 weekly_expected_revenue_xof=weekly_expected_rev,
                 expected_margin_pct=expected_margin_pct,
                 days=row_days,
-                total_prepared_qty=round(tot_prep_qty, 3),
-                total_theoretical_dishes=tot_theo_dishes,
-                total_sold_dishes=tot_sold_dishes,
-                total_variance_dishes=tot_var_dishes,
-                total_financial_impact_xof=tot_impact_xof,
-                actual_revenue_xof=tot_actual_rev,
+                total_prepared_qty=_f(tot_prep_qty),
+                total_theoretical_dishes=tot["theo"],
+                total_sold_dishes=tot["sold"],
+                total_variance_dishes=tot["var"],
+                total_financial_impact_xof=tot["impact"],
+                actual_revenue_xof=tot["rev"],
                 actual_gross_margin_xof=actual_margin_xof,
                 actual_gross_margin_pct=actual_margin_pct,
-                quantity_variance=qty_variance,
-                dishes_variance=dishes_variance,
+                quantity_variance=_f(tot_prep_qty - tot_stock_sold),
+                dishes_variance=tot["sold"] - potential_dishes,
+                total_stock_sold_qty=_f(tot_stock_sold),
+                total_loss_qty=_f(sum((ld.losses for ld in led), Decimal(0))),
+                total_inventory_variance_qty=_f(sum((ld.inventory for ld in led), Decimal(0))),
+                total_correction_qty=_f(sum((ld.corrections for ld in led), Decimal(0))),
+                closing_stock_qty=_f(led[-1].closing),
+                current_stock_qty=_f(Decimal(a.quantity)),
+                total_non_destocked_dishes=tot["non_destocked"],
             )
         )
 
     total_revenue = sum(daily_revenues.values())
-    gross_margin_estimate = total_revenue - total_purchases_cost
-
     return WeeklyMatrixReportOut(
         date_from=date_from,
         date_to=date_to,
@@ -1178,6 +1029,6 @@ def get_weekly_matrix(
         total_weekly_revenue_xof=total_revenue,
         total_weekly_purchases_xof=total_purchases_cost,
         total_variance_impact_xof=total_variance_impact,
-        gross_margin_estimate_xof=gross_margin_estimate,
+        gross_margin_estimate_xof=total_revenue - total_purchases_cost,
         rows=rows,
     )

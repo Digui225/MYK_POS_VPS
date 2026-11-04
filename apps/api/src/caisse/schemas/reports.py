@@ -142,6 +142,10 @@ class StockReportArticle(Schema):
     count_adjustment_quantity: float = Field(
         description="Écart d'inventaire (+ trouvé en plus, - manquant)"
     )
+    correction_quantity: float = Field(
+        0.0,
+        description="Corrections : ajustements et sorties sans commande (rattrapages de migration)",
+    )
     closing_quantity: float = Field(description="Stock à la fin de la période")
     consumption_quantity: float = Field(description="Consommation totale : début + entrées - fin")
     consumption_xof: int = Field(description="Valeur de la consommation")

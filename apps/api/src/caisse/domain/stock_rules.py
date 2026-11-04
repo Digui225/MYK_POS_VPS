@@ -72,3 +72,38 @@ def calculate_quantity_after(current_quantity: float, movement_type: str, quanti
         return round(quantity, 3)
     return current_quantity
 
+
+
+# --- Grand livre (règle universelle D6) -----------------------------------------------
+
+LEDGER_OPENING = "opening"
+LEDGER_PURCHASES = "purchases"
+LEDGER_SALES = "sales"
+LEDGER_LOSSES = "losses"
+LEDGER_INVENTORY = "inventory"
+LEDGER_CORRECTIONS = "corrections"
+
+
+def ledger_bucket(movement_type: str, has_order: bool) -> str:
+    """Colonne du grand livre d'un mouvement :
+    Restant = Ouverture + Achats − Ventes − Pertes ± Écart d'inventaire ± Corrections.
+
+    - entrée d'achat (tous circuits) → achats ;
+    - sortie de vente liée à une commande, remise en stock d'une commande → ventes ;
+    - perte déclarée → pertes ;
+    - premier comptage d'un article (stock de départ) → ouverture de la période, comme dans
+      le rapport de stock ;
+    - comptage → écart d'inventaire ;
+    - ajustement et sortie « vente » sans commande (rattrapages des migrations 024/025)
+      → corrections."""
+    if movement_type == "PURCHASE_IN":
+        return LEDGER_PURCHASES
+    if movement_type in ("SALE_OUT", "RETURN_IN"):
+        return LEDGER_SALES if has_order else LEDGER_CORRECTIONS
+    if movement_type == "LOSS_OUT":
+        return LEDGER_LOSSES
+    if movement_type == "OPENING":
+        return LEDGER_OPENING
+    if movement_type == "INVENTORY_COUNT":
+        return LEDGER_INVENTORY
+    return LEDGER_CORRECTIONS

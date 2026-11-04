@@ -1887,6 +1887,72 @@
             }
           },
           {
+            "name": "date_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          },
+          {
+            "name": "order_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Order Type"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
             "name": "cursor",
             "in": "query",
             "required": false,
@@ -4954,6 +5020,53 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DailyPreparationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/production/daily-preparations/validate-day": {
+      "post": {
+        "tags": [
+          "Achats March\u00e9 & Production Cuisine"
+        ],
+        "summary": "Valider d'un coup les sorties cuisine estim\u00e9es d'une journ\u00e9e",
+        "description": "La cuisine confirme les sorties estim\u00e9es \u00e0 la cl\u00f4ture de caisse (\u00e9tat ESTIMATED \u2192\nVALIDATED). Les sorties d\u00e9j\u00e0 valid\u00e9es ou ajust\u00e9es ne changent pas. Sans effet sur le stock.",
+        "operationId": "validate_day_preparations_endpoint_api_v1_production_daily_preparations_validate_day_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DailyPreparationValidateDay"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyPreparationValidateDayOut"
                 }
               }
             }
@@ -10026,6 +10139,28 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ESTIMATED",
+              "VALIDATED",
+              "ADJUSTED"
+            ],
+            "title": "Status",
+            "default": "VALIDATED"
+          },
+          "estimated_quantity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Quantity",
+            "description": "Derni\u00e8re estimation calcul\u00e9e d'apr\u00e8s les ventes de la journ\u00e9e"
           }
         },
         "type": "object",
@@ -10044,6 +10179,48 @@
           "created_at"
         ],
         "title": "DailyPreparationOut"
+      },
+      "DailyPreparationValidateDay": {
+        "properties": {
+          "business_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Business Date",
+            "description": "Journ\u00e9e dont on valide les estimations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "business_date"
+        ],
+        "title": "DailyPreparationValidateDay"
+      },
+      "DailyPreparationValidateDayOut": {
+        "properties": {
+          "business_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Business Date"
+          },
+          "validated_count": {
+            "type": "integer",
+            "title": "Validated Count"
+          },
+          "preparations": {
+            "items": {
+              "$ref": "#/components/schemas/DailyPreparationOut"
+            },
+            "type": "array",
+            "title": "Preparations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "business_date",
+          "validated_count",
+          "preparations"
+        ],
+        "title": "DailyPreparationValidateDayOut"
       },
       "DashboardCashier": {
         "properties": {
@@ -15918,6 +16095,12 @@
             "title": "Count Adjustment Quantity",
             "description": "\u00c9cart d'inventaire (+ trouv\u00e9 en plus, - manquant)"
           },
+          "correction_quantity": {
+            "type": "number",
+            "title": "Correction Quantity",
+            "description": "Corrections : ajustements et sorties sans commande (rattrapages de migration)",
+            "default": 0.0
+          },
           "closing_quantity": {
             "type": "number",
             "title": "Closing Quantity",
@@ -16939,6 +17122,78 @@
               }
             ],
             "title": "Notes"
+          },
+          "opening_quantity": {
+            "type": "number",
+            "title": "Opening Quantity",
+            "default": 0.0
+          },
+          "purchased_quantity": {
+            "type": "number",
+            "title": "Purchased Quantity",
+            "default": 0.0
+          },
+          "stock_sold_quantity": {
+            "type": "number",
+            "title": "Stock Sold Quantity",
+            "default": 0.0
+          },
+          "loss_quantity": {
+            "type": "number",
+            "title": "Loss Quantity",
+            "default": 0.0
+          },
+          "inventory_variance_quantity": {
+            "type": "number",
+            "title": "Inventory Variance Quantity",
+            "default": 0.0
+          },
+          "correction_quantity": {
+            "type": "number",
+            "title": "Correction Quantity",
+            "default": 0.0
+          },
+          "closing_quantity": {
+            "type": "number",
+            "title": "Closing Quantity",
+            "default": 0.0
+          },
+          "preparation_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ESTIMATED",
+                  "VALIDATED",
+                  "ADJUSTED"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preparation Status"
+          },
+          "estimated_quantity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Quantity"
+          },
+          "preparation_gap_quantity": {
+            "type": "number",
+            "title": "Preparation Gap Quantity",
+            "default": 0.0
+          },
+          "non_destocked_dishes": {
+            "type": "integer",
+            "title": "Non Destocked Dishes",
+            "default": 0
           }
         },
         "type": "object",
@@ -17126,6 +17381,41 @@
           "dishes_variance": {
             "type": "integer",
             "title": "Dishes Variance",
+            "default": 0
+          },
+          "total_stock_sold_qty": {
+            "type": "number",
+            "title": "Total Stock Sold Qty",
+            "default": 0.0
+          },
+          "total_loss_qty": {
+            "type": "number",
+            "title": "Total Loss Qty",
+            "default": 0.0
+          },
+          "total_inventory_variance_qty": {
+            "type": "number",
+            "title": "Total Inventory Variance Qty",
+            "default": 0.0
+          },
+          "total_correction_qty": {
+            "type": "number",
+            "title": "Total Correction Qty",
+            "default": 0.0
+          },
+          "closing_stock_qty": {
+            "type": "number",
+            "title": "Closing Stock Qty",
+            "default": 0.0
+          },
+          "current_stock_qty": {
+            "type": "number",
+            "title": "Current Stock Qty",
+            "default": 0.0
+          },
+          "total_non_destocked_dishes": {
+            "type": "integer",
+            "title": "Total Non Destocked Dishes",
             "default": 0
           }
         },

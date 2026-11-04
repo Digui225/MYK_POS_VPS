@@ -504,81 +504,26 @@ def _sale_balance(
     return balance
 
 
-_DEFAULT_PROTEIN_PORTION: dict[str, Decimal] = {
-    "BOEUF": Decimal("0.200"),
-    "MOUTON": Decimal("0.286"),
-    "POULET": Decimal("0.250"),
-    "POULET_PONDEUSE": Decimal("0.250"),
-    "FAUX_BROCHET": Decimal("1.000"),
-    "FAUX_SAUMON": Decimal("1.000"),
-    "SOSSO": Decimal("1.000"),
-    "LOSS": Decimal("1.000"),
-    "CARPE": Decimal("1.000"),
-}
+def _order_business_date(db: Session, order: Order) -> date:
+    """Journée comptable d'une vente : celle de la session de caisse de la commande, pour que
+    le stock et la matrice datent la vente du même jour (D6)."""
+    from caisse.models.cash_session import CashSession
 
-
-def _build_protein_fallback_map(
-    db: Session,
-) -> dict[str, tuple[StockArticle, Decimal]]:
-    """Associe chaque clé canonique des 9 protéines à son article de stock actif et à sa
-    portion standard (issue d'une fiche technique existante ou du barème par défaut)."""
-    from caisse.domain.enums import StockArticleCategory
-    from caisse.domain.production_rules import normalize_dish_name
-
-    protein_articles = stock_repo.list_articles(
-        db, category=StockArticleCategory.PROTEINE, is_active=True
-    )
-    if not protein_articles:
-        return {}
-
-    art_ids = [str(a.id) for a in protein_articles]
-    comp_rows = (
-        db.query(ProductComponent)
-        .filter(ProductComponent.article_id.in_(art_ids))
-        .all()
-    )
-    portion_by_article: dict[str, Decimal] = {}
-    for c in comp_rows:
-        aid = str(c.article_id)
-        if aid not in portion_by_article and c.quantity and c.quantity > Decimal(0):
-            portion_by_article[aid] = Decimal(str(c.quantity))
-
-    result: dict[str, tuple[StockArticle, Decimal]] = {}
-    for art in protein_articles:
-        a_norm = normalize_dish_name(art.name)
-        key: str | None = None
-        if "pondeuse" in a_norm:
-            key = "POULET_PONDEUSE"
-        elif "poulet" in a_norm:
-            key = "POULET"
-        elif "brochet" in a_norm or "machoiran" in a_norm:
-            key = "FAUX_BROCHET"
-        elif "saumon" in a_norm:
-            key = "FAUX_SAUMON"
-        elif "sosso" in a_norm:
-            key = "SOSSO"
-        elif "loss" in a_norm:
-            key = "LOSS"
-        elif "mouton" in a_norm:
-            key = "MOUTON"
-        elif "boeuf" in a_norm:
-            key = "BOEUF"
-        elif "carpe" in a_norm:
-            key = "CARPE"
-
-        if key and key not in result:
-            portion = portion_by_article.get(str(art.id), _DEFAULT_PROTEIN_PORTION[key])
-            result[key] = (art, portion)
-    return result
+    if order.cash_session_id:
+        session = db.get(CashSession, str(order.cash_session_id))
+        if session is not None and session.business_date:
+            b_date = session.business_date
+            return date.fromisoformat(b_date) if isinstance(b_date, str) else b_date
+    return business_day(db)
 
 
 def apply_sale(db: Session, order: Order, user_id: str) -> list[ApiWarning]:
     """Commande soldée : chaque ligne déstocke les articles de sa fiche technique, au coût
-    moyen du moment. Pour les plats saisis en main libre (« Hors Menu ») ou dépourvus de
-    composant protéine, applique le filet de sécurité sur les 9 protéines (aligné sur la
-    Matrice de Contrôle). Sans effet si la vente est déjà déstockée."""
+    moyen du moment. Un plat sans composant protéine (« Hors Menu », plat sans fiche) déstocke
+    la protéine citée dans son libellé, à sa portion standard : même règle que la matrice de
+    contrôle (`protein_ledger.ProteinResolver`). Sans effet si la vente est déjà déstockée."""
     from caisse.domain.enums import StockArticleCategory
-    from caisse.domain.production_rules import match_protein_keyword
+    from caisse.services.protein_ledger import build_resolver
 
     balance = _sale_balance(stock_repo.sale_movements(db, str(order.id)))
     if any(net != 0 for net, _ in balance.values()):
@@ -588,41 +533,36 @@ def apply_sale(db: Session, order: Order, user_id: str) -> list[ApiWarning]:
     recipes = stock_repo.components_by_product(db, product_ids)
     article_ids = [str(article.id) for recipe in recipes.values() for _, article in recipe]
 
-    # Filet de sécurité sur les 9 protéines : plats « Hors Menu » ou sans fiche protéine
-    protein_fallback_map: dict[str, tuple[StockArticle, Decimal]] | None = None
+    resolver = None
     fallback_by_item_id: dict[str, tuple[str, Decimal]] = {}
     for item in items:
         item_recipe = recipes.get(str(item.product_id), []) if item.product_id else []
-        has_protein_comp = any(
-            art.category == StockArticleCategory.PROTEINE for _, art in item_recipe
-        )
-        if not has_protein_comp:
-            prot_key = match_protein_keyword(item.product_name_snapshot or "")
-            if prot_key:
-                if protein_fallback_map is None:
-                    protein_fallback_map = _build_protein_fallback_map(db)
-                matched = protein_fallback_map.get(prot_key)
-                if matched is not None:
-                    target_art, per_portion = matched
-                    fallback_by_item_id[str(item.id)] = (str(target_art.id), per_portion)
-                    article_ids.append(str(target_art.id))
+        if any(art.category == StockArticleCategory.PROTEINE for _, art in item_recipe):
+            continue
+        if resolver is None:
+            resolver = build_resolver(db)
+        fallback = resolver.fallback(item.product_name_snapshot)
+        if fallback is not None:
+            fallback_by_item_id[str(item.id)] = fallback
+            article_ids.append(fallback[0])
 
     if not article_ids:
         return []
     articles = stock_repo.lock_articles(db, article_ids)
-
-    # Résolution de la journée comptable de la commande
-    order_date = order.business_date if hasattr(order, "business_date") and order.business_date else business_day(db)
-    if isinstance(order_date, str):
-        try:
-            order_date = date.fromisoformat(order_date)
-        except Exception:
-            order_date = business_day(db)
+    order_date = _order_business_date(db, order)
 
     for item in items:
-        item_recipe = recipes.get(str(item.product_id), []) if item.product_id else []
-        for per_portion, recipe_article in item_recipe:
-            article = articles[str(recipe_article.id)]
+        lines = [
+            (per_portion, str(recipe_article.id))
+            for per_portion, recipe_article in (
+                recipes.get(str(item.product_id), []) if item.product_id else []
+            )
+        ]
+        fallback = fallback_by_item_id.get(str(item.id))
+        if fallback is not None:
+            lines.append((fallback[1], fallback[0]))
+        for per_portion, article_id in lines:
+            article = articles[article_id]
             move(
                 db,
                 article,
@@ -634,39 +574,18 @@ def apply_sale(db: Session, order: Order, user_id: str) -> list[ApiWarning]:
                 order_id=str(order.id),
                 order_item_id=str(item.id),
             )
-        fallback = fallback_by_item_id.get(str(item.id))
-        if fallback is not None:
-            fallback_art_id, fallback_portion = fallback
-            article = articles[fallback_art_id]
-            move(
-                db,
-                article,
-                StockMovementType.SALE_OUT,
-                -(fallback_portion * Decimal(item.quantity)),
-                unit_cost=article.avg_cost_xof,
-                business_date=order_date,
-                user_id=str(user_id),
-                order_id=str(order.id),
-                order_item_id=str(item.id),
-            )
     return negative_warnings(list(articles.values()))
 
 
 def reverse_sale(db: Session, order: Order, user_id: str) -> None:
     """La commande n'est plus soldée (paiement annulé) : ce qui était sorti revient en stock,
-    au coût de la sortie."""
+    au coût de la sortie, à la journée de caisse de la commande."""
     balance = _sale_balance(stock_repo.sale_movements(db, str(order.id)))
     article_ids = [article_id for _, article_id in balance]
     if not article_ids:
         return
     articles = stock_repo.lock_articles(db, article_ids)
-
-    order_date = order.business_date if hasattr(order, "business_date") and order.business_date else business_day(db)
-    if isinstance(order_date, str):
-        try:
-            order_date = date.fromisoformat(order_date)
-        except Exception:
-            order_date = business_day(db)
+    order_date = _order_business_date(db, order)
 
     for (item_id, article_id), (net, cost) in balance.items():
         if net >= 0:
@@ -687,7 +606,6 @@ def reverse_sale(db: Session, order: Order, user_id: str) -> None:
             order_item_id=str(item_id) if item_id else None,
             reason="Paiement annulé",
         )
-
 
 # --- Fiches techniques -------------------------------------------------------------------
 
