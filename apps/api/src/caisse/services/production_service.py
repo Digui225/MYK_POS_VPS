@@ -38,6 +38,7 @@ from caisse.schemas.production import (
     DailyPreparationOut,
     DailyPreparationValidateDayOut,
     MarketProteinAnalysisOut,
+    MarketPurchaseCancel,
     MarketPurchaseItemOut,
     MarketPurchaseListCreate,
     MarketPurchaseListOut,
@@ -70,6 +71,9 @@ def _format_purchase_out(purchase: MarketPurchaseList) -> MarketPurchaseListOut:
         created_at=purchase.created_at,
         received_at=purchase.received_at,
         received_by_user_name=purchase.received_by.full_name if purchase.received_by else None,
+        cancelled_at=purchase.cancelled_at,
+        cancelled_by_user_name=purchase.cancelled_by.full_name if purchase.cancelled_by else None,
+        cancel_reason=purchase.cancel_reason,
         items=[
             MarketPurchaseItemOut(
                 id=str(item.id),
@@ -524,6 +528,71 @@ def complete_market_purchase(
 PURCHASE_DRAFT = "DRAFT"
 PURCHASE_VALIDATED = "VALIDATED"
 PURCHASE_COMPLETED = "COMPLETED"
+PURCHASE_CANCELLED = "CANCELLED"
+
+
+def cancel_market_purchase(
+    db: Session,
+    purchase_id: str,
+    payload: MarketPurchaseCancel,
+    *,
+    user: User,
+    ctx: Any = None,
+) -> MarketPurchaseListOut:
+    """Annule un bon pas encore validé (D10) : aucun argent remis, aucun stock entré, donc
+    aucun effet à compenser. Le bon n'est jamais supprimé : il passe à `CANCELLED` avec l'auteur,
+    la date et le motif. Le responsable et l'admin annulent tout bon ; l'économe seulement ceux
+    qu'il a préparés. Rejouer l'annulation d'un bon déjà annulé ne change rien."""
+    purchase = _lock_purchase(db, purchase_id)
+    if user.role == "ECONOME" and str(purchase.created_by_user_id) != str(user.id):
+        raise CaisseException(
+            code="INSUFFICIENT_PRIVILEGE",
+            title="Droits insuffisants",
+            detail="L'économe ne peut annuler que les bons d'achat qu'il a préparés.",
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
+    if purchase.status == PURCHASE_CANCELLED:
+        return _format_purchase_out(purchase)
+    if purchase.status != PURCHASE_DRAFT:
+        raise CaisseException(
+            code="PURCHASE_NOT_CANCELLABLE",
+            title="Annulation impossible",
+            detail=(
+                "Seul un bon pas encore validé peut être annulé. Un bon réceptionné se corrige "
+                "par ses quantités reçues."
+            ),
+            status_code=status.HTTP_409_CONFLICT,
+            meta={"status": purchase.status},
+        )
+
+    reason = payload.reason.strip()
+    if len(reason) < 3:
+        raise ValidationError(
+            "Indiquez le motif de l'annulation",
+            meta={"fields": [{"loc": ["body", "reason"], "type": "missing"}]},
+        )
+    purchase.status = PURCHASE_CANCELLED
+    purchase.cancelled_at = datetime.now(timezone.utc)
+    purchase.cancelled_by_user_id = str(user.id)
+    purchase.cancel_reason = reason
+    audit_service.log(
+        db,
+        "market_purchase.cancel",
+        ctx=ctx,
+        user_id=str(user.id),
+        entity="market_purchase",
+        entity_id=str(purchase.id),
+        before={"status": PURCHASE_DRAFT},
+        after={
+            "status": PURCHASE_CANCELLED,
+            "business_date": str(purchase.business_date),
+            "total_budget_xof": purchase.total_budget_xof,
+            "reason": reason,
+        },
+    )
+    db.commit()
+    db.refresh(purchase)
+    return _format_purchase_out(purchase)
 
 
 def _lock_purchase(db: Session, purchase_id: str) -> MarketPurchaseList:

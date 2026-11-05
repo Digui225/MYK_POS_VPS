@@ -377,6 +377,7 @@ business_date,fiscal_group,quantity,gross_ht_xof,vat_xof,total_ttc_xof
 | PUT | `/production/market-purchases/{id}` | R / A | Ajuster les articles, quantités ou l'enveloppe condiments d'un bon d'achat en attente (DRAFT) |
 | GET | `/production/market-purchases/{id}/protein-analysis` | R / A | Comparatif des 9 protéines du bon vs ventes réelles et stock de la semaine |
 | POST | `/production/market-purchases/{id}/complete` | R / A | **Modifié D9** — Valider le bon : `DRAFT` → `VALIDATED`, argent remis (`deduct_from_cash_session`), **le stock ne bouge plus** |
+| POST | `/production/market-purchases/{id}/cancel` | E / R / A | **Ajout D10** — Annuler un bon pas encore validé (`DRAFT` → `CANCELLED`), corps `{"reason"}` obligatoire (voir ci-dessous) |
 | POST | `/production/market-purchases/{id}/receive` | R / A | **Ajout D9** — Réceptionner (`VALIDATED` → `COMPLETED`) ou corriger les quantités reçues d'un bon `COMPLETED` (voir ci-dessous) |
 | POST | `/production/opening-stock-corrections` | R / A | **Ajout D9** — Corriger le stock de départ d'un article à une journée (voir ci-dessous) |
 | POST | `/production/daily-preparations` | C / R / A | Saisir la sortie cuisine d'une protéine pour une journée (`prepared_quantity: 0` l'efface). Réponse : `status` (`VALIDATED` si la quantité confirme l'estimation ou s'il n'y en a pas, `ADJUSTED` sinon) et `estimated_quantity` |
@@ -395,6 +396,16 @@ Cycle du bon : `DRAFT` (prévu) → `VALIDATED` (validé, argent remis) → `COM
 `POST /production/opening-stock-corrections`, corps `{"article_id", "business_date", "quantity", "reason"}` : le stock de départ de l'article à `business_date` devient `quantity`. L'écart est un mouvement `OPENING` daté de cette journée (compté dans l'ouverture de la matrice) ; les journées suivantes, stock actuel compris, sont décalées d'autant. Réponse `OpeningStockCorrectionOut {article_id, article_name, unit, business_date, previous_quantity, quantity, delta_quantity, current_stock_quantity}`. Valeur cible : rejouer ne change rien.
 
 Champs ajoutés (rétrocompatibles) : `MarketPurchaseItemOut.received_quantity` (null tant que non réceptionné), `MarketPurchaseListOut.received_at` et `received_by_user_name`. Les bons validés avant D9 (`COMPLETED`) ont `received_quantity` = quantité prévue (migration `028`).
+
+#### Annulation des bons d'achat marché (D10, 05/11/2026)
+
+`POST /production/market-purchases/{id}/cancel`, corps `{"reason"}` (3 à 200 caractères, 422 sinon) :
+- seul un bon `DRAFT` (pas encore validé : ni argent remis, ni stock entré) s'annule. Un bon `VALIDATED` ou `COMPLETED` renvoie 409 `PURCHASE_NOT_CANCELLABLE` ; un bon réceptionné se corrige par ses quantités reçues (`/receive`) ;
+- le bon n'est **jamais supprimé** : il passe à `CANCELLED` et reste listé par `GET /production/market-purchases` (historique). Il ne peut plus être modifié, validé ni réceptionné ;
+- droits : responsable et admin pour tout bon ; l'économe seulement pour les bons qu'il a préparés (403 `INSUFFICIENT_PRIVILEGE` sinon) ; le caissier ne peut pas annuler ;
+- rejouer l'annulation d'un bon déjà annulé renvoie le bon inchangé (pas d'en-tête d'idempotence requis). Action tracée dans le journal d'audit (`market_purchase.cancel`).
+
+Champs ajoutés (rétrocompatibles) : `MarketPurchaseListOut.cancelled_at`, `cancelled_by_user_name`, `cancel_reason` (null si le bon n'est pas annulé). Migration `029`.
 
 #### Règle universelle du stock protéines (D6, 04/11/2026)
 

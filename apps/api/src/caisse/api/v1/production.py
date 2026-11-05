@@ -3,13 +3,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, status
 
-from caisse.core.deps import Ctx, CurrentUser, DbSession, Responsable
+from caisse.core.deps import Ctx, CurrentUser, DbSession, EconomeOnly, Responsable
 from caisse.schemas.production import (
     DailyPreparationCreate,
     DailyPreparationOut,
     DailyPreparationValidateDay,
     DailyPreparationValidateDayOut,
     MarketProteinAnalysisOut,
+    MarketPurchaseCancel,
     MarketPurchaseListCreate,
     MarketPurchaseListOut,
     MarketPurchaseListUpdate,
@@ -120,6 +121,27 @@ def complete_market_purchase_endpoint(
     reçues. Rejouer la validation d'un bon déjà validé ne fait rien."""
     return production_service.complete_market_purchase(
         db, purchase_id, responsible_user, deduct_from_cash_session=deduct_from_cash_session
+    )
+
+
+@router.post(
+    "/market-purchases/{purchase_id}/cancel",
+    response_model=MarketPurchaseListOut,
+    summary="Annuler un bon d'achat marché pas encore validé (Responsable, Admin, Économe)",
+)
+def cancel_market_purchase_endpoint(
+    purchase_id: str,
+    payload: MarketPurchaseCancel,
+    user: EconomeOnly,
+    db: DbSession,
+    ctx: Ctx,
+) -> MarketPurchaseListOut:
+    """`DRAFT` → `CANCELLED` (D10), motif obligatoire. Le bon n'est jamais supprimé : il reste
+    dans l'historique. L'économe n'annule que les bons qu'il a préparés. Un bon validé ou
+    réceptionné ne peut pas être annulé (409 `PURCHASE_NOT_CANCELLABLE`). Rejouer l'annulation
+    d'un bon déjà annulé ne change rien."""
+    return production_service.cancel_market_purchase(
+        db, purchase_id, payload, user=user, ctx=ctx
     )
 
 

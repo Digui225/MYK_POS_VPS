@@ -22,7 +22,8 @@ from caisse.models.base import TimestampMixin, generate_uuid
 class MarketPurchaseList(Base, TimestampMixin):
     """Bon d'achat marché préparé par la caissière avant de faire les courses (D9) :
     DRAFT (prévu) → VALIDATED (validé, argent remis, stock inchangé) → COMPLETED (réceptionné :
-    les quantités réellement reçues sont entrées en stock)."""
+    les quantités réellement reçues sont entrées en stock). Un bon DRAFT peut être annulé
+    (CANCELLED, motif obligatoire) : il n'est jamais supprimé (D10)."""
 
     __tablename__ = "market_purchase_lists"
     __table_args__ = (
@@ -44,6 +45,11 @@ class MarketPurchaseList(Base, TimestampMixin):
     received_by_user_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
     )
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancelled_by_user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    cancel_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     total_budget_xof: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     notes: Mapped[str | None] = mapped_column(String(255), nullable=True)
     include_condiments_envelope: Mapped[bool] = mapped_column(
@@ -59,6 +65,7 @@ class MarketPurchaseList(Base, TimestampMixin):
     created_by = relationship("User", foreign_keys=[created_by_user_id])
     validated_by = relationship("User", foreign_keys=[validated_by_user_id])
     received_by = relationship("User", foreign_keys=[received_by_user_id])
+    cancelled_by = relationship("User", foreign_keys=[cancelled_by_user_id])
 
 
 class MarketPurchaseItem(Base, TimestampMixin):

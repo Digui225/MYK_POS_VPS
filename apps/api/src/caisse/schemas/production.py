@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 from caisse.schemas.common import BaseSchema
 
 # D9 : DRAFT (prévu) → VALIDATED (argent remis, stock inchangé) → COMPLETED (réceptionné)
+# D10 : DRAFT → CANCELLED (annulé avant validation, motif obligatoire, jamais supprimé)
 MarketPurchaseStatus = Literal["DRAFT", "VALIDATED", "COMPLETED", "CANCELLED"]
 # D6 : état d'une sortie cuisine (contrôle sans effet sur le stock)
 PreparationStatus = Literal["ESTIMATED", "VALIDATED", "ADJUSTED"]
@@ -77,6 +78,17 @@ class MarketPurchaseListOut(BaseSchema):
     created_at: datetime
     received_at: datetime | None = None
     received_by_user_name: str | None = None
+    cancelled_at: datetime | None = None
+    cancelled_by_user_name: str | None = None
+    cancel_reason: str | None = None
+
+
+class MarketPurchaseCancel(BaseModel):
+    """Annulation d'un bon pas encore validé (D10)."""
+
+    reason: str = Field(
+        ..., min_length=3, max_length=200, description="Motif de l'annulation (obligatoire)"
+    )
 
 
 class MarketPurchaseReceiveLine(BaseModel):

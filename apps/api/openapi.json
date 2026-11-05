@@ -5169,6 +5169,96 @@
         }
       }
     },
+    "/api/v1/production/market-purchases/{purchase_id}/cancel": {
+      "post": {
+        "tags": [
+          "Achats March\u00e9 & Production Cuisine"
+        ],
+        "summary": "Annuler un bon d'achat march\u00e9 pas encore valid\u00e9 (Responsable, Admin, \u00c9conome)",
+        "description": "`DRAFT` \u2192 `CANCELLED` (D10), motif obligatoire. Le bon n'est jamais supprim\u00e9 : il reste\ndans l'historique. L'\u00e9conome n'annule que les bons qu'il a pr\u00e9par\u00e9s. Un bon valid\u00e9 ou\nr\u00e9ceptionn\u00e9 ne peut pas \u00eatre annul\u00e9 (409 `PURCHASE_NOT_CANCELLABLE`). Rejouer l'annulation\nd'un bon d\u00e9j\u00e0 annul\u00e9 ne change rien.",
+        "operationId": "cancel_market_purchase_endpoint_api_v1_production_market_purchases__purchase_id__cancel_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "purchase_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Purchase Id"
+            }
+          },
+          {
+            "name": "X-Device-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Id"
+            }
+          },
+          {
+            "name": "x-request-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarketPurchaseCancel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketPurchaseListOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/production/market-purchases/{purchase_id}/receive": {
       "post": {
         "tags": [
@@ -12154,6 +12244,23 @@
         ],
         "title": "MarketProteinAnalysisOut"
       },
+      "MarketPurchaseCancel": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Reason",
+            "description": "Motif de l'annulation (obligatoire)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "MarketPurchaseCancel",
+        "description": "Annulation d'un bon pas encore valid\u00e9 (D10)."
+      },
       "MarketPurchaseItemCreate": {
         "properties": {
           "article_id": {
@@ -12420,6 +12527,40 @@
               }
             ],
             "title": "Received By User Name"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "cancelled_by_user_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled By User Name"
+          },
+          "cancel_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Reason"
           }
         },
         "type": "object",
