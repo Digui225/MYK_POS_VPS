@@ -1109,6 +1109,7 @@ def get_weekly_matrix(
         tot = {k: 0 for k in ("theo", "sold", "var", "impact", "rev", "non_destocked")}
         tot_prep_qty = Decimal(0)
         tot_stock_sold = Decimal(0)
+        tot_prep_gap = Decimal(0)
 
         for ld in led:
             d = ld.business_date
@@ -1124,7 +1125,11 @@ def get_weekly_matrix(
             foufou_sold = int(s["foufou"]) if s else 0
             foutou_sold = int(s["foutou"]) if s else 0
             non_destocked = int(s["non_destocked"]) if s else 0
-            suggested_q = round(float(s["expected"]), 2) if s else 0.0
+            expected_q = s["expected"] if s else Decimal(0)
+            suggested_q = round(float(expected_q), 2)
+            # Contrôle sorti cuisine − besoin des plats vendus (portion × plats encaissés,
+            # déstockés ou non), seulement les jours où la sortie est saisie.
+            prep_gap = prepared_q - expected_q if prep else Decimal(0)
 
             variance = calculate_dish_variance(day_sold, theo_dishes)
             avg_dish_price = (day_rev // day_sold) if day_sold > 0 else dish_selling_price
@@ -1136,6 +1141,7 @@ def get_weekly_matrix(
 
             tot_prep_qty += prepared_q
             tot_stock_sold += ld.sales
+            tot_prep_gap += prep_gap
             tot["theo"] += theo_dishes
             tot["sold"] += day_sold
             tot["var"] += variance
@@ -1177,13 +1183,16 @@ def get_weekly_matrix(
                         if prep and prep.estimated_quantity is not None
                         else None
                     ),
-                    preparation_gap_quantity=_f(prepared_q - ld.sales) if prep else 0.0,
+                    preparation_gap_quantity=_f(prep_gap),
                     non_destocked_dishes=non_destocked,
                 )
             )
 
         total_variance_impact += tot["impact"]
-        actual_margin_xof = tot["rev"] - p_cost
+        # Marge brute sur le coût de la matière consommée (CMP), comme la synthèse des
+        # rendements : un achat fait avant la période ne donne plus une marge de 100 %.
+        consumed_cost = to_xof(protein_ledger.consumed_quantity(led) * Decimal(a.avg_cost_xof))
+        actual_margin_xof = tot["rev"] - consumed_cost
         actual_margin_pct = (
             round((actual_margin_xof * 100) / tot["rev"], 2) if tot["rev"] > 0 else 0.0
         )
@@ -1213,7 +1222,7 @@ def get_weekly_matrix(
                 actual_revenue_xof=tot["rev"],
                 actual_gross_margin_xof=actual_margin_xof,
                 actual_gross_margin_pct=actual_margin_pct,
-                quantity_variance=_f(tot_prep_qty - tot_stock_sold),
+                quantity_variance=_f(tot_prep_gap),
                 dishes_variance=tot["sold"] - potential_dishes,
                 total_stock_sold_qty=_f(tot_stock_sold),
                 total_loss_qty=_f(sum((ld.losses for ld in led), Decimal(0))),

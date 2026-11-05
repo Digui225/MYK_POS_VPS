@@ -770,14 +770,11 @@ def protein_yield_report(db: Session, date_from: date, date_to: date) -> Protein
         associated_products: list[str] = [c.product.name for c in comps if c.product]
         sold_dishes, sold_revenue = sold_by_art.get(aid, (0, 0))
 
-        # Consommation lue dans le grand livre : ventes + pertes + manquants d'inventaire
-        # + corrections négatives (rattrapages de ventes)
+        # Consommation lue dans le grand livre : ventes + pertes + manquant net
+        # (inventaires et corrections compensés entre eux)
         led = ledger.get(aid, [])
-        sale_qty = float(sum((ld.sales for ld in led), Decimal(0)))
         loss_qty = float(sum((ld.losses for ld in led), Decimal(0)))
-        inv_qty = float(sum((ld.inventory for ld in led), Decimal(0)))
-        corr_qty = float(sum((ld.corrections for ld in led), Decimal(0)))
-        consumed_qty = sale_qty + loss_qty + max(0.0, -inv_qty) + max(0.0, -corr_qty)
+        consumed_qty = float(protein_ledger.consumed_quantity(led))
         avg_cost = to_unit_rate(a.avg_cost_xof)
         consumed_cost = to_xof(Decimal(str(consumed_qty)) * a.avg_cost_xof)
 

@@ -356,7 +356,98 @@ def test_semaine_reelle_du_saumon_matrice_et_stock_a_2(db_session: Session) -> N
     assert lundi.non_destocked_dishes == 2
     assert lundi.inventory_variance_quantity == -7.0
     assert lundi.closing_quantity == 6.0
-    assert lundi.preparation_gap_quantity == -1.0  # sorti 6, déstocké 7
+    assert lundi.preparation_gap_quantity == -3.0  # sorti 6 pour 9 plats encaissés
     assert mardi.closing_quantity == 2.0
     assert row.closing_stock_qty == row.current_stock_qty == 2.0
     assert row.total_non_destocked_dishes == 2
+
+
+def test_semaine_reelle_du_brochet_synthese_et_matrice_coherentes(db_session: Session) -> None:
+    """Rejeu de la production (02-05/11/2026) : la synthèse affichait 6 brochets manquants,
+    la matrice « +1 » et une marge de 100 %.
+    - La synthèse retenait la correction −6 (migration 025) sans l'inventaire +6 qu'elle
+      annulait : inventaires et corrections sont désormais compensés → écart 0.
+    - L'écart sorti/vendu compare les sorties au besoin des plats encaissés, seulement les
+      jours où la sortie est saisie (le jeudi sans sortie ne compte pas).
+    - La marge brute se calcule sur le coût de la matière consommée, pas sur les achats de la
+      semaine (le brochet avait été acheté le 30/10)."""
+    brochet = StockArticle(
+        name="Brochet", category="PROTEINE", unit="pièce", out_mode="RECIPE",
+        quantity=Decimal(-1), avg_cost_xof=Decimal(800), is_active=True,
+    )
+    cat = Category(id="cat-bro", name="Plats", kind="DISH")
+    foufou = Product(id="p-foufou-bro", category_id="cat-bro", name="Foufou/foutou brochet",
+                     short_name="Foufou bro", price_xof=3500, is_active=True)
+    db_session.add_all([brochet, cat, foufou])
+    db_session.flush()
+    db_session.add(ProductComponent(product_id=foufou.id, article_id=brochet.id,
+                                    quantity=Decimal(1)))
+    now = datetime.now(timezone.utc)
+
+    def mov(day: date, m_type: str, qty: int, order_id: str | None = None,
+            item_id: str | None = None) -> None:
+        db_session.add(StockMovement(
+            article_id=brochet.id, type=m_type, quantity=Decimal(qty), quantity_after=Decimal(0),
+            unit_cost_xof=Decimal(800), business_date=day, reference_order_id=order_id,
+            reference_order_item_id=item_id, created_at=now,
+        ))
+
+    def day_sales(day: date, destocked: int, not_destocked: int = 0) -> None:
+        session = CashSession(cash_register_id="reg-01", opened_by_user_id="usr-caissier-01",
+                              business_date=day, status=CashSessionStatus.CLOSED,
+                              opening_float_xof=0)
+        db_session.add(session)
+        db_session.flush()
+        for n in range(destocked + not_destocked):
+            order = Order(order_number=f"BRO-{day}-{n}", cash_session_id=session.id,
+                          opened_by_user_id="usr-caissier-01", status=OrderStatus.PAID,
+                          total_ttc_xof=3500, total_ht_xof=3500, total_vat_xof=0,
+                          paid_xof=3500, due_xof=0)
+            db_session.add(order)
+            db_session.flush()
+            item = OrderItem(order_id=order.id, product_id=foufou.id,
+                             product_name_snapshot="Foufou/foutou brochet",
+                             category_snapshot="Plats", unit_price_xof=3500, quantity=1,
+                             line_total_xof=3500, added_by_user_id="usr-caissier-01")
+            db_session.add(item)
+            db_session.flush()
+            if n < destocked:
+                mov(day, "SALE_OUT", -1, str(order.id), str(item.id))
+
+    mov(date(2026, 10, 30), "OPENING", 6)
+    mov(date(2026, 10, 30), "PURCHASE_IN", 24)
+    day_sales(date(2026, 11, 2), destocked=4, not_destocked=8)
+    mov(date(2026, 11, 2), "INVENTORY_COUNT", 6)
+    day_sales(date(2026, 11, 3), destocked=11)
+    mov(date(2026, 11, 3), "SALE_OUT", -8)  # rattrapage des 8 plats du lundi
+    mov(date(2026, 11, 3), "SALE_OUT", -6)  # migration 025, annule l'inventaire du lundi
+    day_sales(date(2026, 11, 4), destocked=3)
+    day_sales(date(2026, 11, 5), destocked=5)
+    for day, qty in ((date(2026, 11, 2), 12), (date(2026, 11, 3), 11), (date(2026, 11, 4), 3)):
+        db_session.add(DailyPreparation(
+            business_date=day, article_id=brochet.id, prepared_quantity=Decimal(qty),
+            yield_portions_per_unit=Decimal(1), theoretical_dishes=qty,
+            user_id="usr-caissier-01", status="VALIDATED", estimated_quantity=Decimal(qty),
+        ))
+    db_session.commit()
+
+    yields = reporting_service.protein_yield_report(db_session, date(2026, 11, 1), date(2026, 11, 30))
+    yrow = next(i for i in yields.items if i.article_id == str(brochet.id))
+    assert yrow.consumed_quantity == 31.0  # 23 ventes déstockées + 8 de rattrapage
+    assert yrow.sold_dishes == 31
+    assert yrow.variance_dishes == 0
+    assert yrow.status == "NORMAL"
+
+    matrix = get_weekly_matrix(db_session, date(2026, 11, 2), date(2026, 11, 6))
+    row = next(r for r in matrix.rows if r.article_id == str(brochet.id))
+    _assert_ledger_identity(row)
+    assert row.opening_stock_qty == 30.0
+    assert row.closing_stock_qty == row.current_stock_qty == -1.0
+    assert row.total_sold_dishes == 31
+    assert row.dishes_variance == 1  # vendu un brochet de plus que le disponible
+    assert [d.preparation_gap_quantity for d in row.days] == [0.0, 0.0, 0.0, 0.0, 0.0]
+    assert row.quantity_variance == 0.0  # jeudi, sans sortie saisie, ne compte pas
+    assert row.weekly_purchased_cost_xof == 0
+    assert row.actual_revenue_xof == 31 * 3500
+    assert row.actual_gross_margin_xof == 31 * 3500 - 31 * 800
+    assert row.actual_gross_margin_pct < 100

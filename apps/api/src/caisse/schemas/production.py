@@ -213,7 +213,8 @@ class WeeklyDayData(BaseSchema):
     # --- Contrôle de la sortie cuisine ---
     preparation_status: PreparationStatus | None = None
     estimated_quantity: float | None = None
-    preparation_gap_quantity: float = 0.0  # sorti cuisine − sorti par les ventes
+    # sorti cuisine − besoin des plats encaissés (0 si aucune sortie saisie ce jour)
+    preparation_gap_quantity: float = 0.0
     non_destocked_dishes: int = 0  # plats encaissés sans sortie de stock de cette protéine
 
 
@@ -239,10 +240,10 @@ class WeeklyProductRow(BaseSchema):
     total_variance_dishes: int
     total_financial_impact_xof: int
     actual_revenue_xof: int = 0
-    actual_gross_margin_xof: int = 0
+    actual_gross_margin_xof: int = 0  # vente réelle − coût matière consommée (CMP)
     actual_gross_margin_pct: float = 0.0
-    quantity_variance: float = 0.0  # sorti cuisine − sorti par les ventes (contrôle)
-    dishes_variance: int = 0
+    quantity_variance: float = 0.0  # somme des écarts des jours avec sortie saisie
+    dishes_variance: int = 0  # plats vendus − plats possibles (> 0 : vendu plus que le stock)
     # --- Grand livre de la période (D6) ---
     total_stock_sold_qty: float = 0.0
     total_loss_qty: float = 0.0

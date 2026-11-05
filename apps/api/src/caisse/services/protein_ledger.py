@@ -194,6 +194,16 @@ class LedgerDay:
         return self.opening + self.purchases
 
 
+def consumed_quantity(days: list[LedgerDay]) -> Decimal:
+    """Matière consommée sur la période : ventes + pertes + manquant net d'inventaire et de
+    corrections. Inventaires et corrections sont compensés entre eux avant de retenir un
+    manquant : un comptage à +6 annulé par une correction à −6 ne consomme rien."""
+    sales = sum((d.sales for d in days), _ZERO)
+    losses = sum((d.losses for d in days), _ZERO)
+    adjustments = sum((d.inventory + d.corrections for d in days), _ZERO)
+    return sales + losses + max(_ZERO, -adjustments)
+
+
 def calendar(date_from: date, date_to: date) -> list[date]:
     days: list[date] = []
     cur = date_from
