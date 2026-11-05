@@ -1,12 +1,12 @@
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
-from caisse.core.errors import CaisseException
+from caisse.core.errors import CaisseException, NotFoundError, ValidationError
 from caisse.domain.enums import (
     CashSessionStatus,
     OrderStatus,
@@ -33,7 +33,6 @@ from caisse.models.production import (
 )
 from caisse.models.stock import StockArticle, StockMovement
 from caisse.models.user import User
-from caisse.repositories import stock as stock_repo
 from caisse.schemas.production import (
     DailyPreparationCreate,
     DailyPreparationOut,
@@ -43,12 +42,15 @@ from caisse.schemas.production import (
     MarketPurchaseListCreate,
     MarketPurchaseListOut,
     MarketPurchaseListUpdate,
+    MarketPurchaseReceive,
+    OpeningStockCorrection,
+    OpeningStockCorrectionOut,
     ProteinComparisonRow,
     WeeklyDayData,
     WeeklyMatrixReportOut,
     WeeklyProductRow,
 )
-from caisse.services import protein_ledger
+from caisse.services import audit_service, protein_ledger, stock_service
 
 DAY_NAMES_FR = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
 
@@ -66,6 +68,8 @@ def _format_purchase_out(purchase: MarketPurchaseList) -> MarketPurchaseListOut:
         notes=purchase.notes,
         include_condiments_envelope=getattr(purchase, "include_condiments_envelope", False),
         created_at=purchase.created_at,
+        received_at=purchase.received_at,
+        received_by_user_name=purchase.received_by.full_name if purchase.received_by else None,
         items=[
             MarketPurchaseItemOut(
                 id=str(item.id),
@@ -75,6 +79,9 @@ def _format_purchase_out(purchase: MarketPurchaseList) -> MarketPurchaseListOut:
                 quantity=float(item.quantity),
                 unit_price_xof=item.unit_price_xof,
                 total_price_xof=item.total_price_xof,
+                received_quantity=(
+                    float(item.received_quantity) if item.received_quantity is not None else None
+                ),
             )
             for item in purchase.items
         ],
@@ -443,93 +450,25 @@ def complete_market_purchase(
     db: Session,
     purchase_id: str,
     validator_user: User,
-    create_stock_movements: bool = True,
     deduct_from_cash_session: bool = False,
 ) -> MarketPurchaseListOut:
-    """Valide les achats après retour du marché et met à jour le stock en créant
-    les mouvements PURCHASE_IN (ce qui alimente automatiquement la colonne ACHATS REÇUS).
+    """Valide le bon (D9) : l'argent est remis, le stock ne bouge pas. Les achats entrent en
+    stock à la réception (`receive_market_purchase`), avec les quantités réellement reçues.
     Si deduct_from_cash_session est vrai, crée également un décaissement CashExpense."""
-    # Verrou sur le bon : deux validations simultanées (double clic) n'ajoutent pas deux fois
-    # les achats au stock.
-    purchase = (
-        db.query(MarketPurchaseList)
-        .filter(MarketPurchaseList.id == purchase_id)
-        .with_for_update()
-        .populate_existing()
-        .first()
-    )
-    if not purchase:
-        raise CaisseException(
-            code="PURCHASE_NOT_FOUND",
-            title="Bon d'achat introuvable",
-            detail=f"Bon d'achat {purchase_id} introuvable",
-            status_code=status.HTTP_404_NOT_FOUND,
-        )
-    if purchase.status == "COMPLETED":
+    # Verrou sur le bon : deux validations simultanées (double clic) ne décaissent pas deux fois.
+    purchase = _lock_purchase(db, purchase_id)
+    if purchase.status in (PURCHASE_VALIDATED, PURCHASE_COMPLETED):
         return _format_purchase_out(purchase)
+    if purchase.status != PURCHASE_DRAFT:
+        raise ValidationError(
+            "Ce bon d'achat a été annulé",
+            meta={"status": purchase.status},
+        )
 
-    purchase.status = "COMPLETED"
+    purchase.status = PURCHASE_VALIDATED
     purchase.validated_by_user_id = validator_user.id
 
-    from caisse.domain.market_budget_rules import DEFAULT_MARKET_CONDIMENTS_KIT, DEFAULT_RESERVE_XOF
-
-    if create_stock_movements:
-        locked = stock_repo.lock_articles(db, [str(item.article_id) for item in purchase.items])
-        for item in purchase.items:
-            art = locked.get(str(item.article_id))
-            if art:
-                new_qty = art.quantity + item.quantity
-                new_avg = weighted_average_cost(
-                    stock_qty=art.quantity,
-                    stock_cost=art.avg_cost_xof,
-                    in_qty=item.quantity,
-                    in_unit_cost=Decimal(item.unit_price_xof),
-                )
-                art.quantity = new_qty
-                art.avg_cost_xof = new_avg
-
-                mov = StockMovement(
-                    article_id=art.id,
-                    type=StockMovementType.PURCHASE_IN,
-                    quantity=item.quantity,
-                    quantity_after=new_qty,
-                    unit_cost_xof=Decimal(item.unit_price_xof),
-                    business_date=purchase.business_date,
-                    user_id=validator_user.id,
-                    reason=f"Achats marché #{purchase.business_date}",
-                )
-                db.add(mov)
-
-        # Option 1 : Injection automatique du Kit Condiments Hebdomadaire (120 000 XOF)
-        # Réapprovisionne les condiments essentiels et active la disponibilité des sauces et plats
-        # Uniquement si include_condiments_envelope est activé
-        if purchase.include_condiments_envelope:
-            for cond in DEFAULT_MARKET_CONDIMENTS_KIT:
-                c_art = db.query(StockArticle).filter(StockArticle.name == cond["name"]).first()
-                if c_art:
-                    qty: Decimal = cond["quantity"]
-                    unit_cost = Decimal(cond["unit_price_xof"])
-                    new_qty = c_art.quantity + qty
-                    new_avg = weighted_average_cost(
-                        stock_qty=c_art.quantity,
-                        stock_cost=c_art.avg_cost_xof,
-                        in_qty=qty,
-                        in_unit_cost=unit_cost,
-                    )
-                    c_art.quantity = new_qty
-                    c_art.avg_cost_xof = new_avg
-
-                    mov = StockMovement(
-                        article_id=c_art.id,
-                        type=StockMovementType.PURCHASE_IN,
-                        quantity=qty,
-                        quantity_after=new_qty,
-                        unit_cost_xof=unit_cost,
-                        business_date=purchase.business_date,
-                        user_id=validator_user.id,
-                        reason=f"Kit condiments marché (120 000 XOF) #{purchase.business_date}",
-                    )
-                    db.add(mov)
+    from caisse.domain.market_budget_rules import DEFAULT_RESERVE_XOF
 
     # Déduction optionnelle du tiroir-caisse
     condiments_xof = DEFAULT_RESERVE_XOF if purchase.include_condiments_envelope else 0
@@ -578,6 +517,271 @@ def complete_market_purchase(
     db.commit()
     db.refresh(purchase)
     return _format_purchase_out(purchase)
+
+
+# --- Réception des achats marché (D9) ----------------------------------------------------
+
+PURCHASE_DRAFT = "DRAFT"
+PURCHASE_VALIDATED = "VALIDATED"
+PURCHASE_COMPLETED = "COMPLETED"
+
+
+def _lock_purchase(db: Session, purchase_id: str) -> MarketPurchaseList:
+    purchase = (
+        db.query(MarketPurchaseList)
+        .filter(MarketPurchaseList.id == purchase_id)
+        .with_for_update()
+        .populate_existing()
+        .first()
+    )
+    if not purchase:
+        raise CaisseException(
+            code="PURCHASE_NOT_FOUND",
+            title="Bon d'achat introuvable",
+            detail=f"Bon d'achat {purchase_id} introuvable",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    return purchase
+
+
+def _purchase_entry(
+    db: Session,
+    article: StockArticle,
+    quantity: Decimal,
+    unit_cost: Decimal,
+    *,
+    business_date: date,
+    user_id: str,
+    reason: str,
+) -> StockMovement:
+    """Entrée (ou retrait, si négative) d'achat sur un article verrouillé. Une entrée recalcule
+    le coût moyen pondéré ; un retrait sort au prix du bon sans changer le coût moyen."""
+    if quantity > 0:
+        return stock_service.record_purchase(
+            db,
+            article,
+            quantity,
+            unit_cost,
+            business_date=business_date,
+            user_id=user_id,
+            supplier=None,
+            reason=reason,
+        )
+    return stock_service.move(
+        db,
+        article,
+        StockMovementType.PURCHASE_IN,
+        quantity,
+        unit_cost=unit_cost,
+        business_date=business_date,
+        user_id=user_id,
+        reason=reason,
+    )
+
+
+def _fmt_qty(value: Decimal) -> str:
+    return format(value.normalize(), "f")
+
+
+def receive_market_purchase(
+    db: Session,
+    purchase_id: str,
+    payload: MarketPurchaseReceive,
+    *,
+    user: User,
+    ctx: Any = None,
+) -> MarketPurchaseListOut:
+    """Réception d'un bon validé : seules les quantités réellement reçues entrent en stock, au
+    prix du bon et à la date du bon. Sur un bon déjà réceptionné, corrige les quantités reçues :
+    l'écart est un mouvement d'achat signé et tracé (on ne modifie jamais un mouvement).
+    Les quantités sont des valeurs cibles : renvoyer la même demande ne change rien."""
+    purchase = _lock_purchase(db, purchase_id)
+    if purchase.status == PURCHASE_DRAFT:
+        raise ValidationError(
+            "Validez le bon d'achat avant de réceptionner les achats",
+            meta={"status": purchase.status},
+        )
+    if purchase.status not in (PURCHASE_VALIDATED, PURCHASE_COMPLETED):
+        raise ValidationError(
+            "Ce bon d'achat a été annulé", meta={"status": purchase.status}
+        )
+
+    items = {str(item.id): item for item in purchase.items}
+    unknown = [line.item_id for line in payload.lines if line.item_id not in items]
+    if unknown:
+        raise NotFoundError("Ligne de bon introuvable", meta={"item_ids": unknown})
+    targets = {line.item_id: quantize_qty(Decimal(str(line.received_quantity))) for line in payload.lines}
+
+    first_reception = purchase.status == PURCHASE_VALIDATED
+    # quantité déjà entrée en stock par ligne (prévue pour les bons d'avant la réception)
+    current = {
+        iid: (
+            Decimal(0)
+            if first_reception
+            else Decimal(item.received_quantity if item.received_quantity is not None else item.quantity)
+        )
+        for iid, item in items.items()
+    }
+    wanted = {
+        iid: targets.get(iid, Decimal(item.quantity) if first_reception else current[iid])
+        for iid, item in items.items()
+    }
+    changes = {iid: wanted[iid] - current[iid] for iid in items if wanted[iid] != current[iid]}
+
+    reason = (payload.reason or "").strip()
+    if not first_reception:
+        if not changes:
+            return _format_purchase_out(purchase)
+        if len(reason) < 3:
+            raise ValidationError(
+                "Indiquez le motif de la correction",
+                meta={"fields": [{"loc": ["body", "reason"], "type": "missing"}]},
+            )
+
+    label = purchase.business_date.strftime("%d/%m/%Y")
+    articles = stock_service.lock_existing(db, [str(items[iid].article_id) for iid in changes])
+    movements: list[dict[str, Any]] = []
+    for iid, delta in changes.items():
+        item = items[iid]
+        article = articles[str(item.article_id)]
+        if first_reception:
+            text_reason = f"Achats marché #{purchase.business_date}"
+        else:
+            text_reason = (
+                f"Correction réception bon du {label} : "
+                f"{_fmt_qty(current[iid])} → {_fmt_qty(wanted[iid])} — {reason}"
+            )[:255]
+        _purchase_entry(
+            db,
+            article,
+            delta,
+            Decimal(item.unit_price_xof),
+            business_date=purchase.business_date,
+            user_id=str(user.id),
+            reason=text_reason,
+        )
+        movements.append(
+            {"article": article.name, "from": str(current[iid]), "to": str(wanted[iid])}
+        )
+    for iid, item in items.items():
+        item.received_quantity = wanted[iid]
+
+    if first_reception:
+        _enter_condiments_kit(db, purchase, str(user.id))
+        purchase.status = PURCHASE_COMPLETED
+        purchase.received_at = datetime.now(timezone.utc)
+        purchase.received_by_user_id = str(user.id)
+
+    audit_service.log(
+        db,
+        "market_purchase.receive" if first_reception else "market_purchase.receipt_correction",
+        ctx=ctx,
+        user_id=str(user.id),
+        entity="market_purchase",
+        entity_id=str(purchase.id),
+        after={"business_date": str(purchase.business_date), "lines": movements, "reason": reason or None},
+    )
+    db.commit()
+    db.refresh(purchase)
+    return _format_purchase_out(purchase)
+
+
+def _enter_condiments_kit(db: Session, purchase: MarketPurchaseList, user_id: str) -> None:
+    """Kit condiments hebdomadaire (120 000 XOF) : entré en stock à la réception du bon, si
+    le bon l'inclut."""
+    if not purchase.include_condiments_envelope:
+        return
+    from caisse.domain.market_budget_rules import DEFAULT_MARKET_CONDIMENTS_KIT
+
+    for cond in DEFAULT_MARKET_CONDIMENTS_KIT:
+        c_art = (
+            db.query(StockArticle)
+            .filter(StockArticle.name == cond["name"])
+            .with_for_update()
+            .first()
+        )
+        if c_art:
+            qty: Decimal = cond["quantity"]
+            unit_cost = Decimal(cond["unit_price_xof"])
+            new_qty = c_art.quantity + qty
+            new_avg = weighted_average_cost(
+                stock_qty=c_art.quantity,
+                stock_cost=c_art.avg_cost_xof,
+                in_qty=qty,
+                in_unit_cost=unit_cost,
+            )
+            c_art.quantity = new_qty
+            c_art.avg_cost_xof = new_avg
+            db.add(
+                StockMovement(
+                    article_id=c_art.id,
+                    type=StockMovementType.PURCHASE_IN,
+                    quantity=qty,
+                    quantity_after=new_qty,
+                    unit_cost_xof=unit_cost,
+                    business_date=purchase.business_date,
+                    user_id=user_id,
+                    reason=f"Kit condiments marché (120 000 XOF) #{purchase.business_date}",
+                )
+            )
+
+
+def correct_opening_stock(
+    db: Session,
+    payload: OpeningStockCorrection,
+    *,
+    user: User,
+    ctx: Any = None,
+) -> OpeningStockCorrectionOut:
+    """Corrige le stock de départ d'un article à une journée (valeur cible). L'écart est un
+    mouvement de stock de départ daté de cette journée : la matrice le compte dans l'ouverture,
+    et toutes les journées suivantes, stock actuel compris, sont décalées d'autant."""
+    article = stock_service.lock_existing(db, [payload.article_id])[payload.article_id]
+    day = payload.business_date
+    led = protein_ledger.daily_ledger(db, [article], day, day)[str(article.id)][0]
+    previous = led.opening
+    target = quantize_qty(Decimal(str(payload.quantity)))
+    delta = target - previous
+    if delta != 0:
+        stock_service.move(
+            db,
+            article,
+            StockMovementType.OPENING,
+            delta,
+            unit_cost=article.avg_cost_xof,
+            business_date=day,
+            user_id=str(user.id),
+            reason=(
+                f"Correction stock initial au {day.strftime('%d/%m/%Y')} : "
+                f"{_fmt_qty(previous)} → {_fmt_qty(target)} — {payload.reason.strip()}"
+            )[:255],
+        )
+        audit_service.log(
+            db,
+            "stock.opening_correction",
+            ctx=ctx,
+            user_id=str(user.id),
+            entity="stock_article",
+            entity_id=str(article.id),
+            after={
+                "business_date": str(day),
+                "from": str(previous),
+                "to": str(target),
+                "reason": payload.reason.strip(),
+            },
+        )
+        db.commit()
+        db.refresh(article)
+    return OpeningStockCorrectionOut(
+        article_id=str(article.id),
+        article_name=article.name,
+        unit=article.unit,
+        business_date=day,
+        previous_quantity=_f(previous),
+        quantity=_f(target),
+        delta_quantity=_f(delta),
+        current_stock_quantity=_f(Decimal(article.quantity)),
+    )
 
 
 # --- Sorties cuisine : simple contrôle, sans effet sur le stock (D6) ---------------------

@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, status
 
-from caisse.core.deps import CurrentUser, DbSession, Responsable
+from caisse.core.deps import Ctx, CurrentUser, DbSession, Responsable
 from caisse.schemas.production import (
     DailyPreparationCreate,
     DailyPreparationOut,
@@ -13,6 +13,9 @@ from caisse.schemas.production import (
     MarketPurchaseListCreate,
     MarketPurchaseListOut,
     MarketPurchaseListUpdate,
+    MarketPurchaseReceive,
+    OpeningStockCorrection,
+    OpeningStockCorrectionOut,
     WeeklyMatrixReportOut,
 )
 from caisse.services import production_service
@@ -102,7 +105,7 @@ def get_market_purchase_protein_analysis_endpoint(
 @router.post(
     "/market-purchases/{purchase_id}/complete",
     response_model=MarketPurchaseListOut,
-    summary="Valider un bon d'achat marché et mettre à jour le stock (Responsable)",
+    summary="Valider un bon d'achat marché : argent remis, stock inchangé (Responsable)",
 )
 def complete_market_purchase_endpoint(
     purchase_id: str,
@@ -112,10 +115,55 @@ def complete_market_purchase_endpoint(
         False, description="Déduire automatiquement le montant de la caisse ouverte"
     ),
 ) -> MarketPurchaseListOut:
-    """Valide les achats après retour du marché : met à jour les quantités en stock
-    et alimente automatiquement la colonne ACHATS REÇUS du suivi journalier."""
+    """`DRAFT` → `VALIDATED` (D9) : l'argent est remis à l'économe, le stock ne bouge pas.
+    Les achats entrent en stock à la réception (`/receive`), avec les quantités réellement
+    reçues. Rejouer la validation d'un bon déjà validé ne fait rien."""
     return production_service.complete_market_purchase(
         db, purchase_id, responsible_user, deduct_from_cash_session=deduct_from_cash_session
+    )
+
+
+@router.post(
+    "/market-purchases/{purchase_id}/receive",
+    response_model=MarketPurchaseListOut,
+    summary="Réceptionner un bon validé, ou corriger les quantités reçues (Responsable)",
+)
+def receive_market_purchase_endpoint(
+    purchase_id: str,
+    payload: MarketPurchaseReceive,
+    responsible_user: Responsable,
+    db: DbSession,
+    ctx: Ctx,
+) -> MarketPurchaseListOut:
+    """`VALIDATED` → `COMPLETED` : les quantités réellement reçues entrent en stock (une ligne
+    absente vaut la quantité prévue, 0 si l'article n'a pas été trouvé), au prix du bon et à la
+    date du bon ; le kit condiments éventuel entre aussi en stock.
+
+    Sur un bon `COMPLETED`, corrige les quantités reçues (motif obligatoire) : l'écart est une
+    entrée ou un retrait d'achat signé, daté du bon et tracé ; aucun mouvement n'est modifié.
+    Les quantités sont des valeurs cibles : rejouer la même demande ne change rien."""
+    return production_service.receive_market_purchase(
+        db, purchase_id, payload, user=responsible_user, ctx=ctx
+    )
+
+
+@router.post(
+    "/opening-stock-corrections",
+    response_model=OpeningStockCorrectionOut,
+    summary="Corriger le stock de départ d'un article à une journée (Responsable)",
+)
+def correct_opening_stock_endpoint(
+    payload: OpeningStockCorrection,
+    responsible_user: Responsable,
+    db: DbSession,
+    ctx: Ctx,
+) -> OpeningStockCorrectionOut:
+    """Le stock de départ de l'article à `business_date` devient `quantity` : l'écart est un
+    mouvement de stock de départ (`OPENING`) daté de cette journée et tracé. Les journées
+    suivantes, stock actuel compris, sont décalées du même écart. Valeur cible : rejouer la
+    même demande ne change rien."""
+    return production_service.correct_opening_stock(
+        db, payload, user=responsible_user, ctx=ctx
     )
 
 

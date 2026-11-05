@@ -216,7 +216,14 @@ def test_market_purchase_with_and_without_condiments_envelope(
         headers=headers,
     )
     assert complete_resp.status_code == 200, complete_resp.text
-    assert complete_resp.json()["status"] == "COMPLETED"
+    assert complete_resp.json()["status"] == "VALIDATED"
+
+    # D9 : le stock n'entre qu'à la réception (quantités prévues par défaut)
+    receive_resp = client.post(
+        f"/api/v1/production/market-purchases/{purchase_id}/receive", headers=headers, json={}
+    )
+    assert receive_resp.status_code == 200, receive_resp.text
+    assert receive_resp.json()["status"] == "COMPLETED"
 
     # Vérification : le stock de boeuf a augmenté de 10 kg
     db_session.expire_all()
@@ -275,6 +282,9 @@ def test_market_purchase_with_and_without_condiments_envelope(
         headers=headers,
     )
     assert complete_hebdo.status_code == 200
+    assert client.post(
+        f"/api/v1/production/market-purchases/{hebdo_data['id']}/receive", headers=headers, json={}
+    ).status_code == 200
 
     # Vérification : Décaissement = 20 000 + 120 000 = 140 000 XOF
     db_session.expire_all()

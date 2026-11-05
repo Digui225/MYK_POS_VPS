@@ -376,9 +376,25 @@ business_date,fiscal_group,quantity,gross_ht_xof,vat_xof,total_ttc_xof
 | POST | `/purchases/{id}/receive` | R / A | Réceptionner les achats et intégrer au stock |
 | PUT | `/production/market-purchases/{id}` | R / A | Ajuster les articles, quantités ou l'enveloppe condiments d'un bon d'achat en attente (DRAFT) |
 | GET | `/production/market-purchases/{id}/protein-analysis` | R / A | Comparatif des 9 protéines du bon vs ventes réelles et stock de la semaine |
+| POST | `/production/market-purchases/{id}/complete` | R / A | **Modifié D9** — Valider le bon : `DRAFT` → `VALIDATED`, argent remis (`deduct_from_cash_session`), **le stock ne bouge plus** |
+| POST | `/production/market-purchases/{id}/receive` | R / A | **Ajout D9** — Réceptionner (`VALIDATED` → `COMPLETED`) ou corriger les quantités reçues d'un bon `COMPLETED` (voir ci-dessous) |
+| POST | `/production/opening-stock-corrections` | R / A | **Ajout D9** — Corriger le stock de départ d'un article à une journée (voir ci-dessous) |
 | POST | `/production/daily-preparations` | C / R / A | Saisir la sortie cuisine d'une protéine pour une journée (`prepared_quantity: 0` l'efface). Réponse : `status` (`VALIDATED` si la quantité confirme l'estimation ou s'il n'y en a pas, `ADJUSTED` sinon) et `estimated_quantity` |
 | POST | `/production/daily-preparations/validate-day` | C / R / A | **Ajout D6** — corps `{"business_date"}` : valider d'un coup les sorties `ESTIMATED` du jour. Réponse : `{business_date, validated_count, preparations[]}` |
 | GET | `/production/weekly-matrix?date_from=&date_to=` | R / A | Matrice de contrôle hebdomadaire des 9 protéines (règle universelle du stock, ci-dessous) |
+
+#### Réception des bons d'achat marché (D9, 05/11/2026)
+
+Cycle du bon : `DRAFT` (prévu) → `VALIDATED` (validé, argent remis) → `COMPLETED` (réceptionné). Seule la réception fait entrer le stock, avec les **quantités réellement reçues** ; la quantité prévue peut différer de ce qui revient du marché.
+
+`POST /production/market-purchases/{id}/receive`, corps `{"lines": [{"item_id", "received_quantity"}], "reason"?}` :
+- bon `VALIDATED` : une ligne absente vaut la quantité prévue, `0` si l'article n'a pas été trouvé. Entrées `PURCHASE_IN` au prix unitaire du bon, **datées du bon** ; le kit condiments éventuel entre aussi en stock. Refusé (422) sur un bon `DRAFT` ou annulé ;
+- bon `COMPLETED` : correction (motif `reason` obligatoire, 422 sinon). Pour chaque ligne modifiée, l'écart (reçu corrigé − reçu enregistré) est un `PURCHASE_IN` **signé** (négatif pour un retrait, sans changer le coût moyen), daté du bon, motif « Correction réception bon du JJ/MM/AAAA : ancien → nouveau — motif ». Aucun mouvement existant n'est modifié ;
+- les quantités sont des valeurs cibles : rejouer la même demande ne change rien (pas d'en-tête d'idempotence requis).
+
+`POST /production/opening-stock-corrections`, corps `{"article_id", "business_date", "quantity", "reason"}` : le stock de départ de l'article à `business_date` devient `quantity`. L'écart est un mouvement `OPENING` daté de cette journée (compté dans l'ouverture de la matrice) ; les journées suivantes, stock actuel compris, sont décalées d'autant. Réponse `OpeningStockCorrectionOut {article_id, article_name, unit, business_date, previous_quantity, quantity, delta_quantity, current_stock_quantity}`. Valeur cible : rejouer ne change rien.
+
+Champs ajoutés (rétrocompatibles) : `MarketPurchaseItemOut.received_quantity` (null tant que non réceptionné), `MarketPurchaseListOut.received_at` et `received_by_user_name`. Les bons validés avant D9 (`COMPLETED`) ont `received_quantity` = quantité prévue (migration `028`).
 
 #### Règle universelle du stock protéines (D6, 04/11/2026)
 

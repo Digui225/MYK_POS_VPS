@@ -123,6 +123,9 @@ def test_matrice_egale_au_stock_avec_tous_les_mouvements(
     assert client.post(
         f"/api/v1/production/market-purchases/{bon['id']}/complete", headers=resp
     ).status_code == 200
+    assert client.post(
+        f"/api/v1/production/market-purchases/{bon['id']}/receive", headers=resp, json={}
+    ).status_code == 200
 
     # Lundi 09/11 : 2 plats du menu + 1 plat hors menu, perte de 1, inventaire 12 (−4)
     s1 = _open(client, caissier, "2026-11-09")

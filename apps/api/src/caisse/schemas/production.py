@@ -5,7 +5,8 @@ from pydantic import BaseModel, Field, field_validator
 
 from caisse.schemas.common import BaseSchema
 
-MarketPurchaseStatus = Literal["DRAFT", "COMPLETED", "CANCELLED"]
+# D9 : DRAFT (prévu) → VALIDATED (argent remis, stock inchangé) → COMPLETED (réceptionné)
+MarketPurchaseStatus = Literal["DRAFT", "VALIDATED", "COMPLETED", "CANCELLED"]
 # D6 : état d'une sortie cuisine (contrôle sans effet sur le stock)
 PreparationStatus = Literal["ESTIMATED", "VALIDATED", "ADJUSTED"]
 
@@ -37,6 +38,9 @@ class MarketPurchaseItemOut(BaseSchema):
     quantity: float
     unit_price_xof: int
     total_price_xof: int
+    received_quantity: float | None = Field(
+        None, description="Quantité réellement reçue ; null tant que le bon n'est pas réceptionné"
+    )
 
 
 class MarketPurchaseListCreate(BaseModel):
@@ -71,6 +75,53 @@ class MarketPurchaseListOut(BaseSchema):
     include_condiments_envelope: bool = False
     items: list[MarketPurchaseItemOut]
     created_at: datetime
+    received_at: datetime | None = None
+    received_by_user_name: str | None = None
+
+
+class MarketPurchaseReceiveLine(BaseModel):
+    item_id: str = Field(..., description="Ligne du bon")
+    received_quantity: float = Field(
+        ..., ge=0, description="Quantité réellement reçue (0 : article non trouvé)"
+    )
+
+
+class MarketPurchaseReceive(BaseModel):
+    """Réception d'un bon validé, ou correction d'un bon déjà réceptionné. Les quantités sont
+    des valeurs cibles : renvoyer la même demande ne change rien."""
+
+    lines: list[MarketPurchaseReceiveLine] = Field(
+        default_factory=list,
+        description=(
+            "Quantités reçues. À la réception, une ligne absente vaut la quantité prévue ; "
+            "à la correction, une ligne absente ne change pas"
+        ),
+    )
+    reason: str | None = Field(
+        None,
+        max_length=200,
+        description="Motif, obligatoire pour corriger un bon déjà réceptionné",
+    )
+
+
+class OpeningStockCorrection(BaseModel):
+    """Correction du stock de départ d'un article à une date (valeur cible)."""
+
+    article_id: str
+    business_date: date = Field(..., description="Journée dont le stock de départ est corrigé")
+    quantity: float = Field(..., ge=0, description="Stock de départ réel")
+    reason: str = Field(..., min_length=3, max_length=200)
+
+
+class OpeningStockCorrectionOut(BaseSchema):
+    article_id: str
+    article_name: str
+    unit: str
+    business_date: date
+    previous_quantity: float
+    quantity: float
+    delta_quantity: float
+    current_stock_quantity: float
 
 
 class MarketBudgetStatusOut(BaseSchema):

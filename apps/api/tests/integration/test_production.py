@@ -104,7 +104,18 @@ def test_production_and_market_purchases_workflow(client: TestClient, db_session
         headers=resp_headers,
     )
     assert comp_res.status_code == 200
-    assert comp_res.json()["status"] == "COMPLETED"
+    assert comp_res.json()["status"] == "VALIDATED"
+
+    # D9 : la validation ne touche pas le stock, la réception l'alimente
+    db_session.refresh(chicken_art)
+    assert chicken_art.quantity == Decimal("0")
+    rec_res = client.post(
+        f"/api/v1/production/market-purchases/{purchase_id}/receive",
+        headers=resp_headers,
+        json={},
+    )
+    assert rec_res.status_code == 200, rec_res.text
+    assert rec_res.json()["status"] == "COMPLETED"
 
     # Vérification que le stock a été mis à jour
     db_session.refresh(chicken_art)
@@ -224,7 +235,7 @@ def test_production_and_market_purchases_workflow(client: TestClient, db_session
         headers=resp_headers,
     )
     assert complete_cash_res.status_code == 200
-    assert complete_cash_res.json()["status"] == "COMPLETED"
+    assert complete_cash_res.json()["status"] == "VALIDATED"
 
 
 def test_market_purchase_auto_creates_new_stock_article(client: TestClient, db_session: Session) -> None:
@@ -286,7 +297,11 @@ def test_market_purchase_auto_creates_new_stock_article(client: TestClient, db_s
         headers=headers,
     )
     assert complete_res.status_code == 200
-    assert complete_res.json()["status"] == "COMPLETED"
+    assert complete_res.json()["status"] == "VALIDATED"
+    rec_res = client.post(
+        f"/api/v1/production/market-purchases/{purchase_id}/receive", headers=headers, json={}
+    )
+    assert rec_res.status_code == 200, rec_res.text
 
     # Le stock de Gingembre doit maintenant être entré à 3.5 kg
     db_session.refresh(gingembre_art)
@@ -386,7 +401,7 @@ def test_update_market_purchase_and_protein_analysis(client: TestClient, db_sess
         headers=headers,
     )
     assert complete_res.status_code == 200
-    assert complete_res.json()["status"] == "COMPLETED"
+    assert complete_res.json()["status"] == "VALIDATED"
 
     # 5. Tentative de modifier un bon déjà COMPLETED -> Doit être rejetée (400)
     failed_update = client.put(

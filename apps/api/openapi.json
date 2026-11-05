@@ -5114,8 +5114,8 @@
         "tags": [
           "Achats March\u00e9 & Production Cuisine"
         ],
-        "summary": "Valider un bon d'achat march\u00e9 et mettre \u00e0 jour le stock (Responsable)",
-        "description": "Valide les achats apr\u00e8s retour du march\u00e9 : met \u00e0 jour les quantit\u00e9s en stock\net alimente automatiquement la colonne ACHATS RE\u00c7US du suivi journalier.",
+        "summary": "Valider un bon d'achat march\u00e9 : argent remis, stock inchang\u00e9 (Responsable)",
+        "description": "`DRAFT` \u2192 `VALIDATED` (D9) : l'argent est remis \u00e0 l'\u00e9conome, le stock ne bouge pas.\nLes achats entrent en stock \u00e0 la r\u00e9ception (`/receive`), avec les quantit\u00e9s r\u00e9ellement\nre\u00e7ues. Rejouer la validation d'un bon d\u00e9j\u00e0 valid\u00e9 ne fait rien.",
         "operationId": "complete_market_purchase_endpoint_api_v1_production_market_purchases__purchase_id__complete_post",
         "security": [
           {
@@ -5152,6 +5152,177 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MarketPurchaseListOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/production/market-purchases/{purchase_id}/receive": {
+      "post": {
+        "tags": [
+          "Achats March\u00e9 & Production Cuisine"
+        ],
+        "summary": "R\u00e9ceptionner un bon valid\u00e9, ou corriger les quantit\u00e9s re\u00e7ues (Responsable)",
+        "description": "`VALIDATED` \u2192 `COMPLETED` : les quantit\u00e9s r\u00e9ellement re\u00e7ues entrent en stock (une ligne\nabsente vaut la quantit\u00e9 pr\u00e9vue, 0 si l'article n'a pas \u00e9t\u00e9 trouv\u00e9), au prix du bon et \u00e0 la\ndate du bon ; le kit condiments \u00e9ventuel entre aussi en stock.\n\nSur un bon `COMPLETED`, corrige les quantit\u00e9s re\u00e7ues (motif obligatoire) : l'\u00e9cart est une\nentr\u00e9e ou un retrait d'achat sign\u00e9, dat\u00e9 du bon et trac\u00e9 ; aucun mouvement n'est modifi\u00e9.\nLes quantit\u00e9s sont des valeurs cibles : rejouer la m\u00eame demande ne change rien.",
+        "operationId": "receive_market_purchase_endpoint_api_v1_production_market_purchases__purchase_id__receive_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "purchase_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Purchase Id"
+            }
+          },
+          {
+            "name": "X-Device-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Id"
+            }
+          },
+          {
+            "name": "x-request-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarketPurchaseReceive"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketPurchaseListOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/production/opening-stock-corrections": {
+      "post": {
+        "tags": [
+          "Achats March\u00e9 & Production Cuisine"
+        ],
+        "summary": "Corriger le stock de d\u00e9part d'un article \u00e0 une journ\u00e9e (Responsable)",
+        "description": "Le stock de d\u00e9part de l'article \u00e0 `business_date` devient `quantity` : l'\u00e9cart est un\nmouvement de stock de d\u00e9part (`OPENING`) dat\u00e9 de cette journ\u00e9e et trac\u00e9. Les journ\u00e9es\nsuivantes, stock actuel compris, sont d\u00e9cal\u00e9es du m\u00eame \u00e9cart. Valeur cible : rejouer la\nm\u00eame demande ne change rien.",
+        "operationId": "correct_opening_stock_endpoint_api_v1_production_opening_stock_corrections_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Device-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Id"
+            }
+          },
+          {
+            "name": "x-request-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpeningStockCorrection"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpeningStockCorrectionOut"
                 }
               }
             }
@@ -12082,6 +12253,18 @@
           "total_price_xof": {
             "type": "integer",
             "title": "Total Price Xof"
+          },
+          "received_quantity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received Quantity",
+            "description": "Quantit\u00e9 r\u00e9ellement re\u00e7ue ; null tant que le bon n'est pas r\u00e9ceptionn\u00e9"
           }
         },
         "type": "object",
@@ -12214,6 +12397,29 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "received_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received At"
+          },
+          "received_by_user_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received By User Name"
           }
         },
         "type": "object",
@@ -12277,6 +12483,55 @@
         "type": "object",
         "title": "MarketPurchaseListUpdate"
       },
+      "MarketPurchaseReceive": {
+        "properties": {
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/MarketPurchaseReceiveLine"
+            },
+            "type": "array",
+            "title": "Lines",
+            "description": "Quantit\u00e9s re\u00e7ues. \u00c0 la r\u00e9ception, une ligne absente vaut la quantit\u00e9 pr\u00e9vue ; \u00e0 la correction, une ligne absente ne change pas"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "description": "Motif, obligatoire pour corriger un bon d\u00e9j\u00e0 r\u00e9ceptionn\u00e9"
+          }
+        },
+        "type": "object",
+        "title": "MarketPurchaseReceive",
+        "description": "R\u00e9ception d'un bon valid\u00e9, ou correction d'un bon d\u00e9j\u00e0 r\u00e9ceptionn\u00e9. Les quantit\u00e9s sont\ndes valeurs cibles : renvoyer la m\u00eame demande ne change rien."
+      },
+      "MarketPurchaseReceiveLine": {
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "title": "Item Id",
+            "description": "Ligne du bon"
+          },
+          "received_quantity": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Received Quantity",
+            "description": "Quantit\u00e9 r\u00e9ellement re\u00e7ue (0 : article non trouv\u00e9)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "item_id",
+          "received_quantity"
+        ],
+        "title": "MarketPurchaseReceiveLine"
+      },
       "OpenSessionInfo": {
         "properties": {
           "id": {
@@ -12299,6 +12554,90 @@
           "cash_register_id"
         ],
         "title": "OpenSessionInfo"
+      },
+      "OpeningStockCorrection": {
+        "properties": {
+          "article_id": {
+            "type": "string",
+            "title": "Article Id"
+          },
+          "business_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Business Date",
+            "description": "Journ\u00e9e dont le stock de d\u00e9part est corrig\u00e9"
+          },
+          "quantity": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Quantity",
+            "description": "Stock de d\u00e9part r\u00e9el"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article_id",
+          "business_date",
+          "quantity",
+          "reason"
+        ],
+        "title": "OpeningStockCorrection",
+        "description": "Correction du stock de d\u00e9part d'un article \u00e0 une date (valeur cible)."
+      },
+      "OpeningStockCorrectionOut": {
+        "properties": {
+          "article_id": {
+            "type": "string",
+            "title": "Article Id"
+          },
+          "article_name": {
+            "type": "string",
+            "title": "Article Name"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "business_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Business Date"
+          },
+          "previous_quantity": {
+            "type": "number",
+            "title": "Previous Quantity"
+          },
+          "quantity": {
+            "type": "number",
+            "title": "Quantity"
+          },
+          "delta_quantity": {
+            "type": "number",
+            "title": "Delta Quantity"
+          },
+          "current_stock_quantity": {
+            "type": "number",
+            "title": "Current Stock Quantity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article_id",
+          "article_name",
+          "unit",
+          "business_date",
+          "previous_quantity",
+          "quantity",
+          "delta_quantity",
+          "current_stock_quantity"
+        ],
+        "title": "OpeningStockCorrectionOut"
       },
       "OrderCancelRequest": {
         "properties": {
