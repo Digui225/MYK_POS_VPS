@@ -390,7 +390,7 @@ def stock_report(db: Session, date_from: date, date_to: date) -> StockReportOut:
 def dashboard(db: Session, day: date) -> DashboardOut:
     """Tableau de bord de la journée (responsable) : activité, tables, encaissements,
     meilleures ventes, heures, caissiers, sessions, alertes de stock, FNE."""
-    paid, revenue, guests, dine_in, takeaway, open_orders, cancelled = reports_repo.day_orders(
+    paid, revenue, guests, dine_in, takeaway, open_orders, cancelled, delivery = reports_repo.day_orders(
         db, day
     )
     occupied, tables_total = reports_repo.tables_occupancy(db)
@@ -411,6 +411,7 @@ def dashboard(db: Session, day: date) -> DashboardOut:
         guests_count=guests,
         dine_in_orders=dine_in,
         takeaway_orders=takeaway,
+        delivery_orders=delivery,
         tables_occupied=occupied,
         tables_total=tables_total,
         payments=[
@@ -486,10 +487,15 @@ class ReportingService:
         )
 
         open_dine_in_count = sum(1 for o in open_orders_list if o.table_id is not None)
-        open_takeaway_count = sum(1 for o in open_orders_list if o.table_id is None)
+        def is_delivery(o: Order) -> bool:
+            return o.service_mode == "LIVRAISON"
+
+        open_takeaway_count = sum(1 for o in open_orders_list if o.table_id is None and not is_delivery(o))
+        open_delivery_count = sum(1 for o in open_orders_list if is_delivery(o))
 
         dine_in_orders_count = open_dine_in_count if open_orders > 0 else sum(1 for o in daily_orders if o.table_id is not None and o.status != "CANCELLED")
-        takeaway_orders_count = open_takeaway_count if open_orders > 0 else sum(1 for o in daily_orders if o.table_id is None and o.status != "CANCELLED")
+        takeaway_orders_count = open_takeaway_count if open_orders > 0 else sum(1 for o in daily_orders if o.table_id is None and not is_delivery(o) and o.status != "CANCELLED")
+        delivery_orders_count = open_delivery_count if open_orders > 0 else sum(1 for o in daily_orders if is_delivery(o) and o.status != "CANCELLED")
 
         total_sales_ttc = sum(o.total_ttc_xof for o in settled_orders_list)
         total_sales_ht = sum(o.total_ht_xof for o in settled_orders_list)
@@ -716,6 +722,7 @@ class ReportingService:
             total_tables_count=total_tables_count,
             dine_in_orders_count=dine_in_orders_count,
             takeaway_orders_count=takeaway_orders_count,
+            delivery_orders_count=delivery_orders_count,
             total_sales_ttc_xof=total_sales_ttc,
             total_sales_ht_xof=total_sales_ht,
             total_sales_vat_xof=total_sales_vat,

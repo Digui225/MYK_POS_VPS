@@ -328,6 +328,10 @@ Idempotency-Key: 0b7e...
 - Un nouvel envoi efface la demande d'addition (`bill_requested_at`).
 - Diffusion WebSocket `ORDER_UPDATED` (avec `dispatch_no`) après validation.
 
+**Mon service** (`S`, 06/11/2026, lot 6) : `GET /api/v1/salle/my-service` renvoie, pour le serveur connecté et la session de caisse ouverte, l'argent remis à la caisse (`handed_xof` : paiements encaissés dont il est « remis par »), le nombre de notes réglées, le reste dû sur ses notes en cours (`open_xof`, `open_notes`, y compris celles sans table) et `feed`, le fil du plus récent au plus ancien : `DISPATCH` (numéro d'envoi, `kitchen_count` partis sur le bon, `drinks_count` boissons), `BILL_REQUESTED` (reste dû) et `PAID` (montant, moyen, qui a encaissé). Réservé au rôle `SERVEUR` (`403` sinon).
+
+**Livraison à part** (lot 6, rétrocompatible) : `GET /orders?order_type=DELIVERY` liste les livraisons ; `order_type=TAKEAWAY` ne liste plus que l'emporter (sans table, hors livraison). Le tableau de bord sépare aussi : `GET /reports/dashboard` ajoute `delivery_orders_count` (et `takeaway_orders_count` exclut la livraison), `GET /reports/overview` ajoute `delivery_orders` (et `takeaway_orders` l'exclut). Tant qu'aucune livraison n'est saisie, les valeurs ne changent pas.
+
 **Demande d'addition** : `POST /orders/{id}/bill-request` pose `bill_requested_at` (sans effet si déjà demandée) et diffuse `ORDER_UPDATED` (`bill_requested: true`).
 
 ### 4.6 Paiements

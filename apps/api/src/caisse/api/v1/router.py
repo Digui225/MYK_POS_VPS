@@ -12,6 +12,7 @@ from caisse.api.v1.printing import router as printing_router
 from caisse.api.v1.production import router as production_router
 from caisse.api.v1.purchases import router as purchases_router
 from caisse.api.v1.reports import router as reports_router
+from caisse.api.v1.salle import router as salle_router
 from caisse.api.v1.sessions import router as sessions_router
 from caisse.api.v1.settings import router as settings_router
 from caisse.api.v1.stock import router as stock_router
@@ -39,4 +40,5 @@ api_v1_router.include_router(printing_router)
 api_v1_router.include_router(print_agent_router)
 api_v1_router.include_router(settings_router)
 api_v1_router.include_router(ws_router)
+api_v1_router.include_router(salle_router)
 

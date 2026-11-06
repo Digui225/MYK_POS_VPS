@@ -268,7 +268,8 @@ class DashboardOut(Schema):
     average_ticket_xof: int = Field(description="Panier moyen")
     guests_count: int = Field(description="Couverts des commandes soldées (quand saisis)")
     dine_in_orders: int = Field(description="Commandes soldées servies à table")
-    takeaway_orders: int = Field(description="Commandes soldées à emporter")
+    takeaway_orders: int = Field(description="Commandes soldées à emporter (hors livraison)")
+    delivery_orders: int = Field(0, description="Commandes soldées en livraison")
     tables_occupied: int = Field(description="Tables qui portent une commande active")
     tables_total: int = Field(description="Tables en service")
     payments: list[DashboardPayment] = Field(description="Encaissements par moyen et opérateur")
@@ -375,6 +376,7 @@ class DashboardKpiResponse(Schema):
     total_tables_count: int = 14
     dine_in_orders_count: int = 0
     takeaway_orders_count: int = 0
+    delivery_orders_count: int = 0
     total_sales_ttc_xof: int
     total_sales_ht_xof: int
     total_sales_vat_xof: int
