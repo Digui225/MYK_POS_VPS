@@ -4,6 +4,7 @@ name: Deploy Backend (CI/CD)
 #   aziz              -> branche de travail et de tests : vérifications seulement (Ruff, mypy, pytest),
 #                        AUCUN déploiement.
 #   main (prod-aziz)  -> PRODUCTION (148.113.149.10) si les tests passent.
+#   feat/ecran-serveur -> fonctionnalité serveur / cuisine : vérifications seulement, AUCUN déploiement.
 # Mise en place côté serveur : deploy/vps/update.sh (sauvegarde, santé, retour arrière).
 on:
   push:
@@ -11,6 +12,7 @@ on:
       - main
       - aziz
       - prod-aziz
+      - feat/ecran-serveur
   workflow_dispatch:
 
 jobs:
