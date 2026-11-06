@@ -14,3 +14,10 @@ class RestaurantTable(Base, TimestampMixin):
     seats: Mapped[int] = mapped_column(Integer, default=4, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    # Plan de salle (voir domain/floor_plan_rules.py) : position nulle = table pas encore placée
+    plan_x: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    plan_y: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    plan_w: Mapped[int] = mapped_column(Integer, default=2, server_default="2", nullable=False)
+    plan_h: Mapped[int] = mapped_column(Integer, default=2, server_default="2", nullable=False)
+    shape: Mapped[str] = mapped_column(String(10), default="RECT", server_default="RECT", nullable=False)

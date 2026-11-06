@@ -7,6 +7,16 @@ from caisse.models.table import RestaurantTable
 from caisse.repositories.base import BaseRepository
 
 
+def _plan_fields(t: RestaurantTable) -> dict[str, Any]:
+    return {
+        "plan_x": t.plan_x,
+        "plan_y": t.plan_y,
+        "plan_w": t.plan_w,
+        "plan_h": t.plan_h,
+        "shape": t.shape,
+    }
+
+
 class TableRepository(BaseRepository[RestaurantTable]):
     def __init__(self, db: Session):
         super().__init__(db, RestaurantTable)
@@ -18,6 +28,11 @@ class TableRepository(BaseRepository[RestaurantTable]):
             .order_by(RestaurantTable.sort_order.asc(), RestaurantTable.label.asc())
             .all()
         )
+
+    def get_many(self, table_ids: list[str]) -> list[RestaurantTable]:
+        if not table_ids:
+            return []
+        return self.db.query(RestaurantTable).filter(RestaurantTable.id.in_(table_ids)).all()
 
     def get_by_label(self, label: str) -> RestaurantTable | None:
         return self.db.query(RestaurantTable).filter(RestaurantTable.label == label).first()
@@ -116,6 +131,7 @@ class TableRepository(BaseRepository[RestaurantTable]):
                         "active_orders_count": len(t_orders),
                         "active_orders": active_orders_list,
                         "bill_requested": any(o.bill_requested_at for o in t_orders),
+                        **_plan_fields(t),
                     }
                 )
             else:
@@ -137,6 +153,7 @@ class TableRepository(BaseRepository[RestaurantTable]):
                         "items_summary": [],
                         "active_orders_count": 0,
                         "active_orders": [],
+                        **_plan_fields(t),
                     }
                 )
         return board_items

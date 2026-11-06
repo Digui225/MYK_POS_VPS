@@ -216,6 +216,7 @@ GET /api/v1/products?category_id=...
 | GET | `/tables` | C / R / A | Configuration et plan |
 | GET | `/tables/board` | C / S / R / A | **Écran d'accueil caisse & plan de salle Dashboard** |
 | POST / PATCH | `/tables` | A | Configuration initiale des tables |
+| PUT | `/tables/plan` | R / A | Enregistrer le plan de salle (placement des tables) |
 
 ```http
 GET /api/v1/tables/board
@@ -241,6 +242,25 @@ GET /api/v1/tables/board
 ```
 
 Ajouts du 06/11/2026 (écran serveur, rétrocompatibles) : chaque entrée de `active_orders` porte `server_name` (serveur de la note, à défaut la personne qui l'a ouverte), `served_by_user_id`, `dispatch_count`, `last_dispatch_at` et `bill_requested_at` ; chaque table porte `bill_requested` (au moins une note dont l'addition est demandée).
+
+**Plan de salle (06/11/2026, écran serveur lot 3, rétrocompatible).** Chaque zone (`Salle`, `Terrasse`…) a son plan : une grille de **12 colonnes** (largeur d'un téléphone) et d'autant de lignes que nécessaire (60 au plus). `GET /tables`, la réponse de `POST`/`PATCH /tables` et chaque table de `GET /tables/board` portent :
+
+| Champ | Type | Sens |
+|---|---|---|
+| `plan_x`, `plan_y` | entier ou `null` | Case haut-gauche (colonne 0–11, ligne 0–59). `null` = table pas encore placée : l'écran la range automatiquement |
+| `plan_w`, `plan_h` | entier, 2 par défaut | Taille en cases (1 à 6) |
+| `shape` | `ROUND` \| `RECT` | Forme dessinée (`RECT` par défaut) |
+
+```http
+PUT /api/v1/tables/plan            (RESPONSABLE ou ADMIN)
+{ "placements": [
+    { "table_id": "...", "zone": "Salle", "plan_x": 0, "plan_y": 0, "plan_w": 4, "plan_h": 2, "shape": "RECT" },
+    { "table_id": "...", "zone": "Terrasse", "plan_x": null, "plan_y": null }
+] }
+200 → toutes les tables (actives et désactivées), au format de GET /tables
+```
+
+Les tables absentes de `placements` gardent leur place ; une position `null` retire la table du plan ; `zone` permet de changer une table de zone. Tout ou rien : `404 TABLE_NOT_FOUND`, `422 TABLE_PLAN_DUPLICATE` (table répétée), `422 TABLE_PLAN_OUT_OF_BOUNDS` (table hors de la grille), `409 TABLE_PLAN_OVERLAP` (deux tables actives d'une zone se chevauchent, `meta.tables` liste les paires d'identifiants). Après enregistrement, l'événement WebSocket `TABLE_PLAN_UPDATED` est diffusé. Changer la zone d'une table par `PATCH /tables/{id}` la retire du plan.
 
 ### 4.5 Commandes
 

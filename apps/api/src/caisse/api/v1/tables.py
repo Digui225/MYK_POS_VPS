@@ -7,6 +7,7 @@ from caisse.models.user import User
 from caisse.schemas.tables import (
     CreateTableRequest,
     TableBoardResponse,
+    TablePlanUpdateRequest,
     TableResponse,
     UpdateTableRequest,
 )
@@ -39,6 +40,25 @@ async def create_table(
     service = TableService(db)
     table = service.create_table(payload)
     return TableResponse.model_validate(table)
+
+
+@router.put(
+    "/plan",
+    response_model=list[TableResponse],
+    summary="Enregistrer le plan de salle (Admin/Responsable)",
+    description=(
+        "Place en une fois plusieurs tables sur le plan de leur zone (grille de 12 colonnes). "
+        "Une position nulle retire la table du plan. Refusé si une table sort de la grille "
+        "(`TABLE_PLAN_OUT_OF_BOUNDS`) ou si deux tables actives d'une zone se chevauchent "
+        "(`TABLE_PLAN_OVERLAP`, rien n'est enregistré). Renvoie toutes les tables."
+    ),
+)
+async def save_table_plan(
+    payload: TablePlanUpdateRequest,
+    _user: User = Depends(require_role("ADMIN", "RESPONSABLE")),
+    db: Session = Depends(get_db),
+) -> list[TableResponse]:
+    return TableService(db).save_plan(payload)
 
 
 @router.patch("/{table_id}", response_model=TableResponse, summary="Modifier une table (Admin/Responsable)")

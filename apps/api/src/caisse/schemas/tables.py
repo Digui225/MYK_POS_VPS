@@ -1,6 +1,11 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
+from caisse.domain.floor_plan_rules import GRID_COLUMNS, MAX_ROWS, MAX_TABLE_SPAN
 from caisse.schemas.common import BaseSchema
+
+TableShapeName = Literal["ROUND", "RECT"]
 
 
 class TableResponse(BaseSchema):
@@ -10,6 +15,11 @@ class TableResponse(BaseSchema):
     seats: int = 4
     sort_order: int = 0
     is_active: bool = True
+    plan_x: int | None = None
+    plan_y: int | None = None
+    plan_w: int = 2
+    plan_h: int = 2
+    shape: TableShapeName = "RECT"
 
 
 class CreateTableRequest(BaseModel):
@@ -25,6 +35,22 @@ class UpdateTableRequest(BaseModel):
     seats: int | None = Field(None, ge=1, le=50, description="Nombre de places mis à jour")
     sort_order: int | None = Field(None, description="Ordre d'affichage")
     is_active: bool | None = Field(None, description="Statut actif / archivé")
+
+
+class TablePlacement(BaseModel):
+    table_id: str = Field(..., min_length=1, max_length=36)
+    zone: str = Field(..., min_length=1, max_length=50, description="Zone dont le plan reçoit la table")
+    plan_x: int | None = Field(
+        None, ge=0, lt=GRID_COLUMNS, description="Colonne de la case haut-gauche ; nulle = retirée du plan"
+    )
+    plan_y: int | None = Field(None, ge=0, lt=MAX_ROWS, description="Ligne de la case haut-gauche")
+    plan_w: int = Field(2, ge=1, le=MAX_TABLE_SPAN, description="Largeur en cases")
+    plan_h: int = Field(2, ge=1, le=MAX_TABLE_SPAN, description="Hauteur en cases")
+    shape: TableShapeName = "RECT"
+
+
+class TablePlanUpdateRequest(BaseModel):
+    placements: list[TablePlacement] = Field(..., min_length=1, max_length=200)
 
 
 class TableOrderItemSummary(BaseSchema):
@@ -70,6 +96,11 @@ class TableBoardItem(BaseSchema):
     active_orders_count: int = 0
     active_orders: list[TableActiveOrder] = []
     bill_requested: bool = False
+    plan_x: int | None = None
+    plan_y: int | None = None
+    plan_w: int = 2
+    plan_h: int = 2
+    shape: TableShapeName = "RECT"
 
 
 class TableBoardResponse(BaseSchema):
