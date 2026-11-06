@@ -7,12 +7,15 @@ from sqlalchemy.orm import Session
 from caisse.core import idempotency
 from caisse.core.database import get_db
 from caisse.core.deps import Paging, require_device_id, require_role
-from caisse.core.idempotency import OptionalIdempotencyKey
+from caisse.core.idempotency import IdempotencyKey, OptionalIdempotencyKey
+from caisse.domain.enums import UserRole
 from caisse.models.user import User
 from caisse.schemas.common import Page
 from caisse.schemas.orders import (
     OrderCancelRequest,
     OrderCreateRequest,
+    OrderDispatchRequest,
+    OrderDispatchResponse,
     OrderItemAddRequest,
     OrderItemRemoveRequest,
     OrderResponse,
@@ -25,12 +28,16 @@ router = APIRouter(prefix="/orders", tags=["Commandes"])
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED, summary="Créer une commande")
 async def create_order(
     payload: OrderCreateRequest,
-    current_user: User = Depends(require_role("CAISSIER")),
+    current_user: User = Depends(require_role("CAISSIER", "SERVEUR")),
     device_id: str = Depends(require_device_id),
     db: Session = Depends(get_db),
 ) -> OrderResponse:
     service = OrderService(db)
-    return service.create_order(payload, user_id=current_user.id, device_id=device_id)
+    # Une note ouverte par un serveur est à son nom (écran salle) ; à la caisse, sans serveur
+    served_by = current_user.id if current_user.role == UserRole.SERVEUR else None
+    return service.create_order(
+        payload, user_id=current_user.id, device_id=device_id, served_by_user_id=served_by
+    )
 
 
 @router.get("", response_model=Page[OrderResponse], summary="Lister les commandes")
@@ -117,6 +124,79 @@ async def add_order_item(
             raise
 
     return result
+
+
+@router.post(
+    "/{id}/dispatch",
+    response_model=OrderDispatchResponse,
+    summary="Envoyer en cuisine (lignes + bon cuisine, idempotent)",
+)
+async def dispatch_order(
+    id: str,
+    payload: OrderDispatchRequest,
+    request: Request,
+    response: Response,
+    idempotency_key: IdempotencyKey,
+    current_user: User = Depends(require_role("CAISSIER", "SERVEUR")),
+    device_id: str = Depends(require_device_id),
+    db: Session = Depends(get_db),
+) -> OrderDispatchResponse:
+    """Enregistre toutes les lignes d'un envoi et met en file, à la caisse, le bon cuisine
+    (boissons exclues). Lignes, bon et clé d'idempotence sont validés ensemble : un envoi
+    interrompu n'enregistre rien, un envoi rejoué renvoie la première réponse sans rien doubler."""
+    request_hash = idempotency.hash_request(payload)
+    replay = idempotency.find_replay(
+        db, idempotency_key, method="POST", path=request.url.path, request_hash=request_hash
+    )
+    if replay is not None:
+        idempotency.apply_replay_headers(response)
+        return OrderDispatchResponse.model_validate(replay)
+
+    service = OrderService(db)
+    try:
+        order, result = service.dispatch(id, payload, user=current_user, device_id=device_id)
+    except Exception:
+        db.rollback()  # une ligne refusée : aucune ligne de l'envoi n'est gardée
+        raise
+    idempotency.save(
+        db,
+        idempotency_key,
+        method="POST",
+        path=request.url.path,
+        request_hash=request_hash,
+        status=200,
+        body=result.model_dump(mode="json"),
+        user_id=current_user.id,
+    )
+    try:
+        db.commit()
+    except IntegrityError:
+        # Même clé validée entre-temps par une autre requête : rien n'est doublé
+        db.rollback()
+        replay = idempotency.find_replay(
+            db, idempotency_key, method="POST", path=request.url.path, request_hash=request_hash
+        )
+        if replay is not None:
+            idempotency.apply_replay_headers(response)
+            return OrderDispatchResponse.model_validate(replay)
+        raise
+
+    service.broadcast_order_updated(order, dispatch_no=result.dispatch_no)
+    return result
+
+
+@router.post(
+    "/{id}/bill-request",
+    response_model=OrderResponse,
+    summary="Demander l'addition à la caisse (serveur)",
+)
+async def request_bill(
+    id: str,
+    current_user: User = Depends(require_role("SERVEUR", "CAISSIER")),
+    device_id: str = Depends(require_device_id),
+    db: Session = Depends(get_db),
+) -> OrderResponse:
+    return OrderService(db).request_bill(id, user_id=current_user.id, device_id=device_id)
 
 
 @router.delete("/{id}/items/{item_id}", response_model=OrderResponse, summary="Retirer une ligne (tracé)")

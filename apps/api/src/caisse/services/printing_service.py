@@ -5,6 +5,8 @@ from fastapi import status
 from sqlalchemy.orm import Session
 
 from caisse.core.errors import CaisseException
+from caisse.domain.enums import PrintJobType
+from caisse.domain.kitchen_rules import KitchenTicket, format_kitchen_ticket_text
 from caisse.domain.payment_rules import format_receipt_text
 from caisse.models.order import Order
 from caisse.models.payment import Payment
@@ -111,6 +113,26 @@ class PrintingService:
             is_duplicate=is_duplicate,
             width=width,
         )
+
+    def _print_width(self) -> int:
+        setting = self.db.query(EstablishmentSetting).first()
+        return 42 if setting and setting.print_width and setting.print_width >= 80 else 32
+
+    def create_kitchen_ticket_job(self, order: Order, ticket: KitchenTicket) -> PrintJob:
+        """Bon cuisine d'un envoi, imprimé à la caisse (sans prix, sans tiroir). Non validé :
+        il part dans la même transaction que les lignes de l'envoi."""
+        job = PrintJob(
+            order_id=order.id,
+            job_type=PrintJobType.ORDER_TICKET.value,
+            content=format_kitchen_ticket_text(ticket, width=self._print_width()),
+            open_drawer=False,
+            cut=True,
+            is_duplicate=False,
+            status="QUEUED",
+        )
+        self.repo.add(job)
+        self.db.flush()
+        return job
 
     def create_receipt_job(
         self,

@@ -26,6 +26,7 @@ class PaymentResponse(BaseSchema):
     provider: str | None = None
     reference: str | None = None
     status: str = "CAPTURED"
+    handed_by_user_id: str | None = None
     created_at: str
 
 

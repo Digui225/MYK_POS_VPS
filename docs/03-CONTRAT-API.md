@@ -187,9 +187,10 @@ Idempotency-Key: 9a2f...
 
 | Méthode | Chemin | Rôle | Description |
 |---|---|---|---|
-| GET | `/categories` | C / R / A | Liste des catégories |
+| GET | `/categories` | C / S / R / A | Liste des catégories (`kind` : `FOOD` part sur le bon cuisine, `DRINK` reste à la caisse) |
 | POST / PATCH / DELETE | `/categories` | R / A | Gestion des catégories |
-| GET | `/products?category_id=&search=&is_active=` | C / R / A | Menu pour caisse ou gestion |
+| GET | `/products?category_id=&search=&is_active=` | C / S / R / A | Menu pour caisse ou gestion |
+| GET | `/catalog/best-sellers?days=7&limit=8` | C / S / R / A | Produits actifs les plus vendus (commandes réglées) : `[{ "product_id", "quantity_sold" }]` — écran serveur « Ce qui part le plus » |
 | POST | `/products` | R / A | Création de plat/boisson permanent |
 | PATCH | `/products/{id}` | R / A | Modification fiche produit |
 | PATCH | `/products/{id}/price` | R / A | Changement de prix (historisé, motif requis) |
@@ -213,7 +214,7 @@ GET /api/v1/products?category_id=...
 | Méthode | Chemin | Rôle | Description |
 |---|---|---|---|
 | GET | `/tables` | C / R / A | Configuration et plan |
-| GET | `/tables/board` | C / R / A | **Écran d'accueil caisse & plan de salle Dashboard** |
+| GET | `/tables/board` | C / S / R / A | **Écran d'accueil caisse & plan de salle Dashboard** |
 | POST / PATCH | `/tables` | A | Configuration initiale des tables |
 
 ```http
@@ -239,13 +240,17 @@ GET /api/v1/tables/board
 }
 ```
 
+Ajouts du 06/11/2026 (écran serveur, rétrocompatibles) : chaque entrée de `active_orders` porte `server_name` (serveur de la note, à défaut la personne qui l'a ouverte), `served_by_user_id`, `dispatch_count`, `last_dispatch_at` et `bill_requested_at` ; chaque table porte `bill_requested` (au moins une note dont l'addition est demandée).
+
 ### 4.5 Commandes
 
 | Méthode | Chemin | Rôle | Description |
 |---|---|---|---|
-| POST | `/orders` | C | Créer (table, à emporter, ou nouvelle note sur table via `allow_multiple: true`, `note_label`) |
-| GET | `/orders/{id}` | C / R / A | Détail complet (inclut `note_label`) |
-| GET | `/orders?status=&business_date=&date_from=&date_to=&order_type=&search=` | C / R / A | Historique des commandes du restaurant (filtrable par date, type, statut ou recherche de plat) |
+| POST | `/orders` | C / S | Créer (table, à emporter, livraison, ou nouvelle note sur table via `allow_multiple: true`, `note_label`) |
+| POST | `/orders/{id}/dispatch` | C / S | **Envoi en cuisine** (idempotent, `Idempotency-Key` obligatoire) : lignes + bon cuisine |
+| POST | `/orders/{id}/bill-request` | S / C | Demander l'addition à la caisse |
+| GET | `/orders/{id}` | C / S / R / A | Détail complet (inclut `note_label`) |
+| GET | `/orders?status=&business_date=&date_from=&date_to=&order_type=&search=` | C / S / R / A | Historique des commandes du restaurant (filtrable par date, type, statut ou recherche de plat) |
 | POST | `/orders/{id}/items` | C | Ajouter une ligne |
 | PATCH | `/orders/{id}/items/{item_id}` | C | Quantité, note |
 | DELETE | `/orders/{id}/items/{item_id}` | C + override (R/A) | Retirer (motif obligatoire) |
@@ -274,11 +279,40 @@ POST /api/v1/orders/{id}/items
 
 > **Toutes** les mutations de commande renvoient **l'objet commande complet et recalculé**. Le front n'a jamais à additionner quoi que ce soit ni à enchaîner un second appel.
 
+#### Prise de commande en salle (écran serveur, 06/11/2026)
+
+**Mode de service** : `service_mode` = `SUR_PLACE` (table obligatoire), `EMPORTER` ou `LIVRAISON` (sans table ; la livraison se traite exactement comme l'emporter, séparée seulement pour les rapports). Absent à la création : `SUR_PLACE` avec une table, `EMPORTER` sans table (comportement d'avant). Incohérence table / mode : `422 INVALID_SERVICE_MODE`.
+
+**Serveur de la note** : une note créée par un `SERVEUR` est à son nom (`served_by_user_id`, `served_by_name`) ; une note créée à la caisse n'a pas de serveur, et le premier serveur qui y envoie des plats en devient le serveur. Deux clients qui ne sont pas ensemble sur une même table : chaque serveur ouvre sa note (`allow_multiple: true`), avec son bon cuisine et son addition. Un serveur peut envoyer sur la note d'un collègue : la note garde son serveur.
+
+**Envoi en cuisine** :
+
+```http
+POST /api/v1/orders/{id}/dispatch
+Idempotency-Key: 0b7e...
+{ "items": [
+    { "product_id": "...", "quantity": 1, "seat": 2 },
+    { "product_id": "...", "quantity": 2, "seat": 1 }
+] }
+
+200
+{ "order": { ...commande complète, "dispatch_count": 2, "bill_requested_at": null... },
+  "dispatch_no": 2, "kitchen_lines_count": 1, "kitchen_ticket_job_id": "..." }
+```
+
+- Toutes les lignes, le numéro d'envoi (`dispatch_count` de la commande, `dispatch_no` de chaque ligne) et le bon cuisine sont validés **ensemble** : une ligne refusée (produit introuvable…) n'enregistre rien. Même clé et même corps : la première réponse est rejouée sans rien doubler ; même clé, autre corps : `409`.
+- `seat` (facultatif) : `0` = pour la table, `1..n` = convive.
+- **Bon cuisine** : mis en file sur l'imprimante de la caisse (`job_type` `ORDER_TICKET`, sans tiroir), avec seulement les lignes dont la catégorie n'est pas une boisson (`kind` ≠ `DRINK`) ; aucun bon si l'envoi ne contient que des boissons. Il porte la table et la note (ou « A EMPORTER » / « LIVRAISON »), le serveur, les couverts, l'heure, le numéro d'envoi, « *** AJOUT *** » à partir du 2ᵉ envoi, les convives et les notes de ligne, **sans prix**.
+- Un nouvel envoi efface la demande d'addition (`bill_requested_at`).
+- Diffusion WebSocket `ORDER_UPDATED` (avec `dispatch_no`) après validation.
+
+**Demande d'addition** : `POST /orders/{id}/bill-request` pose `bill_requested_at` (sans effet si déjà demandée) et diffuse `ORDER_UPDATED` (`bill_requested: true`).
+
 ### 4.6 Paiements
 
 | Méthode | Chemin | Rôle | Description |
 |---|---|---|---|
-| POST | `/orders/{id}/payments` | C | Encaissement (idempotent — caissier uniquement) |
+| POST | `/orders/{id}/payments` | C | Encaissement (idempotent — caissier uniquement ; `payment.handed_by_user_id` = serveur de la note qui a rapporté l'argent, nul au comptoir) |
 | DELETE | `/orders/{id}/payments/{payment_id}` | R / A | Annulation d'un paiement (tracée) |
 | POST | `/orders/{id}/refunds` | R / A | Remboursement / Avoir (idempotent) |
 | GET | `/payment-methods` | C / R / A | Moyens de paiement actifs |

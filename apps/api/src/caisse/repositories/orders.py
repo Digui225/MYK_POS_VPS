@@ -1,10 +1,11 @@
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from caisse.core.pagination import PageRequest, newest_first
 from caisse.models.cash_session import CashSession
+from caisse.models.catalog import Product
 from caisse.models.order import Order, OrderItem
 from caisse.repositories.base import BaseRepository
 
@@ -63,6 +64,26 @@ class OrderRepository(BaseRepository[Order]):
         self.db.add(item)
         self.db.flush()
         return item
+
+    def best_selling_products(self, *, since: datetime, limit: int) -> list[tuple[str, int]]:
+        """(product_id, quantité vendue) des produits actifs, commandes réglées depuis `since`."""
+        sold = func.sum(OrderItem.quantity).label("sold")
+        rows = (
+            self.db.query(OrderItem.product_id, sold)
+            .join(Order, Order.id == OrderItem.order_id)
+            .join(Product, Product.id == OrderItem.product_id)
+            .filter(
+                Order.status == "PAID",
+                Order.opened_at >= since,
+                OrderItem.removed_at.is_(None),
+                Product.is_active.is_(True),
+            )
+            .group_by(OrderItem.product_id)
+            .order_by(sold.desc(), OrderItem.product_id)
+            .limit(limit)
+            .all()
+        )
+        return [(str(product_id), int(quantity)) for product_id, quantity in rows]
 
     def get_item_by_id(self, item_id: str) -> OrderItem | None:
         return self.db.query(OrderItem).filter(OrderItem.id == str(item_id)).first()

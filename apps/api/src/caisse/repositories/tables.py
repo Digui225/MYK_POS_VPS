@@ -29,7 +29,7 @@ class TableRepository(BaseRepository[RestaurantTable]):
         # Récupération en une seule requête de toutes les commandes actives
         active_orders = (
             self.db.query(Order)
-            .options(joinedload(Order.opened_by), joinedload(Order.items))
+            .options(joinedload(Order.opened_by), joinedload(Order.served_by), joinedload(Order.items))
             .filter(
                 Order.table_id.in_(table_ids),
                 Order.status.in_(["OPEN", "PARTIALLY_PAID"]),
@@ -58,6 +58,12 @@ class TableRepository(BaseRepository[RestaurantTable]):
                     last_cat = active_items[-1].category_snapshot if active_items else None
                     step = f"{last_cat} / En cours" if last_cat else "En cours"
                     note_lbl = o.note_label or f"Note {idx + 1}"
+                    # Serveur de la note ; à défaut (note prise à la caisse), qui l'a ouverte
+                    server = o.served_by or o.opened_by
+                    last_dispatch = max(
+                        (it.added_at for it in active_items if it.dispatch_no == o.dispatch_count and o.dispatch_count),
+                        default=None,
+                    )
 
                     it_summary = [
                         {
@@ -79,7 +85,11 @@ class TableRepository(BaseRepository[RestaurantTable]):
                             "total_ttc_xof": o.total_ttc_xof,
                             "guests_count": o.guests_count,
                             "opened_at": o.opened_at.isoformat() if o.opened_at else None,
-                            "server_name": o.opened_by.full_name if o.opened_by else "Serveur",
+                            "server_name": server.full_name if server else "Serveur",
+                            "served_by_user_id": o.served_by_user_id,
+                            "dispatch_count": o.dispatch_count,
+                            "last_dispatch_at": last_dispatch.isoformat() if last_dispatch else None,
+                            "bill_requested_at": o.bill_requested_at.isoformat() if o.bill_requested_at else None,
                             "items_count": it_count,
                             "service_step": step,
                             "items_summary": it_summary,
@@ -99,12 +109,13 @@ class TableRepository(BaseRepository[RestaurantTable]):
                         "current_total_ttc_xof": total_table_ttc,
                         "guests_count": sum(o.guests_count for o in t_orders),
                         "opened_at": first_order.opened_at.isoformat() if first_order.opened_at else None,
-                        "server_name": first_order.opened_by.full_name if first_order.opened_by else "Serveur",
+                        "server_name": active_orders_list[0]["server_name"],
                         "items_count": total_items_count,
                         "service_step": active_orders_list[-1]["service_step"],
                         "items_summary": all_items_summary,
                         "active_orders_count": len(t_orders),
                         "active_orders": active_orders_list,
+                        "bill_requested": any(o.bill_requested_at for o in t_orders),
                     }
                 )
             else:

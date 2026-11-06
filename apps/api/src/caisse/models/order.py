@@ -17,10 +17,18 @@ class Order(Base, TimestampMixin):
     note_label: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     status: Mapped[str] = mapped_column(String(20), default="OPEN", nullable=False)
+    # SUR_PLACE (table), EMPORTER ou LIVRAISON (sans table)
+    service_mode: Mapped[str] = mapped_column(String(20), default="SUR_PLACE", server_default="SUR_PLACE", nullable=False)
     opened_by_user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    # Serveur de la note (écran salle) ; nul pour une commande prise à la caisse
+    served_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     closed_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
 
     guests_count: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    # Nombre d'envois en cuisine (chaque envoi imprime un bon, numéroté)
+    dispatch_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    # Demande d'addition du serveur à la caisse (effacée par un nouvel envoi)
+    bill_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     total_ttc_xof: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     total_ht_xof: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -39,6 +47,7 @@ class Order(Base, TimestampMixin):
     cash_session = relationship("CashSession")
     table = relationship("RestaurantTable")
     opened_by = relationship("User", foreign_keys=[opened_by_user_id])
+    served_by = relationship("User", foreign_keys=[served_by_user_id])
     closed_by = relationship("User", foreign_keys=[closed_by_user_id])
     cancelled_by = relationship("User", foreign_keys=[cancelled_by_user_id])
     items: Mapped[list["OrderItem"]] = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
@@ -66,6 +75,10 @@ class OrderItem(Base, TimestampMixin):
     vat_rate: Mapped[float] = mapped_column(Numeric(4, 2), default=0.00, nullable=False)
     line_total_xof: Mapped[int] = mapped_column(Integer, nullable=False)
     note: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Convive : 0 = pour la table, 1..n = convive ; nul = non précisé (caisse)
+    seat: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Numéro de l'envoi en cuisine qui a ajouté la ligne ; nul = ajout direct à la caisse
+    dispatch_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     added_by_user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
     added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)

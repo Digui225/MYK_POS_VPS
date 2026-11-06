@@ -1,10 +1,12 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import status
 from sqlalchemy.orm import Session
 
 from caisse.core.errors import CaisseException
 from caisse.core.pagination import PageRequest, split
+from caisse.domain.enums import ServiceMode, UserRole
+from caisse.domain.kitchen_rules import KitchenLine, KitchenTicket, is_kitchen_line
 from caisse.domain.order_rules import (
     assert_order_editable,
     calculate_line_total,
@@ -13,19 +15,24 @@ from caisse.domain.order_rules import (
 )
 from caisse.infrastructure.websocket.manager import ws_manager
 from caisse.models.order import Order, OrderItem
+from caisse.models.user import User
 from caisse.repositories.catalog import CatalogRepository
 from caisse.repositories.orders import OrderRepository
 from caisse.repositories.sessions import CashSessionRepository
 from caisse.repositories.tables import TableRepository
 from caisse.schemas.orders import (
+    BestSellerResponse,
     OrderCancelRequest,
     OrderCreateRequest,
+    OrderDispatchRequest,
+    OrderDispatchResponse,
     OrderItemAddRequest,
     OrderItemRemoveRequest,
     OrderItemResponse,
     OrderResponse,
 )
 from caisse.services.audit_service import AuditService
+from caisse.services.printing_service import PrintingService
 
 
 class OrderService:
@@ -42,7 +49,18 @@ class OrderService:
         payload: OrderCreateRequest,
         user_id: str,
         device_id: str | None = None,
+        served_by_user_id: str | None = None,
     ) -> OrderResponse:
+        service_mode = payload.service_mode or (
+            ServiceMode.SUR_PLACE if payload.table_id else ServiceMode.EMPORTER
+        )
+        if (service_mode == ServiceMode.SUR_PLACE) != bool(payload.table_id):
+            raise CaisseException(
+                code="INVALID_SERVICE_MODE",
+                title="Mode de service incohérent",
+                detail="Une commande sur place se prend sur une table ; à emporter et livraison, sans table.",
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            )
         register = self.session_repo.get_or_create_default_register()
         active_session = self.session_repo.get_active_by_register_id(register.id)
         if not active_session:
@@ -96,7 +114,9 @@ class OrderService:
             table_id=payload.table_id,
             note_label=note_label,
             status="OPEN",
+            service_mode=service_mode,
             opened_by_user_id=user_id,
+            served_by_user_id=served_by_user_id,
             guests_count=payload.guests_count,
             total_ttc_xof=0,
             total_ht_xof=0,
@@ -112,7 +132,13 @@ class OrderService:
             entity="ORDER",
             entity_id=created.id,
             user_id=user_id,
-            after={"order_number": order_number, "table_id": payload.table_id, "guests_count": payload.guests_count},
+            after={
+                "order_number": order_number,
+                "table_id": payload.table_id,
+                "guests_count": payload.guests_count,
+                "service_mode": str(service_mode),
+                "served_by_user_id": served_by_user_id,
+            },
             device_id=device_id,
         )
         self.db.commit()
@@ -166,13 +192,7 @@ class OrderService:
             )
         return self._to_order_response(order)
 
-    def add_item(
-        self,
-        order_id: str,
-        payload: OrderItemAddRequest,
-        user_id: str,
-        device_id: str | None = None,
-    ) -> OrderResponse:
+    def _get_editable_order(self, order_id: str) -> Order:
         order = self.order_repo.get_by_id_with_items(order_id)
         if not order:
             raise CaisseException(
@@ -181,9 +201,14 @@ class OrderService:
                 detail=f"Aucune commande trouvée avec l'ID {order_id}.",
                 status_code=status.HTTP_404_NOT_FOUND,
             )
-
         assert_order_editable(order.status)
+        return order
 
+    def _build_item(
+        self, order: Order, payload: OrderItemAddRequest, user_id: str
+    ) -> tuple[OrderItem, str | None]:
+        """Ligne prête à ajouter (non validée) et type de sa catégorie (FOOD, DRINK…)."""
+        category_kind: str | None = None
         if payload.product_id:
             product = self.catalog_repo.get_product_by_id(payload.product_id)
             if not product:
@@ -195,6 +220,7 @@ class OrderService:
                 )
             name_snapshot = product.name
             category_snapshot = product.category.name if product.category else "Menu"
+            category_kind = product.category.kind if product.category else None
             unit_price = product.price_xof
             vat_rate = float(product.vat_rate)
         elif payload.custom_name and payload.unit_price_xof is not None:
@@ -202,6 +228,7 @@ class OrderService:
             if payload.category_id:
                 cat_obj = self.catalog_repo.get_category_by_id(payload.category_id)
                 category_snapshot = cat_obj.name if cat_obj else (payload.category_name or "Hors Menu")
+                category_kind = cat_obj.kind if cat_obj else None
             elif payload.category_name:
                 category_snapshot = payload.category_name
             else:
@@ -219,8 +246,6 @@ class OrderService:
         # Normalisation automatique des ligatures et espaces pour éviter les doublons typographiques
         name_snapshot = name_snapshot.replace("œ", "oe").replace("Œ", "OE").strip()
 
-        line_total = calculate_line_total(unit_price, payload.quantity)
-
         item = OrderItem(
             order_id=order.id,
             product_id=payload.product_id,
@@ -229,31 +254,24 @@ class OrderService:
             unit_price_xof=unit_price,
             quantity=payload.quantity,
             vat_rate=vat_rate,
-            line_total_xof=line_total,
+            line_total_xof=calculate_line_total(unit_price, payload.quantity),
             note=payload.note,
+            seat=payload.seat,
             added_by_user_id=user_id,
             added_at=datetime.now(timezone.utc),
         )
         self.order_repo.add_item(item)
         order.items.append(item)
+        return item, category_kind
 
-        # Recalcul des totaux de commande
+    def _refresh_totals(self, order: Order) -> None:
         ttc, ht, vat = recalculate_order_totals(order.items)
         order.total_ttc_xof = ttc
         order.total_ht_xof = ht
         order.total_vat_xof = vat
         order.due_xof = ttc - order.paid_xof
 
-        self.audit.log(
-            action="ORDER_ITEM_ADDED",
-            entity="ORDER_ITEM",
-            entity_id=item.id,
-            user_id=user_id,
-            after={"name": name_snapshot, "quantity": payload.quantity, "line_total_xof": line_total},
-            device_id=device_id,
-        )
-        self.db.commit()
-
+    def broadcast_order_updated(self, order: Order, **extra: object) -> None:
         ws_manager.broadcast_sync(
             "ORDER_UPDATED",
             {
@@ -262,10 +280,126 @@ class OrderService:
                 "table_id": order.table_id,
                 "total_ttc_xof": order.total_ttc_xof,
                 "status": order.status,
+                **extra,
             },
         )
 
+    def add_item(
+        self,
+        order_id: str,
+        payload: OrderItemAddRequest,
+        user_id: str,
+        device_id: str | None = None,
+    ) -> OrderResponse:
+        order = self._get_editable_order(order_id)
+        item, _kind = self._build_item(order, payload, user_id)
+        self._refresh_totals(order)
+
+        self.audit.log(
+            action="ORDER_ITEM_ADDED",
+            entity="ORDER_ITEM",
+            entity_id=item.id,
+            user_id=user_id,
+            after={"name": item.product_name_snapshot, "quantity": payload.quantity, "line_total_xof": item.line_total_xof},
+            device_id=device_id,
+        )
+        self.db.commit()
+        self.broadcast_order_updated(order)
         return self._to_order_response(order)
+
+    def dispatch(
+        self,
+        order_id: str,
+        payload: OrderDispatchRequest,
+        user: User,
+        device_id: str | None = None,
+    ) -> tuple[Order, OrderDispatchResponse]:
+        """Envoi en cuisine : lignes, n° d'envoi et bon cuisine (boissons exclues) dans une
+        seule transaction. NE VALIDE PAS : l'appelant enregistre la clé d'idempotence puis valide,
+        et diffuse ensuite (broadcast_order_updated)."""
+        order = self._get_editable_order(order_id)
+        dispatch_no = order.dispatch_count + 1
+
+        kitchen_lines: list[KitchenLine] = []
+        added: list[OrderItem] = []
+        for line in payload.items:
+            item, kind = self._build_item(order, line, user.id)
+            item.dispatch_no = dispatch_no
+            added.append(item)
+            if is_kitchen_line(kind):
+                kitchen_lines.append(
+                    KitchenLine(quantity=item.quantity, name=item.product_name_snapshot, note=item.note, seat=item.seat)
+                )
+
+        self._refresh_totals(order)
+        order.dispatch_count = dispatch_no
+        order.bill_requested_at = None  # de nouveaux plats : l'addition demandée n'est plus à jour
+        if order.served_by_user_id is None and user.role == UserRole.SERVEUR:
+            order.served_by_user_id = user.id  # premier serveur qui envoie sur une note de la caisse
+        self.db.flush()
+
+        job_id: str | None = None
+        if kitchen_lines:
+            server = order.served_by or (user if user.role == UserRole.SERVEUR else None)
+            ticket = KitchenTicket(
+                order_number=order.order_number,
+                service_mode=order.service_mode,
+                table_label=order.table.label if order.table else None,
+                note_label=order.note_label if order.table_id else None,
+                server_name=server.full_name if server else None,
+                guests_count=order.guests_count,
+                dispatch_no=dispatch_no,
+                sent_at=datetime.now(timezone.utc),
+                lines=tuple(kitchen_lines),
+            )
+            job_id = PrintingService(self.db).create_kitchen_ticket_job(order, ticket).id
+
+        self.audit.log(
+            action="ORDER_DISPATCHED",
+            entity="ORDER",
+            entity_id=order.id,
+            user_id=user.id,
+            after={
+                "dispatch_no": dispatch_no,
+                "lines": [
+                    {"name": it.product_name_snapshot, "quantity": it.quantity, "seat": it.seat} for it in added
+                ],
+                "kitchen_lines": len(kitchen_lines),
+                "kitchen_ticket_job_id": job_id,
+            },
+            device_id=device_id,
+        )
+        return order, OrderDispatchResponse(
+            order=self._to_order_response(order),
+            dispatch_no=dispatch_no,
+            kitchen_lines_count=len(kitchen_lines),
+            kitchen_ticket_job_id=job_id,
+        )
+
+    def request_bill(self, order_id: str, user_id: str, device_id: str | None = None) -> OrderResponse:
+        """Le serveur demande l'addition : la note passe en « Addition demandée » à la caisse."""
+        order = self._get_editable_order(order_id)
+        if order.bill_requested_at is None:
+            order.bill_requested_at = datetime.now(timezone.utc)
+            self.audit.log(
+                action="ORDER_BILL_REQUESTED",
+                entity="ORDER",
+                entity_id=order.id,
+                user_id=user_id,
+                after={"total_ttc_xof": order.total_ttc_xof},
+                device_id=device_id,
+            )
+            self.db.commit()
+            self.broadcast_order_updated(order, bill_requested=True)
+        return self._to_order_response(order)
+
+    def best_sellers(self, days: int = 7, limit: int = 8) -> list[BestSellerResponse]:
+        """Produits actifs les plus vendus (commandes réglées) sur les `days` derniers jours."""
+        since = datetime.now(timezone.utc) - timedelta(days=days)
+        return [
+            BestSellerResponse(product_id=product_id, quantity_sold=quantity)
+            for product_id, quantity in self.order_repo.best_selling_products(since=since, limit=limit)
+        ]
 
     def remove_item(
         self,
@@ -397,6 +531,8 @@ class OrderService:
                     vat_rate=float(it.vat_rate),
                     line_total_xof=it.line_total_xof,
                     note=it.note,
+                    seat=it.seat,
+                    dispatch_no=it.dispatch_no,
                     added_at=it.added_at.isoformat(),
                     removed_at=it.removed_at.isoformat() if it.removed_at else None,
                     removal_reason=it.removal_reason,
@@ -413,6 +549,11 @@ class OrderService:
             table_label=resolved_table_label,
             note_label=order.note_label,
             status=order.status,  # type: ignore
+            service_mode=order.service_mode,  # type: ignore
+            served_by_user_id=order.served_by_user_id,
+            served_by_name=order.served_by.full_name if order.served_by else None,
+            dispatch_count=order.dispatch_count,
+            bill_requested_at=order.bill_requested_at.isoformat() if order.bill_requested_at else None,
             guests_count=order.guests_count,
             total_ttc_xof=order.total_ttc_xof,
             total_ht_xof=order.total_ht_xof,

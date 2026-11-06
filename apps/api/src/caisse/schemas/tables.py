@@ -43,6 +43,10 @@ class TableActiveOrder(BaseSchema):
     guests_count: int = 1
     opened_at: str | None = None
     server_name: str | None = None
+    served_by_user_id: str | None = None
+    dispatch_count: int = 0
+    last_dispatch_at: str | None = None
+    bill_requested_at: str | None = None
     items_count: int = 0
     service_step: str | None = None
     items_summary: list[TableOrderItemSummary] = []
@@ -65,6 +69,7 @@ class TableBoardItem(BaseSchema):
     items_summary: list[TableOrderItemSummary] = []
     active_orders_count: int = 0
     active_orders: list[TableActiveOrder] = []
+    bill_requested: bool = False
 
 
 class TableBoardResponse(BaseSchema):

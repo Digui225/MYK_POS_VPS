@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from caisse.core.database import get_db
@@ -13,7 +13,9 @@ from caisse.schemas.catalog import (
     ProductResponse,
     ProductUpdateRequest,
 )
+from caisse.schemas.orders import BestSellerResponse
 from caisse.services.catalog_service import CatalogService
+from caisse.services.order_service import OrderService
 
 router = APIRouter(tags=["Catalogue"])
 
@@ -90,6 +92,21 @@ async def list_products(
 ) -> list[ProductResponse]:
     service = CatalogService(db)
     return service.list_products(category_id=category_id)
+
+
+@router.get(
+    "/catalog/best-sellers",
+    response_model=list[BestSellerResponse],
+    summary="Produits les plus vendus (écran serveur « Ce qui part le plus »)",
+)
+async def list_best_sellers(
+    current_user: User = Depends(require_role("CAISSIER", "SERVEUR", "RESPONSABLE", "ADMIN")),
+    days: int = Query(7, ge=1, le=90),
+    limit: int = Query(8, ge=1, le=30),
+    db: Session = Depends(get_db),
+) -> list[BestSellerResponse]:
+    """Produits actifs classés par quantité vendue sur les commandes réglées des `days` derniers jours."""
+    return OrderService(db).best_sellers(days=days, limit=limit)
 
 
 @router.get("/products/{id}", response_model=ProductResponse, summary="Détail d'un produit")

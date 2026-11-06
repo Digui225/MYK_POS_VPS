@@ -121,6 +121,8 @@ class PaymentService:
             reference=payload.reference,
             status="CAPTURED",
             idempotency_key=idempotency_key,
+            # « Remis par » : le serveur de la note a rapporté l'argent (nul au comptoir)
+            handed_by_user_id=order.served_by_user_id,
         )
         self.payment_repo.add(payment)
         if payment not in order.payments:
@@ -244,6 +246,7 @@ class PaymentService:
             provider=payment.provider,
             reference=payment.reference,
             status=payment.status,
+            handed_by_user_id=payment.handed_by_user_id,
             created_at=payment.created_at.isoformat() if payment.created_at else datetime.now(timezone.utc).isoformat(),
         )
 
@@ -324,6 +327,7 @@ class PaymentService:
                 provider=p.provider,
                 reference=p.reference,
                 status=p.status,
+                handed_by_user_id=p.handed_by_user_id,
                 created_at=p.created_at.isoformat(),
             )
             for p in payments

@@ -12,6 +12,8 @@ class Payment(Base, TimestampMixin):
     order_id: Mapped[str] = mapped_column(String(36), ForeignKey("orders.id"), nullable=False)
     cash_session_id: Mapped[str] = mapped_column(String(36), ForeignKey("cash_sessions.id"), nullable=False)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    # Serveur qui a rapporté l'argent (serveur de la note) ; nul pour une vente au comptoir
+    handed_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
 
     method: Mapped[str] = mapped_column(String(20), nullable=False)
     amount_xof: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -26,4 +28,5 @@ class Payment(Base, TimestampMixin):
     # Relationships
     order = relationship("Order", back_populates="payments")
     cash_session = relationship("CashSession")
-    user = relationship("User")
+    user = relationship("User", foreign_keys=[user_id])
+    handed_by = relationship("User", foreign_keys=[handed_by_user_id])
