@@ -317,3 +317,21 @@ def test_best_sellers_rank_paid_sales(client: TestClient, salle: dict[str, Any])
         {"product_id": salle["brochet"], "quantity_sold": 3},
         {"product_id": salle["foufou"], "quantity_sold": 1},
     ]
+
+
+def test_replayed_note_creation_opens_a_single_note(
+    client: TestClient, salle: dict[str, Any], db_session: Session
+) -> None:
+    """Le téléphone renvoie la création après une coupure du Wi-Fi : une seule note est ouverte."""
+    headers = {**salle["koffi"], "Idempotency-Key": "creation-note-rejouee"}
+    body = {"table_id": "tbl-02", "guests_count": 3}
+    first = client.post("/api/v1/orders", headers=headers, json=body)
+    again = client.post("/api/v1/orders", headers=headers, json=body)
+    assert first.status_code == 201
+    assert again.status_code == 200 and again.headers["Idempotent-Replay"] == "true"
+    assert again.json()["id"] == first.json()["id"]
+    db_session.expire_all()
+    assert db_session.query(Order).filter(Order.table_id == "tbl-02").count() == 1
+
+    changed = client.post("/api/v1/orders", headers=headers, json={**body, "guests_count": 5})
+    assert changed.status_code == 409

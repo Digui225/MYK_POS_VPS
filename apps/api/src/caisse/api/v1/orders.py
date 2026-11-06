@@ -28,16 +28,55 @@ router = APIRouter(prefix="/orders", tags=["Commandes"])
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED, summary="Créer une commande")
 async def create_order(
     payload: OrderCreateRequest,
+    request: Request,
+    response: Response,
+    idempotency_key: OptionalIdempotencyKey = None,
     current_user: User = Depends(require_role("CAISSIER", "SERVEUR")),
     device_id: str = Depends(require_device_id),
     db: Session = Depends(get_db),
 ) -> OrderResponse:
+    """Avec `Idempotency-Key` (téléphone de salle), une création rejouée après une coupure
+    du Wi-Fi renvoie la note déjà ouverte au lieu d'en ouvrir une seconde."""
+    request_hash = idempotency.hash_request(payload)
+    if idempotency_key:
+        replay = idempotency.find_replay(
+            db, idempotency_key, method="POST", path=request.url.path, request_hash=request_hash
+        )
+        if replay is not None:
+            idempotency.apply_replay_headers(response)
+            return OrderResponse.model_validate(replay)
+
     service = OrderService(db)
     # Une note ouverte par un serveur est à son nom (écran salle) ; à la caisse, sans serveur
     served_by = current_user.id if current_user.role == UserRole.SERVEUR else None
-    return service.create_order(
+    result = service.create_order(
         payload, user_id=current_user.id, device_id=device_id, served_by_user_id=served_by
     )
+
+    if idempotency_key:
+        idempotency.save(
+            db,
+            idempotency_key,
+            method="POST",
+            path=request.url.path,
+            request_hash=request_hash,
+            status=201,
+            body=result.model_dump(mode="json"),
+            user_id=current_user.id,
+        )
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            replay = idempotency.find_replay(
+                db, idempotency_key, method="POST", path=request.url.path, request_hash=request_hash
+            )
+            if replay is not None:
+                idempotency.apply_replay_headers(response)
+                return OrderResponse.model_validate(replay)
+            raise
+
+    return result
 
 
 @router.get("", response_model=Page[OrderResponse], summary="Lister les commandes")

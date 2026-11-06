@@ -305,6 +305,8 @@ POST /api/v1/orders/{id}/items
 
 **Serveur de la note** : une note créée par un `SERVEUR` est à son nom (`served_by_user_id`, `served_by_name`) ; une note créée à la caisse n'a pas de serveur, et le premier serveur qui y envoie des plats en devient le serveur. Deux clients qui ne sont pas ensemble sur une même table : chaque serveur ouvre sa note (`allow_multiple: true`), avec son bon cuisine et son addition. Un serveur peut envoyer sur la note d'un collègue : la note garde son serveur.
 
+**Création rejouée** : `POST /orders` accepte un en-tête `Idempotency-Key` **facultatif**. Le téléphone de salle ouvre la note au moment du premier envoi et envoie une clé : une création renvoyée après une coupure du Wi-Fi rejoue la note déjà ouverte (`200`, `Idempotent-Replay: true`) au lieu d'en ouvrir une seconde ; même clé, autre corps : `409 IDEMPOTENCY_CONFLICT`. Sans clé, rien ne change.
+
 **Envoi en cuisine** :
 
 ```http
