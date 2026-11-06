@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import status
 from sqlalchemy.orm import Session
@@ -14,6 +14,7 @@ from caisse.core.security import (
     hash_pin,
     verify_pin,
 )
+from caisse.domain.enums import UserRole
 from caisse.models.user import User
 from caisse.repositories.sessions import CashSessionRepository
 from caisse.repositories.users import UserRepository
@@ -37,44 +38,92 @@ class AuthService:
         self.session_repo = CashSessionRepository(db)
         self.audit = AuditService(db)
 
-    def login_with_pin(self, pin: str, device_id: str, ip: str | None = None) -> LoginResponse:
-        # Chercher parmi tous les utilisateurs actifs
-        users = self.user_repo.list_all()
-        matched_user: User | None = None
+    def list_staff(self) -> list[User]:
+        """Serveurs actifs proposés sur l'écran de prise de service des appareils de salle."""
+        return self.user_repo.list_active_by_role(UserRole.SERVEUR)
 
-        for u in users:
+    def login_with_pin(
+        self, pin: str, device_id: str, ip: str | None = None, user_id: str | None = None
+    ) -> LoginResponse:
+        """Connexion par PIN seul (caisse) ou par compte choisi puis PIN (appareils de salle)."""
+        if user_id is not None:
+            matched_user = self._match_account_pin(user_id, pin, device_id, ip)
+        else:
+            matched_user = self._match_any_pin(pin, device_id, ip)
+        return self._open_session(matched_user, device_id, ip)
+
+    def _invalid_credentials(self, device_id: str, ip: str | None, user_id: str | None = None) -> CaisseException:
+        logger.warning(
+            "Tentative de connexion par code PIN échouée depuis l'IP %s (poste: %s)",
+            ip or "inconnue",
+            device_id,
+        )
+        # Traçabilité tentative infructueuse
+        self.audit.log(
+            action="LOGIN_FAILED",
+            entity="AUTH",
+            entity_id=user_id,
+            reason="PIN erroné ou utilisateur verrouillé",
+            device_id=device_id,
+            ip=ip,
+        )
+        self.db.commit()
+        return CaisseException(
+            code="INVALID_CREDENTIALS",
+            title="Code PIN invalide",
+            detail="Le code PIN saisi est incorrect ou le compte est bloqué.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    def _match_any_pin(self, pin: str, device_id: str, ip: str | None) -> User:
+        # Chercher parmi tous les utilisateurs actifs
+        for u in self.user_repo.list_all():
             if not u.is_active:
                 continue
             if u.is_locked():
                 continue
             if verify_pin(pin, u.pin_hash):
-                matched_user = u
-                break
+                return u
+        raise self._invalid_credentials(device_id, ip)
 
-        if not matched_user:
-            logger.warning(
-                "Tentative de connexion par code PIN échouée depuis l'IP %s (poste: %s)",
-                ip or "inconnue",
-                device_id,
-            )
-            # Traçabilité tentative infructueuse
-            self.audit.log(
-                action="LOGIN_FAILED",
-                entity="AUTH",
-                reason="PIN erroné ou utilisateur verrouillé",
-                device_id=device_id,
-                ip=ip,
-            )
-            self.db.commit()
+    def _match_account_pin(self, user_id: str, pin: str, device_id: str, ip: str | None) -> User:
+        """PIN d'un compte désigné : le blocage après PIN erronés porte sur ce compte, pas sur
+        le poste (tous les téléphones de la salle sortent par la même adresse)."""
+        user = self.user_repo.get_by_id(user_id)
+        if user is None or not user.is_active:
+            raise self._invalid_credentials(device_id, ip, user_id)
+        if user.is_locked() and user.locked_until is not None:
+            locked_until = user.locked_until
+            if locked_until.tzinfo is None:
+                locked_until = locked_until.replace(tzinfo=timezone.utc)
+            retry_after = max(1, int((locked_until - datetime.now(timezone.utc)).total_seconds()))
             raise CaisseException(
-                code="INVALID_CREDENTIALS",
-                title="Code PIN invalide",
-                detail="Le code PIN saisi est incorrect ou le compte est bloqué.",
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="PIN_LOCKOUT",
+                title="Compte bloqué",
+                detail=f"Trop de codes PIN erronés pour ce compte. Réessayez dans {retry_after} secondes.",
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                meta={"retry_after": retry_after},
             )
+        if not verify_pin(pin, user.pin_hash):
+            user.failed_attempts += 1
+            if user.failed_attempts >= settings.PIN_MAX_FAILED_ATTEMPTS:
+                user.locked_until = datetime.now(timezone.utc) + timedelta(
+                    minutes=settings.LOCKOUT_DURATION_MINUTES
+                )
+                user.failed_attempts = 0
+                logger.warning(
+                    "Compte %s bloqué %s min : %d PIN erronés",
+                    user.id,
+                    settings.LOCKOUT_DURATION_MINUTES,
+                    settings.PIN_MAX_FAILED_ATTEMPTS,
+                )
+            raise self._invalid_credentials(device_id, ip, user.id)
+        return user
 
+    def _open_session(self, matched_user: User, device_id: str, ip: str | None) -> LoginResponse:
         # Réinitialisation des tentatives et mise à jour last_login
         matched_user.failed_attempts = 0
+        matched_user.locked_until = None
         matched_user.last_login_at = datetime.now(timezone.utc)
 
         # Vérifier si une session est ouverte sur la caisse

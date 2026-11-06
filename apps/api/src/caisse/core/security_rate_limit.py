@@ -95,6 +95,29 @@ class LoginLockout:
 login_lockout = LoginLockout()
 
 
+def enforce_rate_limit(key: str, max_requests: int, window_seconds: int, source: str) -> None:
+    """Refuse la requête (429 RATE_LIMIT_EXCEEDED) si la clé a dépassé son quota."""
+    is_allowed, retry_after = rate_limiter.check(
+        key=key,
+        max_requests=max_requests,
+        window_seconds=window_seconds,
+    )
+    if not is_allowed:
+        logger.warning(
+            "Rate limit dépassé sur %s (max: %d en %ds)",
+            source,
+            max_requests,
+            window_seconds,
+        )
+        raise CaisseException(
+            code="RATE_LIMIT_EXCEEDED",
+            title="Trop de requêtes",
+            detail=f"Limite de requêtes atteinte ({max_requests} requêtes / {window_seconds}s). Veuillez réessayer dans {retry_after} secondes.",
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            meta={"retry_after": retry_after, "limit": max_requests, "window": window_seconds},
+        )
+
+
 def require_rate_limit(
     max_requests: int = 10,
     window_seconds: int = 60,
@@ -105,28 +128,11 @@ def require_rate_limit(
     def dependency(request: Request) -> None:
         client_ip = request.client.host if request.client else "unknown"
         endpoint = request.url.path
-        key = f"{key_prefix}:{endpoint}:{client_ip}"
-
-        is_allowed, retry_after = rate_limiter.check(
-            key=key,
-            max_requests=max_requests,
-            window_seconds=window_seconds,
+        enforce_rate_limit(
+            f"{key_prefix}:{endpoint}:{client_ip}",
+            max_requests,
+            window_seconds,
+            source=f"{endpoint} depuis l'adresse IP {client_ip}",
         )
-
-        if not is_allowed:
-            logger.warning(
-                "Rate limit dépassé sur %s depuis l'adresse IP %s (max: %d en %ds)",
-                endpoint,
-                client_ip,
-                max_requests,
-                window_seconds,
-            )
-            raise CaisseException(
-                code="RATE_LIMIT_EXCEEDED",
-                title="Trop de requêtes",
-                detail=f"Limite de requêtes atteinte ({max_requests} requêtes / {window_seconds}s). Veuillez réessayer dans {retry_after} secondes.",
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                meta={"retry_after": retry_after, "limit": max_requests, "window": window_seconds},
-            )
 
     return dependency

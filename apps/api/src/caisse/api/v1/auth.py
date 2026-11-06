@@ -5,7 +5,7 @@ from caisse.core.config import get_settings
 from caisse.core.database import get_db
 from caisse.core.deps import get_client_ip, get_current_user, require_device_id
 from caisse.core.errors import CaisseException
-from caisse.core.security_rate_limit import login_lockout, require_rate_limit
+from caisse.core.security_rate_limit import enforce_rate_limit, login_lockout, require_rate_limit
 from caisse.models.user import User
 from caisse.schemas.auth import (
     LoginRequest,
@@ -14,6 +14,7 @@ from caisse.schemas.auth import (
     OverrideResponse,
     RefreshTokenRequest,
     RefreshTokenResponse,
+    StaffMemberResponse,
     UserResponse,
 )
 from caisse.services.auth_service import AuthService
@@ -21,17 +22,56 @@ from caisse.services.auth_service import AuthService
 router = APIRouter(prefix="/auth", tags=["Authentification"])
 
 
+@router.get(
+    "/staff",
+    response_model=list[StaffMemberResponse],
+    summary="Serveurs actifs (écran de prise de service, avant connexion)",
+    dependencies=[Depends(require_rate_limit(max_requests=30, window_seconds=60))],
+)
+async def list_staff(db: Session = Depends(get_db)) -> list[StaffMemberResponse]:
+    """Noms des comptes SERVEUR actifs, pour choisir son nom avant de taper son PIN."""
+    return [
+        StaffMemberResponse(id=u.id, full_name=u.full_name) for u in AuthService(db).list_staff()
+    ]
+
+
 @router.post(
     "/login",
     response_model=LoginResponse,
     summary="Connexion par code PIN",
-    dependencies=[Depends(require_rate_limit(max_requests=10, window_seconds=60))],
 )
 async def login(
     payload: LoginRequest,
     request: Request,
     db: Session = Depends(get_db),
 ) -> LoginResponse:
+    settings = get_settings()
+    auth_service = AuthService(db)
+
+    if payload.user_id is not None:
+        # Compte choisi puis PIN (appareils de salle) : quota et blocage portent sur le compte,
+        # car tous les téléphones de la salle sortent par la même adresse que la caisse.
+        enforce_rate_limit(
+            f"user:{request.url.path}:{payload.user_id}",
+            max_requests=10,
+            window_seconds=60,
+            source=f"{request.url.path} pour le compte {payload.user_id}",
+        )
+        return auth_service.login_with_pin(
+            pin=payload.pin,
+            device_id=payload.device_id,
+            ip=get_client_ip(request),
+            user_id=payload.user_id,
+        )
+
+    # PIN seul (caisse) : un PIN faux ne désigne aucun compte, le blocage porte sur le poste.
+    client_host = request.client.host if request.client else "unknown"
+    enforce_rate_limit(
+        f"ip:{request.url.path}:{client_host}",
+        max_requests=10,
+        window_seconds=60,
+        source=f"{request.url.path} depuis l'adresse IP {client_host}",
+    )
     ip = get_client_ip(request)
     key = ip or "unknown"
     retry_after = login_lockout.retry_after(key)
@@ -43,7 +83,6 @@ async def login(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             meta={"retry_after": retry_after},
         )
-    auth_service = AuthService(db)
     try:
         response = auth_service.login_with_pin(
             pin=payload.pin,
@@ -52,7 +91,6 @@ async def login(
         )
     except CaisseException as exc:
         if exc.code == "INVALID_CREDENTIALS":
-            settings = get_settings()
             login_lockout.record_failure(
                 key, settings.PIN_MAX_FAILED_ATTEMPTS, settings.LOCKOUT_DURATION_MINUTES * 60
             )

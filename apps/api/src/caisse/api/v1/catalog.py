@@ -21,7 +21,7 @@ router = APIRouter(tags=["Catalogue"])
 @router.get("/categories", response_model=list[CategoryResponse], summary="Lister les catégories actives")
 @router.get("/catalog/categories", response_model=list[CategoryResponse], summary="Lister les catégories actives (alias)")
 async def list_categories(
-    current_user: User = Depends(require_role("CAISSIER", "RESPONSABLE", "ADMIN")),
+    current_user: User = Depends(require_role("CAISSIER", "SERVEUR", "RESPONSABLE", "ADMIN")),
     db: Session = Depends(get_db),
 ) -> list[CategoryResponse]:
     service = CatalogService(db)
@@ -84,7 +84,7 @@ async def update_category(
 @router.get("/products", response_model=list[ProductResponse], summary="Lister les produits actifs du menu")
 @router.get("/catalog/products", response_model=list[ProductResponse], summary="Lister les produits actifs du menu (alias)")
 async def list_products(
-    current_user: User = Depends(require_role("CAISSIER", "RESPONSABLE", "ADMIN")),
+    current_user: User = Depends(require_role("CAISSIER", "SERVEUR", "RESPONSABLE", "ADMIN")),
     category_id: str | None = None,
     db: Session = Depends(get_db),
 ) -> list[ProductResponse]:
@@ -96,7 +96,7 @@ async def list_products(
 @router.get("/catalog/products/{id}", response_model=ProductResponse, summary="Détail d'un produit (alias)")
 async def get_product(
     id: str,
-    current_user: User = Depends(require_role("CAISSIER", "RESPONSABLE", "ADMIN")),
+    current_user: User = Depends(require_role("CAISSIER", "SERVEUR", "RESPONSABLE", "ADMIN")),
     db: Session = Depends(get_db),
 ) -> ProductResponse:
     service = CatalogService(db)

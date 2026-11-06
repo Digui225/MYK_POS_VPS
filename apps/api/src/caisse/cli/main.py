@@ -25,7 +25,7 @@ def build_parser() -> argparse.ArgumentParser:
     # Commande create-user
     user_parser = subparsers.add_parser("create-user", help="Créer un nouvel utilisateur")
     user_parser.add_argument("--name", help="Nom complet de l'utilisateur")
-    user_parser.add_argument("--role", choices=["CAISSIER", "RESPONSABLE", "ADMIN", "ECONOME"], help="Rôle")
+    user_parser.add_argument("--role", choices=["CAISSIER", "RESPONSABLE", "ADMIN", "ECONOME", "SERVEUR"], help="Rôle")
     user_parser.add_argument("--pin", help="Code PIN (6 chiffres)")
     user_parser.add_argument("--noinput", action="store_true", help="Mode non interactif")
 

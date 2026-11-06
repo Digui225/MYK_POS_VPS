@@ -13,3 +13,11 @@ class UserRepository(BaseRepository[User]):
 
     def list_all(self, limit: int = 50) -> list[User]:
         return self.db.query(User).order_by(User.full_name.asc()).limit(limit).all()
+
+    def list_active_by_role(self, role: str) -> list[User]:
+        return (
+            self.db.query(User)
+            .filter(User.role == role, User.is_active.is_(True))
+            .order_by(User.full_name.asc())
+            .all()
+        )

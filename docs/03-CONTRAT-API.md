@@ -28,7 +28,7 @@
 
 | En-tête | Sens | Usage |
 |---|---|---|
-| `Authorization: Bearer <jwt>` | → | Toutes les routes sauf `/auth/login` et `/health` |
+| `Authorization: Bearer <jwt>` | → | Toutes les routes sauf `/auth/login`, `/auth/staff` et `/health` |
 | `Idempotency-Key: <uuid>` | → | **Obligatoire** sur toute mutation financière |
 | `X-Device-Id: <uuid>` | → | Identifie le poste, tracé dans l'audit |
 | `X-Override-Token: <token>` | → | Autorisation responsable ponctuelle |
@@ -93,13 +93,14 @@ Sur toute mutation financière ou irréversible : encaissements (`POST /orders/{
 
 ## 4. Endpoints
 
-Légende des rôles : `C` Caissier (Vente/Caisse) · `R` Responsable (Supervision/Dashboard/Stocks) · `A` Admin (Système/Utilisateurs) · `E` Acheteur/Économe (Approvisionnement).
+Légende des rôles : `C` Caissier (Vente/Caisse) · `S` Serveur (prise de commande en salle) · `R` Responsable (Supervision/Dashboard/Stocks) · `A` Admin (Système/Utilisateurs) · `E` Acheteur/Économe (Approvisionnement).
 
 ### 4.1 Authentification
 
 | Méthode | Chemin | Rôle | Description |
 |---|---|---|---|
-| POST | `/auth/login` | — | PIN + `device_id` → jetons |
+| GET | `/auth/staff` | — | Serveurs actifs (`id`, `full_name`) pour l'écran « Qui prend le service ? » des appareils de salle (30 req/min) |
+| POST | `/auth/login` | — | PIN + `device_id` → jetons ; `user_id` facultatif (compte choisi avant le PIN) |
 | POST | `/auth/refresh` | — | Renouvellement |
 | POST | `/auth/logout` | C / R / A | Révocation du refresh |
 | GET | `/auth/me` | C / R / A | Utilisateur courant, rôle, session ouverte |
@@ -117,6 +118,22 @@ POST /api/v1/auth/login
   "open_session": { "id": "...", "business_date": "2026-09-24", "cash_register_id": "..." }
 }
 ```
+
+**Deux modes de connexion** (ajout du 06/11/2026, écran serveur, rétrocompatible) :
+
+- **PIN seul** (caisse, sans `user_id`) : inchangé. Le PIN est essayé sur tous les comptes actifs ; 10 requêtes/min par adresse ; 5 PIN faux consécutifs depuis une adresse bloquent ses connexions 5 min (`PIN_LOCKOUT`, `meta.retry_after`).
+- **Compte puis PIN** (`user_id` donné, appareils de salle) : seul le PIN de ce compte est vérifié ; 10 requêtes/min **par compte** ; 5 PIN faux bloquent **ce compte** 5 min (`429 PIN_LOCKOUT`, `meta.retry_after`), sans bloquer la caisse ni les autres serveurs qui sortent par la même adresse. Compte inconnu ou désactivé : `401 INVALID_CREDENTIALS`. Une connexion réussie remet le compteur du compte à zéro.
+
+```http
+GET /api/v1/auth/staff
+200
+[ { "id": "...", "full_name": "Awa" }, { "id": "...", "full_name": "Koffi" } ]
+
+POST /api/v1/auth/login
+{ "pin": "246810", "device_id": "telephone-salle-01", "user_id": "<id de Koffi>" }
+```
+
+**Rôle `SERVEUR`** (`S`) : lit la carte (`GET /categories`, `/products`, `/products/{id}`), la salle (`GET /tables`, `/tables/board`) et les commandes (`GET /orders`, `/orders/{id}`). Il n'ouvre pas de session de caisse, n'encaisse pas, n'annule pas et ne retire pas de ligne (`403 INSUFFICIENT_PRIVILEGE`). La prise de commande en salle arrive au lot suivant.
 
 ### 4.2 Sessions de caisse
 
@@ -482,7 +499,7 @@ GET /api/v1/printing/status
 
 | Méthode | Chemin | Rôle | Description |
 |---|---|---|---|
-| GET / POST / PATCH | `/users` | A | Gestion des comptes utilisateurs |
+| GET / POST / PATCH | `/users` | A | Gestion des comptes utilisateurs (rôles `CAISSIER`, `SERVEUR`, `RESPONSABLE`, `ADMIN`, `ECONOME`) |
 | POST | `/users/{id}/pin` | A | Réinitialisation de code PIN |
 | GET / PUT | `/settings` | A | Paramètres généraux (ticket, TVA, FNE) |
 | GET / POST / PATCH | `/cash-registers` | A | Paramétrage des postes de caisse |

@@ -3,14 +3,17 @@ from enum import StrEnum
 
 class UserRole(StrEnum):
     ECONOME = "ECONOME"  # bons d'achat marché, prévisions, préparations cuisine
+    SERVEUR = "SERVEUR"  # prise de commande en salle (téléphone) : ni encaissement ni annulation
     CAISSIER = "CAISSIER"
     RESPONSABLE = "RESPONSABLE"
     ADMIN = "ADMIN"
 
 
 # Hiérarchie : un rôle hérite des droits des rôles inférieurs.
+# Le serveur n'hérite de rien : ses droits sont listés route par route (require_role).
 ROLE_RANK: dict[UserRole, int] = {
     UserRole.ECONOME: 0,
+    UserRole.SERVEUR: 0,
     UserRole.CAISSIER: 1,
     UserRole.RESPONSABLE: 2,
     UserRole.ADMIN: 3,
