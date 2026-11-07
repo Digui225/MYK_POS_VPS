@@ -85,6 +85,13 @@ class OrderDispatchResponse(BaseSchema):
     kitchen_ticket_job_id: str | None = Field(None, description="Bon cuisine mis en file d'impression (caisse)")
 
 
+class OrderSplitResponse(BaseSchema):
+    """Addition séparée par convive : la note d'origine (premier convive et articles pour la
+    table), puis une note par autre convive."""
+
+    orders: list[OrderResponse]
+
+
 class BestSellerResponse(BaseSchema):
     product_id: str
     quantity_sold: int

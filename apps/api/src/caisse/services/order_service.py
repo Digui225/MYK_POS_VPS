@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from caisse.core.errors import CaisseException
 from caisse.core.pagination import PageRequest, split
-from caisse.domain.enums import ServiceMode, UserRole
+from caisse.domain.enums import OrderStatus, PaymentStatus, ServiceMode, UserRole
 from caisse.domain.kitchen_rules import KitchenLine, KitchenTicket, is_kitchen_line
 from caisse.domain.order_rules import (
     assert_order_editable,
@@ -13,6 +13,7 @@ from caisse.domain.order_rules import (
     generate_order_number,
     recalculate_order_totals,
 )
+from caisse.domain.split_rules import split_by_seat
 from caisse.infrastructure.websocket.manager import ws_manager
 from caisse.models.order import Order, OrderItem
 from caisse.models.user import User
@@ -101,12 +102,7 @@ class OrderService:
                 if not note_label:
                     note_label = "Note 1"
 
-        b_date_str = active_session.business_date.isoformat()
-        seq_num = self.order_repo.get_next_daily_sequence(b_date_str)
-        order_number = generate_order_number(b_date_str, seq_num)
-        while self.db.query(Order.id).filter(Order.order_number == order_number).first():
-            seq_num += 1
-            order_number = generate_order_number(b_date_str, seq_num)
+        order_number = self._next_order_number(active_session.business_date.isoformat())
 
         order = Order(
             order_number=order_number,
@@ -375,6 +371,113 @@ class OrderService:
             kitchen_lines_count=len(kitchen_lines),
             kitchen_ticket_job_id=job_id,
         )
+
+    def _next_order_number(self, business_date: str) -> str:
+        seq_num = self.order_repo.get_next_daily_sequence(business_date)
+        order_number = generate_order_number(business_date, seq_num)
+        while self.db.query(Order.id).filter(Order.order_number == order_number).first():
+            seq_num += 1
+            order_number = generate_order_number(business_date, seq_num)
+        return order_number
+
+    def split_by_seat(self, order_id: str, user: User, device_id: str | None = None) -> list[Order]:
+        """Sépare l'addition par convive : chaque autre convive part sur sa propre note (son
+        ticket, sa FNE) ; le premier garde la note d'origine avec les articles pour la table.
+
+        Seulement avant tout paiement : rien ne se modifie après encaissement. Les lignes
+        gardent leur convive et leur n° d'envoi ; le déplacement est tracé. NE VALIDE PAS :
+        l'appelant enregistre la clé d'idempotence puis valide, et diffuse ensuite.
+        """
+        order = self._get_editable_order(order_id)
+        if order.status != OrderStatus.OPEN or order.paid_xof > 0 or any(
+            p.status == PaymentStatus.CAPTURED for p in order.payments
+        ):
+            raise CaisseException(
+                code="ORDER_SPLIT_NOT_ALLOWED",
+                title="Séparation impossible",
+                detail="Un paiement est déjà enregistré sur cette note : elle ne peut plus être séparée.",
+                status_code=status.HTTP_409_CONFLICT,
+            )
+        try:
+            _staying, moving = split_by_seat(order.items)
+        except ValueError as exc:
+            raise CaisseException(
+                code="ORDER_SPLIT_NOTHING_TO_SPLIT",
+                title="Rien à séparer",
+                detail=str(exc),
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            ) from exc
+
+        used_labels = {
+            o.note_label for o in self.order_repo.get_active_orders_by_table_id(order.table_id)
+        } if order.table_id else set()
+        business_date = order.cash_session.business_date.isoformat()
+        now = datetime.now(timezone.utc)
+        created: list[Order] = []
+        for seat, lines in moving.items():
+            note_label = None
+            if order.table_id:
+                n = 1
+                while f"Note {n}" in used_labels:
+                    n += 1
+                note_label = f"Note {n}"
+                used_labels.add(note_label)
+            new = Order(
+                order_number=self._next_order_number(business_date),
+                cash_session_id=order.cash_session_id,
+                table_id=order.table_id,
+                note_label=note_label,
+                status=OrderStatus.OPEN,
+                service_mode=order.service_mode,
+                opened_by_user_id=user.id,
+                served_by_user_id=order.served_by_user_id,
+                guests_count=1,
+                dispatch_count=order.dispatch_count,
+                bill_requested_at=order.bill_requested_at,
+                total_ttc_xof=0,
+                total_ht_xof=0,
+                total_vat_xof=0,
+                paid_xof=0,
+                due_xof=0,
+                opened_at=now,
+            )
+            self.db.add(new)
+            self.db.flush()
+            for line in lines:
+                line.order_id = new.id
+            self.db.flush()
+            self.db.refresh(new)
+            self._refresh_totals(new)
+            created.append(new)
+            self.audit.log(
+                action="ORDER_SPLIT_CREATED",
+                entity="ORDER",
+                entity_id=new.id,
+                user_id=user.id,
+                after={
+                    "from_order_id": order.id,
+                    "seat": seat,
+                    "lines": [{"name": it.product_name_snapshot, "quantity": it.quantity} for it in lines],
+                    "total_ttc_xof": new.total_ttc_xof,
+                },
+                device_id=device_id,
+            )
+
+        before_total = order.total_ttc_xof
+        self.db.refresh(order)
+        self._refresh_totals(order)
+        order.guests_count = max(1, order.guests_count - len(created))
+        self.audit.log(
+            action="ORDER_SPLIT",
+            entity="ORDER",
+            entity_id=order.id,
+            user_id=user.id,
+            before={"total_ttc_xof": before_total},
+            after={"total_ttc_xof": order.total_ttc_xof, "new_orders": [o.id for o in created]},
+            device_id=device_id,
+        )
+        self.db.flush()
+        return [order, *created]
 
     def request_bill(self, order_id: str, user_id: str, device_id: str | None = None) -> OrderResponse:
         """Le serveur demande l'addition : la note passe en « Addition demandée » à la caisse."""

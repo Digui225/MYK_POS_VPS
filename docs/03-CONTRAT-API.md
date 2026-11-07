@@ -332,6 +332,8 @@ Idempotency-Key: 0b7e...
 
 **Livraison à part** (lot 6, rétrocompatible) : `GET /orders?order_type=DELIVERY` liste les livraisons ; `order_type=TAKEAWAY` ne liste plus que l'emporter (sans table, hors livraison). Le tableau de bord sépare aussi : `GET /reports/dashboard` ajoute `delivery_orders_count` (et `takeaway_orders_count` exclut la livraison), `GET /reports/overview` ajoute `delivery_orders` (et `takeaway_orders` l'exclut). Tant qu'aucune livraison n'est saisie, les valeurs ne changent pas.
 
+**Séparer l'addition par convive** (07/11/2026) : `POST /orders/{id}/split-by-seat` (`S` / `C`, `Idempotency-Key` obligatoire, sans corps). Deux clients qui ne sont pas ensemble paient séparément : chaque convive à partir du deuxième part sur sa propre note (même table, même serveur, « Note n » suivante, 1 couvert), donc son ticket et sa FNE ; le premier convive garde la note d'origine avec les articles pour la table (`seat` 0 ou absent). Les lignes gardent leur convive et leur n° d'envoi ; le déplacement est tracé (`ORDER_SPLIT`, `ORDER_SPLIT_CREATED`). `200` → `{ "orders": [note d'origine, notes créées…] }`. Refus : `409 ORDER_SPLIT_NOT_ALLOWED` dès qu'un paiement existe (rien ne se modifie après encaissement), `422 ORDER_SPLIT_NOTHING_TO_SPLIT` avec moins de deux convives. Une séparation rejouée (même clé) renvoie le premier résultat.
+
 **Demande d'addition** : `POST /orders/{id}/bill-request` pose `bill_requested_at` (sans effet si déjà demandée) et diffuse `ORDER_UPDATED` (`bill_requested: true`).
 
 ### 4.6 Paiements

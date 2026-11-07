@@ -19,6 +19,7 @@ from caisse.schemas.orders import (
     OrderItemAddRequest,
     OrderItemRemoveRequest,
     OrderResponse,
+    OrderSplitResponse,
 )
 from caisse.services.order_service import OrderService
 
@@ -221,6 +222,64 @@ async def dispatch_order(
         raise
 
     service.broadcast_order_updated(order, dispatch_no=result.dispatch_no)
+    return result
+
+
+@router.post(
+    "/{id}/split-by-seat",
+    response_model=OrderSplitResponse,
+    summary="Séparer l'addition par convive (une note par convive, avant tout paiement)",
+)
+async def split_order_by_seat(
+    id: str,
+    request: Request,
+    response: Response,
+    idempotency_key: IdempotencyKey,
+    current_user: User = Depends(require_role("SERVEUR", "CAISSIER")),
+    device_id: str = Depends(require_device_id),
+    db: Session = Depends(get_db),
+) -> OrderSplitResponse:
+    """Deux clients qui ne sont pas ensemble paient séparément : chaque autre convive part sur
+    sa propre note (son ticket, sa FNE). Tout ou rien ; une séparation rejouée (même clé)
+    renvoie le premier résultat sans rien refaire."""
+    request_hash = idempotency.hash_request(None)
+    replay = idempotency.find_replay(
+        db, idempotency_key, method="POST", path=request.url.path, request_hash=request_hash
+    )
+    if replay is not None:
+        idempotency.apply_replay_headers(response)
+        return OrderSplitResponse.model_validate(replay)
+
+    service = OrderService(db)
+    try:
+        orders = service.split_by_seat(id, user=current_user, device_id=device_id)
+        result = OrderSplitResponse(orders=[service._to_order_response(o) for o in orders])
+    except Exception:
+        db.rollback()
+        raise
+    idempotency.save(
+        db,
+        idempotency_key,
+        method="POST",
+        path=request.url.path,
+        request_hash=request_hash,
+        status=200,
+        body=result.model_dump(mode="json"),
+        user_id=current_user.id,
+    )
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        replay = idempotency.find_replay(
+            db, idempotency_key, method="POST", path=request.url.path, request_hash=request_hash
+        )
+        if replay is not None:
+            idempotency.apply_replay_headers(response)
+            return OrderSplitResponse.model_validate(replay)
+        raise
+    for o in orders:
+        service.broadcast_order_updated(o, split=True)
     return result
 
 

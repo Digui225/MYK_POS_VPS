@@ -93,3 +93,65 @@ def test_delivery_is_counted_apart_from_takeaway(client: TestClient, salle: dict
 
     assert ids("DELIVERY") == {delivery["id"]}
     assert ids("TAKEAWAY") == {takeaway["id"]}
+
+
+def _note_with_three_guests(client: TestClient, salle: dict[str, Any], key: str) -> dict[str, Any]:  # noqa: F811
+    note = _open_note(client, salle["koffi"], table_id="tbl-01", guests_count=3)
+    res = _dispatch(
+        client,
+        salle["koffi"],
+        note["id"],
+        key,
+        [
+            {"product_id": salle["foufou"], "seat": 1},
+            {"product_id": salle["bissap"], "seat": 0},
+            {"product_id": salle["brochet"], "seat": 2},
+            {"product_id": salle["foufou"], "seat": 3},
+        ],
+    )
+    assert res.status_code == 200, res.text
+    return note
+
+
+def test_split_by_seat_gives_each_guest_a_note(
+    client: TestClient, salle: dict[str, Any], db_session: Any  # noqa: F811
+) -> None:
+    note = _note_with_three_guests(client, salle, "separation-envoi")
+    headers = {**salle["koffi"], "Idempotency-Key": "separation-1"}
+    res = client.post(f"/api/v1/orders/{note['id']}/split-by-seat", headers=headers)
+    assert res.status_code == 200, res.text
+    orders = res.json()["orders"]
+    assert [o["note_label"] for o in orders] == ["Note 1", "Note 2", "Note 3"]
+    assert [o["total_ttc_xof"] for o in orders] == [4000, 3500, 3500]  # le jus pour la table reste au convive 1
+    assert [[it["seat"] for it in o["items"]] for o in orders] == [[1, 0], [2], [3]]
+    assert all(o["served_by_name"] == "Koffi" for o in orders)
+
+    again = client.post(f"/api/v1/orders/{note['id']}/split-by-seat", headers=headers)
+    assert again.status_code == 200 and [o["id"] for o in again.json()["orders"]] == [o["id"] for o in orders]
+
+    board = client.get("/api/v1/tables/board", headers=salle["caisse"]).json()
+    t1 = next(t for t in board["tables"] if t["id"] == "tbl-01")
+    assert t1["active_orders_count"] == 3 and t1["current_total_ttc_xof"] == 11000
+
+    # Chaque note se règle à part
+    _pay(client, salle["caisse"], orders[1]["id"], 3500, "separation-paiement")
+    paid = client.get(f"/api/v1/orders/{orders[1]['id']}", headers=salle["caisse"]).json()
+    assert paid["status"] == "PAID"
+
+
+def test_split_is_refused_after_a_payment_or_with_a_single_guest(
+    client: TestClient, salle: dict[str, Any]  # noqa: F811
+) -> None:
+    note = _note_with_three_guests(client, salle, "separation-envoi-2")
+    _pay(client, salle["caisse"], note["id"], 1000, "separation-acompte")
+    refused = client.post(
+        f"/api/v1/orders/{note['id']}/split-by-seat", headers={**salle["koffi"], "Idempotency-Key": "separation-2"}
+    )
+    assert refused.status_code == 409 and refused.json()["code"] == "ORDER_SPLIT_NOT_ALLOWED"
+
+    alone = _open_note(client, salle["awa"], table_id="tbl-02")
+    _dispatch(client, salle["awa"], alone["id"], "separation-envoi-3", [{"product_id": salle["foufou"], "seat": 1}])
+    nothing = client.post(
+        f"/api/v1/orders/{alone['id']}/split-by-seat", headers={**salle["awa"], "Idempotency-Key": "separation-3"}
+    )
+    assert nothing.status_code == 422 and nothing.json()["code"] == "ORDER_SPLIT_NOTHING_TO_SPLIT"
