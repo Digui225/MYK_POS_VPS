@@ -389,6 +389,7 @@ class OrderService:
         l'appelant enregistre la clé d'idempotence puis valide, et diffuse ensuite.
         """
         order = self._get_editable_order(order_id)
+        self._ensure_server_of_note(order, user)
         if order.status != OrderStatus.OPEN or order.paid_xof > 0 or any(
             p.status == PaymentStatus.CAPTURED for p in order.payments
         ):
@@ -479,9 +480,24 @@ class OrderService:
         self.db.flush()
         return [order, *created]
 
-    def request_bill(self, order_id: str, user_id: str, device_id: str | None = None) -> OrderResponse:
+    @staticmethod
+    def _ensure_server_of_note(order: Order, user: User) -> None:
+        """L'addition d'une note (la demander, la séparer) revient à son serveur : sur une même
+        table, chaque serveur s'occupe de ses clients. La caisse et l'encadrement ne sont pas
+        concernés ; un serveur peut toujours ajouter sur la note d'un collègue (envoi)."""
+        if user.role == UserRole.SERVEUR and order.served_by_user_id != user.id:
+            raise CaisseException(
+                code="ORDER_NOT_YOUR_NOTE",
+                title="Note d'un collègue",
+                detail="Seul le serveur de la note peut demander ou séparer son addition.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
+    def request_bill(self, order_id: str, user: User, device_id: str | None = None) -> OrderResponse:
         """Le serveur demande l'addition : la note passe en « Addition demandée » à la caisse."""
         order = self._get_editable_order(order_id)
+        self._ensure_server_of_note(order, user)
+        user_id = user.id
         if order.bill_requested_at is None:
             order.bill_requested_at = datetime.now(timezone.utc)
             self.audit.log(

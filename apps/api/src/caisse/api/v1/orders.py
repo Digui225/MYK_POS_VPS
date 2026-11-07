@@ -294,7 +294,7 @@ async def request_bill(
     device_id: str = Depends(require_device_id),
     db: Session = Depends(get_db),
 ) -> OrderResponse:
-    return OrderService(db).request_bill(id, user_id=current_user.id, device_id=device_id)
+    return OrderService(db).request_bill(id, user=current_user, device_id=device_id)
 
 
 @router.delete("/{id}/items/{item_id}", response_model=OrderResponse, summary="Retirer une ligne (tracé)")

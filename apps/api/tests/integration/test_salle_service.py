@@ -155,3 +155,24 @@ def test_split_is_refused_after_a_payment_or_with_a_single_guest(
         f"/api/v1/orders/{alone['id']}/split-by-seat", headers={**salle["awa"], "Idempotency-Key": "separation-3"}
     )
     assert nothing.status_code == 422 and nothing.json()["code"] == "ORDER_SPLIT_NOTHING_TO_SPLIT"
+
+
+def test_only_the_server_of_the_note_asks_or_splits_its_bill(
+    client: TestClient, salle: dict[str, Any]  # noqa: F811
+) -> None:
+    """Sur une même table, chaque serveur demande l'addition de ses clients : un collègue peut
+    ajouter sur la note, pas demander ni séparer son addition. La caisse le peut toujours."""
+    note = _note_with_three_guests(client, salle, "verrou-envoi")
+    added = _dispatch(client, salle["awa"], note["id"], "verrou-ajout-awa", [{"product_id": salle["bissap"]}])
+    assert added.status_code == 200, added.text
+
+    asked = client.post(f"/api/v1/orders/{note['id']}/bill-request", headers=salle["awa"])
+    assert asked.status_code == 403 and asked.json()["code"] == "ORDER_NOT_YOUR_NOTE"
+    split = client.post(
+        f"/api/v1/orders/{note['id']}/split-by-seat", headers={**salle["awa"], "Idempotency-Key": "verrou-sep"}
+    )
+    assert split.status_code == 403 and split.json()["code"] == "ORDER_NOT_YOUR_NOTE"
+    assert client.get(f"/api/v1/orders/{note['id']}", headers=salle["caisse"]).json()["bill_requested_at"] is None
+
+    assert client.post(f"/api/v1/orders/{note['id']}/bill-request", headers=salle["koffi"]).status_code == 200
+    assert client.post(f"/api/v1/orders/{note['id']}/bill-request", headers=salle["caisse"]).status_code == 200
