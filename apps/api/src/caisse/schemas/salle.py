@@ -43,9 +43,13 @@ class MyServiceEvent(BaseSchema):
 
 
 class MyServiceResponse(BaseSchema):
-    """Le service du serveur connecté, sur la session de caisse en cours (écran « Mon service »)."""
+    """Le service du serveur connecté, sur la session de caisse en cours (écran « Mon service »),
+    ou sur la dernière session quand la caisse est fermée."""
 
-    business_date: date | None = Field(None, description="Journée de la caisse ouverte ; nulle si fermée")
+    caisse_open: bool = Field(True, description="Une session de caisse est ouverte (sinon : le dernier service)")
+    business_date: date | None = Field(
+        None, description="Journée de la session (ouverte, ou la dernière si la caisse est fermée) ; nulle si aucune"
+    )
     started_at: str | None = Field(None, description="Première note ou premier envoi du serveur")
     handed_xof: int = Field(0, description="Argent remis à la caisse (paiements dont il est « remis par »)")
     settled_notes_count: int = Field(0, description="Notes du serveur réglées pendant la session")

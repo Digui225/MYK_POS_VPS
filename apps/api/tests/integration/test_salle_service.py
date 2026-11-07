@@ -8,8 +8,11 @@
 from typing import Any
 
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
-from tests.integration.test_salle_dispatch import _dispatch, _open_note, salle  # noqa: F401
+from caisse.core.security import hash_pin
+from caisse.models.user import User
+from tests.integration.test_salle_dispatch import TEL, _dispatch, _open_note, salle  # noqa: F401
 
 
 def _pay(client: TestClient, caisse: dict[str, str], order_id: str, amount: int, key: str) -> None:
@@ -176,3 +179,50 @@ def test_only_the_server_of_the_note_asks_or_splits_its_bill(
 
     assert client.post(f"/api/v1/orders/{note['id']}/bill-request", headers=salle["koffi"]).status_code == 200
     assert client.post(f"/api/v1/orders/{note['id']}/bill-request", headers=salle["caisse"]).status_code == 200
+
+
+def test_caisse_closed_the_waiter_sees_it_and_cannot_open_a_note(
+    client: TestClient, db_session: Session
+) -> None:
+    """Caisse fermée : le serveur prend son service, voit que la caisse est fermée (le téléphone
+    affiche « Caisse fermée » à la place de la salle) et ne peut ouvrir aucune note."""
+    koffi = User(full_name="Koffi", pin_hash=hash_pin("246810"), role="SERVEUR", is_active=True)
+    db_session.add(koffi)
+    db_session.commit()
+
+    login = client.post("/api/v1/auth/login", json={"pin": "246810", "user_id": koffi.id, "device_id": TEL})
+    assert login.status_code == 200, login.text
+    assert login.json()["open_session"] is None
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}", "X-Device-Id": TEL}
+
+    current = client.get("/api/v1/cash-sessions/current", headers=headers)
+    assert current.status_code == 409 and current.json()["code"] == "NO_OPEN_SESSION"
+
+    refused = client.post("/api/v1/orders", headers=headers, json={"table_id": "tbl-01"})
+    assert refused.status_code == 409 and refused.json()["code"] == "NO_OPEN_SESSION"
+
+
+def test_after_closing_my_service_shows_the_last_service(
+    client: TestClient, salle: dict[str, Any]  # noqa: F811
+) -> None:
+    """Caisse clôturée : « Mon service » montre encore ce que le serveur a remis pendant le
+    dernier service, et dit que la caisse est fermée."""
+    note = _open_note(client, salle["koffi"], table_id="tbl-01")
+    _dispatch(client, salle["koffi"], note["id"], "cloture-envoi", [{"product_id": salle["foufou"]}])
+    _pay(client, salle["caisse"], note["id"], 3500, "cloture-paiement")
+    assert client.get("/api/v1/salle/my-service", headers=salle["koffi"]).json()["caisse_open"] is True
+
+    session_id = client.get("/api/v1/cash-sessions/current", headers=salle["caisse"]).json()["id"]
+    closed = client.post(
+        f"/api/v1/cash-sessions/{session_id}/close",
+        headers={**salle["caisse"], "Idempotency-Key": "cloture-salle"},
+        json={"counted_breakdown": {"10000": 2, "2000": 1, "1000": 1, "500": 1}},  # 20 000 + 3 500
+    )
+    assert closed.status_code == 200, closed.text
+
+    body = client.get("/api/v1/salle/my-service", headers=salle["koffi"]).json()
+    assert body["caisse_open"] is False
+    assert (body["handed_xof"], body["settled_notes_count"], body["open_notes"]) == (3500, 1, [])
+    assert body["business_date"] is not None
+    current = client.get("/api/v1/cash-sessions/current", headers=salle["koffi"])
+    assert current.status_code == 409 and current.json()["code"] == "NO_OPEN_SESSION"

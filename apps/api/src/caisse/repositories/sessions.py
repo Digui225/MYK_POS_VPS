@@ -30,6 +30,15 @@ class CashSessionRepository(BaseRepository[CashSession]):
             .first()
         )
 
+    def get_latest_by_register_id(self, register_id: str) -> CashSession | None:
+        """Dernière session de la caisse, ouverte ou clôturée."""
+        return (
+            self.db.query(CashSession)
+            .filter(CashSession.cash_register_id == register_id)
+            .order_by(CashSession.opened_at.desc())
+            .first()
+        )
+
     def get_or_create_default_register(self) -> CashRegister:
         register = self.db.query(CashRegister).first()
         if not register:

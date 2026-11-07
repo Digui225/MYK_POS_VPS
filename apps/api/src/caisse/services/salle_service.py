@@ -29,7 +29,9 @@ class SalleService:
 
     def my_service(self, user: User) -> MyServiceResponse:
         register = self.sessions.get_or_create_default_register()
-        session = self.sessions.get_active_by_register_id(register.id)
+        active = self.sessions.get_active_by_register_id(register.id)
+        # Caisse fermée : le dernier service (ce que le serveur a remis avant la clôture)
+        session = active or self.sessions.get_latest_by_register_id(register.id)
 
         load = (
             joinedload(Order.table),
@@ -85,6 +87,7 @@ class SalleService:
             it.added_at for o in in_session for it in o.items if it.dispatch_no and it.added_at
         ]
         return MyServiceResponse(
+            caisse_open=active is not None,
             business_date=session.business_date if session else None,
             started_at=_iso(min(starts)) if starts else None,
             handed_xof=handed_xof,
