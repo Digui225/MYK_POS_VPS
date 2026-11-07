@@ -61,6 +61,6 @@ Documentation OpenAPI : `/docs` et `/openapi.json` sur le port 8001.
 ## Conventions
 - Couches strictes : routeur HTTP → service applicatif → (règles pures `domain/` + repositories SQLAlchemy). Aucun SQL direct dans les routeurs.
 - Erreurs métier : lever des sous-classes de `CaisseException` (`caisse.core.errors`).
-- Rôles : `ECONOME`, `CAISSIER`, `RESPONSABLE`, `ADMIN` (définis dans `caisse.domain.enums`).
+- Rôles : `ECONOME`, `CAISSIER`, `SERVEUR` (téléphone de salle, branche `feat/ecran-serveur`, D11), `RESPONSABLE`, `ADMIN` (définis dans `caisse.domain.enums`).
 - Tout changement de schéma demande une nouvelle migration séquentielle Alembic. Ne jamais modifier une migration déjà déployée en production.
 - Fuseau horaire : `Africa/Abidjan`.
