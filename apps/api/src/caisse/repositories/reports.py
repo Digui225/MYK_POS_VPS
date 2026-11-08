@@ -11,6 +11,7 @@ from caisse.domain.enums import (
     OrderStatus,
     PaymentMethod,
     PaymentStatus,
+    ServiceMode,
     StockMovementType,
     StockOutMode,
 )
@@ -292,18 +293,21 @@ def last_count_dates(db: Session, day: date) -> dict[str, date]:
 # --- Tableau de bord du jour -------------------------------------------------------------
 
 
-def day_orders(db: Session, day: date) -> tuple[int, int, int, int, int, int, int]:
-    """(soldées, CA, couverts, à table, à emporter, ouvertes, annulées) de la journée."""
+def day_orders(db: Session, day: date) -> tuple[int, int, int, int, int, int, int, int]:
+    """(soldées, CA, couverts, à table, à emporter, ouvertes, annulées, livraisons) de la journée.
+    La livraison est sans table comme l'emporter, mais comptée à part."""
     paid = Order.status == OrderStatus.PAID
+    delivery = Order.service_mode == ServiceMode.LIVRAISON
     row = db.execute(
         select(
             func.count().filter(paid),
             func.coalesce(func.sum(Order.total_ttc_xof).filter(paid), 0),
             func.coalesce(func.sum(Order.guests_count).filter(paid), 0),
             func.count().filter(paid & Order.table_id.is_not(None)),
-            func.count().filter(paid & Order.table_id.is_(None)),
+            func.count().filter(paid & Order.table_id.is_(None) & ~delivery),
             func.count().filter(Order.status.in_(ACTIVE_ORDER_STATUSES)),
             func.count().filter(Order.status == OrderStatus.CANCELLED),
+            func.count().filter(paid & delivery),
         )
         .join(CashSession, Order.cash_session_id == CashSession.id)
         .where(CashSession.business_date == day)

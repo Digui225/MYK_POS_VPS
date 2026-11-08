@@ -99,7 +99,9 @@ class OrderRepository(BaseRepository[Order]):
                 if date_to:
                     stmt = stmt.where(CashSession.business_date <= date_to)
             if order_type == "TAKEAWAY":
-                stmt = stmt.where(Order.table_id.is_(None))
+                stmt = stmt.where(Order.table_id.is_(None), Order.service_mode != "LIVRAISON")
+            elif order_type == "DELIVERY":
+                stmt = stmt.where(Order.service_mode == "LIVRAISON")
             elif order_type == "DINE_IN":
                 stmt = stmt.where(Order.table_id.is_not(None))
             if search and search.strip():
@@ -127,7 +129,9 @@ class OrderRepository(BaseRepository[Order]):
             if date_to:
                 query = query.filter(CashSession.business_date <= date_to)
         if order_type == "TAKEAWAY":
-            query = query.filter(Order.table_id.is_(None))
+            query = query.filter(Order.table_id.is_(None), Order.service_mode != "LIVRAISON")
+        elif order_type == "DELIVERY":
+            query = query.filter(Order.service_mode == "LIVRAISON")
         elif order_type == "DINE_IN":
             query = query.filter(Order.table_id.is_not(None))
         if search and search.strip():

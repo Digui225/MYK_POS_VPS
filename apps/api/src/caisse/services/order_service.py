@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from caisse.core.errors import CaisseException
 from caisse.core.pagination import PageRequest, split
+from caisse.domain.enums import ServiceMode
 from caisse.domain.order_rules import (
     assert_order_editable,
     calculate_line_total,
@@ -43,6 +44,16 @@ class OrderService:
         user_id: str,
         device_id: str | None = None,
     ) -> OrderResponse:
+        service_mode = payload.service_mode or (
+            ServiceMode.SUR_PLACE if payload.table_id else ServiceMode.EMPORTER
+        )
+        if (service_mode == ServiceMode.SUR_PLACE) != bool(payload.table_id):
+            raise CaisseException(
+                code="INVALID_SERVICE_MODE",
+                title="Mode de service incohérent",
+                detail="Une commande sur place se prend sur une table ; à emporter et livraison, sans table.",
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            )
         register = self.session_repo.get_or_create_default_register()
         active_session = self.session_repo.get_active_by_register_id(register.id)
         if not active_session:
@@ -96,6 +107,7 @@ class OrderService:
             table_id=payload.table_id,
             note_label=note_label,
             status="OPEN",
+            service_mode=service_mode,
             opened_by_user_id=user_id,
             guests_count=payload.guests_count,
             total_ttc_xof=0,
@@ -112,7 +124,12 @@ class OrderService:
             entity="ORDER",
             entity_id=created.id,
             user_id=user_id,
-            after={"order_number": order_number, "table_id": payload.table_id, "guests_count": payload.guests_count},
+            after={
+                "order_number": order_number,
+                "table_id": payload.table_id,
+                "guests_count": payload.guests_count,
+                "service_mode": str(service_mode),
+            },
             device_id=device_id,
         )
         self.db.commit()
@@ -413,6 +430,7 @@ class OrderService:
             table_label=resolved_table_label,
             note_label=order.note_label,
             status=order.status,  # type: ignore
+            service_mode=order.service_mode,  # type: ignore
             guests_count=order.guests_count,
             total_ttc_xof=order.total_ttc_xof,
             total_ht_xof=order.total_ht_xof,

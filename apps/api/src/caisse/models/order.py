@@ -17,6 +17,8 @@ class Order(Base, TimestampMixin):
     note_label: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     status: Mapped[str] = mapped_column(String(20), default="OPEN", nullable=False)
+    # SUR_PLACE (table), EMPORTER ou LIVRAISON (sans table)
+    service_mode: Mapped[str] = mapped_column(String(20), default="SUR_PLACE", server_default="SUR_PLACE", nullable=False)
     opened_by_user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
     closed_by_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
 

@@ -51,6 +51,14 @@ class OrderStatus(StrEnum):
 
 
 ACTIVE_ORDER_STATUSES = (OrderStatus.OPEN, OrderStatus.PARTIALLY_PAID)
+
+
+class ServiceMode(StrEnum):
+    """Mode de service d'une commande : la livraison se traite comme l'emporter, séparée en rapports."""
+
+    SUR_PLACE = "SUR_PLACE"  # sur une table
+    EMPORTER = "EMPORTER"
+    LIVRAISON = "LIVRAISON"
 CashSessionStatus = SessionStatus
 
 

@@ -226,7 +226,7 @@ GET /api/v1/tables/board
 
 | Méthode | Chemin | Rôle | Description |
 |---|---|---|---|
-| POST | `/orders` | C | Créer (table, à emporter, ou nouvelle note sur table via `allow_multiple: true`, `note_label`) |
+| POST | `/orders` | C | Créer (table, à emporter, livraison, ou nouvelle note sur table via `allow_multiple: true`, `note_label`) |
 | GET | `/orders/{id}` | C / R / A | Détail complet (inclut `note_label`) |
 | GET | `/orders?status=&business_date=&date_from=&date_to=&order_type=&search=` | C / R / A | Historique des commandes du restaurant (filtrable par date, type, statut ou recherche de plat) |
 | POST | `/orders/{id}/items` | C | Ajouter une ligne |
@@ -234,6 +234,10 @@ GET /api/v1/tables/board
 | DELETE | `/orders/{id}/items/{item_id}` | C + override (R/A) | Retirer (motif obligatoire) |
 | POST | `/orders/{id}/cancel` | C + override (R/A) | Annuler (motif obligatoire) |
 | POST | `/orders/{id}/reprint` | C / R / A | Ré-impression (tracée) |
+
+**Mode de service** (08/11/2026, rétrocompatible) : `service_mode` = `SUR_PLACE` (table obligatoire), `EMPORTER` ou `LIVRAISON` (sans table ; la livraison se traite exactement comme l'emporter, ni client ni frais, séparée seulement pour les rapports). Absent à la création : `SUR_PLACE` avec une table, `EMPORTER` sans table (comportement d'avant). Incohérence table / mode : `422 INVALID_SERVICE_MODE`. `OrderResponse.service_mode` le renvoie.
+
+**Livraison à part** : `GET /orders?order_type=DELIVERY` liste les livraisons ; `order_type=TAKEAWAY` ne liste plus que l'emporter (sans table, hors livraison). `GET /reports/dashboard` ajoute `delivery_orders_count` (et `takeaway_orders_count` exclut la livraison), `GET /reports/overview` ajoute `delivery_orders` (et `takeaway_orders` l'exclut). Tant qu'aucune livraison n'est saisie, les valeurs ne changent pas.
 
 ```http
 POST /api/v1/orders/{id}/items

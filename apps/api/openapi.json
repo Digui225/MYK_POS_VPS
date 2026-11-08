@@ -10904,6 +10904,11 @@
             "title": "Takeaway Orders Count",
             "default": 0
           },
+          "delivery_orders_count": {
+            "type": "integer",
+            "title": "Delivery Orders Count",
+            "default": 0
+          },
           "total_sales_ttc_xof": {
             "type": "integer",
             "title": "Total Sales Ttc Xof"
@@ -11050,7 +11055,13 @@
           "takeaway_orders": {
             "type": "integer",
             "title": "Takeaway Orders",
-            "description": "Commandes sold\u00e9es \u00e0 emporter"
+            "description": "Commandes sold\u00e9es \u00e0 emporter (hors livraison)"
+          },
+          "delivery_orders": {
+            "type": "integer",
+            "title": "Delivery Orders",
+            "description": "Commandes sold\u00e9es en livraison",
+            "default": 0
           },
           "tables_occupied": {
             "type": "integer",
@@ -12835,6 +12846,23 @@
             ],
             "title": "Allow Multiple",
             "default": false
+          },
+          "service_mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "SUR_PLACE",
+                  "EMPORTER",
+                  "LIVRAISON"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Mode",
+            "description": "SUR_PLACE (table obligatoire), EMPORTER ou LIVRAISON (sans table). Absent : SUR_PLACE avec une table, EMPORTER sans table."
           }
         },
         "additionalProperties": false,
@@ -13148,6 +13176,16 @@
               "REFUNDED"
             ],
             "title": "Status"
+          },
+          "service_mode": {
+            "type": "string",
+            "enum": [
+              "SUR_PLACE",
+              "EMPORTER",
+              "LIVRAISON"
+            ],
+            "title": "Service Mode",
+            "default": "SUR_PLACE"
           },
           "guests_count": {
             "type": "integer",

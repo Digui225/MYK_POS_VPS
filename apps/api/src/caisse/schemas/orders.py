@@ -4,6 +4,8 @@ from pydantic import Field
 
 from caisse.schemas.common import BaseRequestSchema, BaseSchema
 
+ServiceModeName = Literal["SUR_PLACE", "EMPORTER", "LIVRAISON"]
+
 
 class OrderItemResponse(BaseSchema):
     id: str
@@ -28,6 +30,7 @@ class OrderResponse(BaseSchema):
     table_label: str | None = None
     note_label: str | None = None
     status: Literal["OPEN", "PARTIALLY_PAID", "PAID", "CANCELLED", "REFUNDED"]
+    service_mode: ServiceModeName = "SUR_PLACE"
     guests_count: int = 1
     total_ttc_xof: int = 0
     total_ht_xof: int = 0
@@ -45,6 +48,11 @@ class OrderCreateRequest(BaseRequestSchema):
     guests_count: int = 1
     note_label: str | None = None
     allow_multiple: bool | None = False
+    service_mode: ServiceModeName | None = Field(
+        None,
+        description="SUR_PLACE (table obligatoire), EMPORTER ou LIVRAISON (sans table). "
+        "Absent : SUR_PLACE avec une table, EMPORTER sans table.",
+    )
 
 
 class OrderItemAddRequest(BaseRequestSchema):
