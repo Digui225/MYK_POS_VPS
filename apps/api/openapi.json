@@ -48,6 +48,32 @@
         }
       }
     },
+    "/api/v1/auth/staff": {
+      "get": {
+        "tags": [
+          "Authentification"
+        ],
+        "summary": "Serveurs actifs (\u00e9cran de prise de service, avant connexion)",
+        "description": "Noms des comptes SERVEUR actifs, pour choisir son nom avant de taper son PIN.",
+        "operationId": "list_staff_api_v1_auth_staff_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StaffMemberResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Staff Api V1 Auth Staff Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "tags": [
@@ -1150,6 +1176,73 @@
         }
       }
     },
+    "/api/v1/catalog/best-sellers": {
+      "get": {
+        "tags": [
+          "Catalogue"
+        ],
+        "summary": "Produits les plus vendus (\u00e9cran serveur \u00ab Ce qui part le plus \u00bb)",
+        "description": "Produits actifs class\u00e9s par quantit\u00e9 vendue sur les commandes r\u00e9gl\u00e9es des `days` derniers jours.",
+        "operationId": "list_best_sellers_api_v1_catalog_best_sellers_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "default": 7,
+              "title": "Days"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 30,
+              "minimum": 1,
+              "default": 8,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BestSellerResponse"
+                  },
+                  "title": "Response List Best Sellers Api V1 Catalog Best Sellers Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/catalog/products/{id}": {
       "get": {
         "tags": [
@@ -1630,6 +1723,57 @@
         }
       }
     },
+    "/api/v1/tables/plan": {
+      "put": {
+        "tags": [
+          "Tables & Salle"
+        ],
+        "summary": "Enregistrer le plan de salle (Admin/Responsable)",
+        "description": "Place en une fois plusieurs tables sur le plan de leur zone (grille de 12 colonnes). Une position nulle retire la table du plan. Refus\u00e9 si une table sort de la grille (`TABLE_PLAN_OUT_OF_BOUNDS`) ou si deux tables actives d'une zone se chevauchent (`TABLE_PLAN_OVERLAP`, rien n'est enregistr\u00e9). Renvoie toutes les tables.",
+        "operationId": "save_table_plan_api_v1_tables_plan_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TablePlanUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TableResponse"
+                  },
+                  "type": "array",
+                  "title": "Response Save Table Plan Api V1 Tables Plan Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/tables/{table_id}": {
       "patch": {
         "tags": [
@@ -1768,6 +1912,7 @@
           "Commandes"
         ],
         "summary": "Cr\u00e9er une commande",
+        "description": "Avec `Idempotency-Key` (t\u00e9l\u00e9phone de salle), une cr\u00e9ation rejou\u00e9e apr\u00e8s une coupure\ndu Wi-Fi renvoie la note d\u00e9j\u00e0 ouverte au lieu d'en ouvrir une seconde.",
         "operationId": "create_order_api_v1_orders_post",
         "security": [
           {
@@ -1775,6 +1920,25 @@
           }
         ],
         "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)"
+          },
           {
             "name": "X-Device-Id",
             "in": "header",
@@ -2124,6 +2288,245 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/{id}/dispatch": {
+      "post": {
+        "tags": [
+          "Commandes"
+        ],
+        "summary": "Envoyer en cuisine (lignes + bon cuisine, idempotent)",
+        "description": "Enregistre toutes les lignes d'un envoi et met en file, \u00e0 la caisse, le bon cuisine\n(boissons exclues). Lignes, bon et cl\u00e9 d'idempotence sont valid\u00e9s ensemble : un envoi\ninterrompu n'enregistre rien, un envoi rejou\u00e9 renvoie la premi\u00e8re r\u00e9ponse sans rien doubler.",
+        "operationId": "dispatch_order_api_v1_orders__id__dispatch_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
+          },
+          {
+            "name": "X-Device-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderDispatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderDispatchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/{id}/split-by-seat": {
+      "post": {
+        "tags": [
+          "Commandes"
+        ],
+        "summary": "S\u00e9parer l'addition par convive (une note par convive, avant tout paiement)",
+        "description": "Deux clients qui ne sont pas ensemble paient s\u00e9par\u00e9ment : chaque autre convive part sur\nsa propre note (son ticket, sa FNE). Tout ou rien ; une s\u00e9paration rejou\u00e9e (m\u00eame cl\u00e9)\nrenvoie le premier r\u00e9sultat sans rien refaire.",
+        "operationId": "split_order_by_seat_api_v1_orders__id__split_by_seat_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front"
+          },
+          {
+            "name": "X-Device-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderSplitResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/{id}/bill-request": {
+      "post": {
+        "tags": [
+          "Commandes"
+        ],
+        "summary": "Demander l'addition \u00e0 la caisse (serveur)",
+        "operationId": "request_bill_api_v1_orders__id__bill_request_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "X-Device-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -8729,6 +9132,33 @@
           }
         }
       }
+    },
+    "/api/v1/salle/my-service": {
+      "get": {
+        "tags": [
+          "Salle (serveurs)"
+        ],
+        "summary": "Mon service : argent remis, notes en cours et fil du serveur connect\u00e9",
+        "description": "Sur la session de caisse ouverte : argent remis \u00e0 la caisse (paiements dont le serveur est \u00ab remis par \u00bb), notes r\u00e9gl\u00e9es, notes en cours (avec celles sans table) et le fil des envois, demandes d'addition et r\u00e8glements, du plus r\u00e9cent au plus ancien.",
+        "operationId": "my_service_api_v1_salle_my_service_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyServiceResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -9075,6 +9505,24 @@
           "created_at"
         ],
         "title": "BankDepositOut"
+      },
+      "BestSellerResponse": {
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "title": "Product Id"
+          },
+          "quantity_sold": {
+            "type": "integer",
+            "title": "Quantity Sold"
+          }
+        },
+        "type": "object",
+        "required": [
+          "product_id",
+          "quantity_sold"
+        ],
+        "title": "BestSellerResponse"
       },
       "BuyerLineOut": {
         "properties": {
@@ -10381,7 +10829,8 @@
               "CAISSIER",
               "RESPONSABLE",
               "ADMIN",
-              "ECONOME"
+              "ECONOME",
+              "SERVEUR"
             ],
             "title": "Role",
             "description": "R\u00f4le syst\u00e8me de l'utilisateur",
@@ -10904,6 +11353,11 @@
             "title": "Takeaway Orders Count",
             "default": 0
           },
+          "delivery_orders_count": {
+            "type": "integer",
+            "title": "Delivery Orders Count",
+            "default": 0
+          },
           "total_sales_ttc_xof": {
             "type": "integer",
             "title": "Total Sales Ttc Xof"
@@ -11050,7 +11504,13 @@
           "takeaway_orders": {
             "type": "integer",
             "title": "Takeaway Orders",
-            "description": "Commandes sold\u00e9es \u00e0 emporter"
+            "description": "Commandes sold\u00e9es \u00e0 emporter (hors livraison)"
+          },
+          "delivery_orders": {
+            "type": "integer",
+            "title": "Delivery Orders",
+            "description": "Commandes sold\u00e9es en livraison",
+            "default": 0
           },
           "tables_occupied": {
             "type": "integer",
@@ -11999,6 +12459,18 @@
             "type": "string",
             "title": "Device Id",
             "description": "Identifiant unique du poste caisse"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id",
+            "description": "Compte choisi avant le PIN (\u00e9cran \u00ab Qui prend le service ? \u00bb des appareils de salle). Absent : connexion par PIN seul, comme \u00e0 la caisse."
           }
         },
         "additionalProperties": false,
@@ -12673,6 +13145,296 @@
         ],
         "title": "MarketPurchaseReceiveLine"
       },
+      "MyServiceEvent": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "DISPATCH",
+              "BILL_REQUESTED",
+              "PAID"
+            ],
+            "title": "Kind"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "order_id": {
+            "type": "string",
+            "title": "Order Id"
+          },
+          "order_number": {
+            "type": "string",
+            "title": "Order Number"
+          },
+          "service_mode": {
+            "type": "string",
+            "enum": [
+              "SUR_PLACE",
+              "EMPORTER",
+              "LIVRAISON"
+            ],
+            "title": "Service Mode"
+          },
+          "table_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Label"
+          },
+          "note_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Label"
+          },
+          "dispatch_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dispatch No",
+            "description": "DISPATCH : num\u00e9ro d'envoi"
+          },
+          "kitchen_count": {
+            "type": "integer",
+            "title": "Kitchen Count",
+            "description": "DISPATCH : articles partis sur le bon cuisine",
+            "default": 0
+          },
+          "drinks_count": {
+            "type": "integer",
+            "title": "Drinks Count",
+            "description": "DISPATCH : boissons pr\u00e9par\u00e9es \u00e0 la caisse",
+            "default": 0
+          },
+          "amount_xof": {
+            "type": "integer",
+            "title": "Amount Xof",
+            "description": "BILL_REQUESTED : reste d\u00fb ; PAID : montant r\u00e9gl\u00e9",
+            "default": 0
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method",
+            "description": "PAID : moyen de paiement"
+          },
+          "cashier_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cashier Name",
+            "description": "PAID : qui a encaiss\u00e9"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "at",
+          "order_id",
+          "order_number",
+          "service_mode"
+        ],
+        "title": "MyServiceEvent",
+        "description": "Un fait du service, pour \u00ab Le fil \u00bb : envoi, addition demand\u00e9e, r\u00e8glement."
+      },
+      "MyServiceNote": {
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "title": "Order Id"
+          },
+          "order_number": {
+            "type": "string",
+            "title": "Order Number"
+          },
+          "service_mode": {
+            "type": "string",
+            "enum": [
+              "SUR_PLACE",
+              "EMPORTER",
+              "LIVRAISON"
+            ],
+            "title": "Service Mode"
+          },
+          "table_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Id"
+          },
+          "table_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Label"
+          },
+          "note_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Label"
+          },
+          "guests_count": {
+            "type": "integer",
+            "title": "Guests Count",
+            "default": 1
+          },
+          "total_ttc_xof": {
+            "type": "integer",
+            "title": "Total Ttc Xof",
+            "default": 0
+          },
+          "due_xof": {
+            "type": "integer",
+            "title": "Due Xof",
+            "default": 0
+          },
+          "dispatch_count": {
+            "type": "integer",
+            "title": "Dispatch Count",
+            "default": 0
+          },
+          "bill_requested_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bill Requested At"
+          },
+          "opened_at": {
+            "type": "string",
+            "title": "Opened At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "order_id",
+          "order_number",
+          "service_mode",
+          "opened_at"
+        ],
+        "title": "MyServiceNote",
+        "description": "Une note en cours du serveur (sur une table ou sans table)."
+      },
+      "MyServiceResponse": {
+        "properties": {
+          "caisse_open": {
+            "type": "boolean",
+            "title": "Caisse Open",
+            "description": "Une session de caisse est ouverte (sinon : le dernier service)",
+            "default": true
+          },
+          "business_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Date",
+            "description": "Journ\u00e9e de la session (ouverte, ou la derni\u00e8re si la caisse est ferm\u00e9e) ; nulle si aucune"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At",
+            "description": "Premi\u00e8re note ou premier envoi du serveur"
+          },
+          "handed_xof": {
+            "type": "integer",
+            "title": "Handed Xof",
+            "description": "Argent remis \u00e0 la caisse (paiements dont il est \u00ab remis par \u00bb)",
+            "default": 0
+          },
+          "settled_notes_count": {
+            "type": "integer",
+            "title": "Settled Notes Count",
+            "description": "Notes du serveur r\u00e9gl\u00e9es pendant la session",
+            "default": 0
+          },
+          "open_xof": {
+            "type": "integer",
+            "title": "Open Xof",
+            "description": "Reste d\u00fb sur ses notes en cours",
+            "default": 0
+          },
+          "open_notes": {
+            "items": {
+              "$ref": "#/components/schemas/MyServiceNote"
+            },
+            "type": "array",
+            "title": "Open Notes",
+            "default": []
+          },
+          "feed": {
+            "items": {
+              "$ref": "#/components/schemas/MyServiceEvent"
+            },
+            "type": "array",
+            "title": "Feed",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "MyServiceResponse",
+        "description": "Le service du serveur connect\u00e9, sur la session de caisse en cours (\u00e9cran \u00ab Mon service \u00bb),\nou sur la derni\u00e8re session quand la caisse est ferm\u00e9e."
+      },
       "OpenSessionInfo": {
         "properties": {
           "id": {
@@ -12835,11 +13597,83 @@
             ],
             "title": "Allow Multiple",
             "default": false
+          },
+          "service_mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "SUR_PLACE",
+                  "EMPORTER",
+                  "LIVRAISON"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Mode",
+            "description": "SUR_PLACE (table obligatoire), EMPORTER ou LIVRAISON (sans table). Absent : SUR_PLACE avec une table, EMPORTER sans table."
           }
         },
         "additionalProperties": false,
         "type": "object",
         "title": "OrderCreateRequest"
+      },
+      "OrderDispatchRequest": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OrderItemAddRequest"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "OrderDispatchRequest",
+        "description": "Envoi en cuisine : toutes les lignes sont enregistr\u00e9es ensemble, ou aucune."
+      },
+      "OrderDispatchResponse": {
+        "properties": {
+          "order": {
+            "$ref": "#/components/schemas/OrderResponse"
+          },
+          "dispatch_no": {
+            "type": "integer",
+            "title": "Dispatch No"
+          },
+          "kitchen_lines_count": {
+            "type": "integer",
+            "title": "Kitchen Lines Count",
+            "description": "Lignes parties sur le bon cuisine (boissons exclues)"
+          },
+          "kitchen_ticket_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kitchen Ticket Job Id",
+            "description": "Bon cuisine mis en file d'impression (caisse)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "order",
+          "dispatch_no",
+          "kitchen_lines_count"
+        ],
+        "title": "OrderDispatchResponse"
       },
       "OrderItemAddRequest": {
         "properties": {
@@ -12914,6 +13748,19 @@
               }
             ],
             "title": "Category Name"
+          },
+          "seat": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seat",
+            "description": "Convive : 0 = pour la table, 1..n = convive"
           }
         },
         "additionalProperties": false,
@@ -12986,6 +13833,28 @@
               }
             ],
             "title": "Note"
+          },
+          "seat": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seat"
+          },
+          "dispatch_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dispatch No"
           },
           "added_at": {
             "type": "string",
@@ -13149,6 +14018,54 @@
             ],
             "title": "Status"
           },
+          "service_mode": {
+            "type": "string",
+            "enum": [
+              "SUR_PLACE",
+              "EMPORTER",
+              "LIVRAISON"
+            ],
+            "title": "Service Mode",
+            "default": "SUR_PLACE"
+          },
+          "served_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Served By User Id"
+          },
+          "served_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Served By Name"
+          },
+          "dispatch_count": {
+            "type": "integer",
+            "title": "Dispatch Count",
+            "default": 0
+          },
+          "bill_requested_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bill Requested At"
+          },
           "guests_count": {
             "type": "integer",
             "title": "Guests Count",
@@ -13223,6 +14140,23 @@
           "opened_at"
         ],
         "title": "OrderResponse"
+      },
+      "OrderSplitResponse": {
+        "properties": {
+          "orders": {
+            "items": {
+              "$ref": "#/components/schemas/OrderResponse"
+            },
+            "type": "array",
+            "title": "Orders"
+          }
+        },
+        "type": "object",
+        "required": [
+          "orders"
+        ],
+        "title": "OrderSplitResponse",
+        "description": "Addition s\u00e9par\u00e9e par convive : la note d'origine (premier convive et articles pour la\ntable), puis une note par autre convive."
       },
       "OverrideRequest": {
         "properties": {
@@ -13724,6 +14658,17 @@
             "type": "string",
             "title": "Status",
             "default": "CAPTURED"
+          },
+          "handed_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handed By User Id"
           },
           "created_at": {
             "type": "string",
@@ -16270,6 +17215,25 @@
         ],
         "title": "SessionStatus"
       },
+      "StaffMemberResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "full_name"
+        ],
+        "title": "StaffMemberResponse",
+        "description": "Serveur actif propos\u00e9 sur l'\u00e9cran de prise de service, avant connexion."
+      },
       "StockArticleCategory": {
         "type": "string",
         "enum": [
@@ -17181,6 +18145,44 @@
             ],
             "title": "Server Name"
           },
+          "served_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Served By User Id"
+          },
+          "dispatch_count": {
+            "type": "integer",
+            "title": "Dispatch Count",
+            "default": 0
+          },
+          "last_dispatch_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Dispatch At"
+          },
+          "bill_requested_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bill Requested At"
+          },
           "items_count": {
             "type": "integer",
             "title": "Items Count",
@@ -17337,6 +18339,52 @@
             "type": "array",
             "title": "Active Orders",
             "default": []
+          },
+          "bill_requested": {
+            "type": "boolean",
+            "title": "Bill Requested",
+            "default": false
+          },
+          "plan_x": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan X"
+          },
+          "plan_y": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Y"
+          },
+          "plan_w": {
+            "type": "integer",
+            "title": "Plan W",
+            "default": 2
+          },
+          "plan_h": {
+            "type": "integer",
+            "title": "Plan H",
+            "default": 2
+          },
+          "shape": {
+            "type": "string",
+            "enum": [
+              "ROUND",
+              "RECT"
+            ],
+            "title": "Shape",
+            "default": "RECT"
           }
         },
         "type": "object",
@@ -17420,6 +18468,100 @@
         ],
         "title": "TableOrderItemSummary"
       },
+      "TablePlacement": {
+        "properties": {
+          "table_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Table Id"
+          },
+          "zone": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Zone",
+            "description": "Zone dont le plan re\u00e7oit la table"
+          },
+          "plan_x": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMaximum": 12.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan X",
+            "description": "Colonne de la case haut-gauche ; nulle = retir\u00e9e du plan"
+          },
+          "plan_y": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMaximum": 60.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Y",
+            "description": "Ligne de la case haut-gauche"
+          },
+          "plan_w": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Plan W",
+            "description": "Largeur en cases",
+            "default": 2
+          },
+          "plan_h": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Plan H",
+            "description": "Hauteur en cases",
+            "default": 2
+          },
+          "shape": {
+            "type": "string",
+            "enum": [
+              "ROUND",
+              "RECT"
+            ],
+            "title": "Shape",
+            "default": "RECT"
+          }
+        },
+        "type": "object",
+        "required": [
+          "table_id",
+          "zone"
+        ],
+        "title": "TablePlacement"
+      },
+      "TablePlanUpdateRequest": {
+        "properties": {
+          "placements": {
+            "items": {
+              "$ref": "#/components/schemas/TablePlacement"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Placements"
+          }
+        },
+        "type": "object",
+        "required": [
+          "placements"
+        ],
+        "title": "TablePlanUpdateRequest"
+      },
       "TableResponse": {
         "properties": {
           "id": {
@@ -17449,6 +18591,47 @@
             "type": "boolean",
             "title": "Is Active",
             "default": true
+          },
+          "plan_x": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan X"
+          },
+          "plan_y": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Y"
+          },
+          "plan_w": {
+            "type": "integer",
+            "title": "Plan W",
+            "default": 2
+          },
+          "plan_h": {
+            "type": "integer",
+            "title": "Plan H",
+            "default": 2
+          },
+          "shape": {
+            "type": "string",
+            "enum": [
+              "ROUND",
+              "RECT"
+            ],
+            "title": "Shape",
+            "default": "RECT"
           }
         },
         "type": "object",
@@ -17754,7 +18937,8 @@
                   "CAISSIER",
                   "RESPONSABLE",
                   "ADMIN",
-                  "ECONOME"
+                  "ECONOME",
+                  "SERVEUR"
                 ]
               },
               {
@@ -17820,7 +19004,8 @@
               "CAISSIER",
               "RESPONSABLE",
               "ADMIN",
-              "ECONOME"
+              "ECONOME",
+              "SERVEUR"
             ],
             "title": "Role"
           },

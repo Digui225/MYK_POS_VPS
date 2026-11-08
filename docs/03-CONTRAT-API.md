@@ -277,6 +277,10 @@ Les tables absentes de `placements` gardent leur place ; une position `null` ret
 | POST | `/orders/{id}/cancel` | C + override (R/A) | Annuler (motif obligatoire) |
 | POST | `/orders/{id}/reprint` | C / R / A | Ré-impression (tracée) |
 
+**Mode de service** (08/11/2026, rétrocompatible) : `service_mode` = `SUR_PLACE` (table obligatoire), `EMPORTER` ou `LIVRAISON` (sans table ; la livraison se traite exactement comme l'emporter, ni client ni frais, séparée seulement pour les rapports). Absent à la création : `SUR_PLACE` avec une table, `EMPORTER` sans table (comportement d'avant). Incohérence table / mode : `422 INVALID_SERVICE_MODE`. `OrderResponse.service_mode` le renvoie.
+
+**Livraison à part** : `GET /orders?order_type=DELIVERY` liste les livraisons ; `order_type=TAKEAWAY` ne liste plus que l'emporter (sans table, hors livraison). `GET /reports/dashboard` ajoute `delivery_orders_count` (et `takeaway_orders_count` exclut la livraison), `GET /reports/overview` ajoute `delivery_orders` (et `takeaway_orders` l'exclut). Tant qu'aucune livraison n'est saisie, les valeurs ne changent pas.
+
 ```http
 POST /api/v1/orders/{id}/items
 { "product_id": "...", "quantity": 2, "note": "bien cuit" }
@@ -300,8 +304,6 @@ POST /api/v1/orders/{id}/items
 > **Toutes** les mutations de commande renvoient **l'objet commande complet et recalculé**. Le front n'a jamais à additionner quoi que ce soit ni à enchaîner un second appel.
 
 #### Prise de commande en salle (écran serveur, 06/11/2026)
-
-**Mode de service** : `service_mode` = `SUR_PLACE` (table obligatoire), `EMPORTER` ou `LIVRAISON` (sans table ; la livraison se traite exactement comme l'emporter, séparée seulement pour les rapports). Absent à la création : `SUR_PLACE` avec une table, `EMPORTER` sans table (comportement d'avant). Incohérence table / mode : `422 INVALID_SERVICE_MODE`.
 
 **Serveur de la note** : une note créée par un `SERVEUR` est à son nom (`served_by_user_id`, `served_by_name`) ; une note créée à la caisse n'a pas de serveur, et le premier serveur qui y envoie des plats en devient le serveur. Deux clients qui ne sont pas ensemble sur une même table : chaque serveur ouvre sa note (`allow_multiple: true`), avec son bon cuisine et son addition. Un serveur peut envoyer sur la note d'un collègue : la note garde son serveur.
 
@@ -331,8 +333,6 @@ Idempotency-Key: 0b7e...
 **Mon service** (`S`, 06/11/2026, lot 6) : `GET /api/v1/salle/my-service` renvoie, pour le serveur connecté et la session de caisse ouverte, l'argent remis à la caisse (`handed_xof` : paiements encaissés dont il est « remis par »), le nombre de notes réglées, le reste dû sur ses notes en cours (`open_xof`, `open_notes`, y compris celles sans table) et `feed`, le fil du plus récent au plus ancien : `DISPATCH` (numéro d'envoi, `kitchen_count` partis sur le bon, `drinks_count` boissons), `BILL_REQUESTED` (reste dû) et `PAID` (montant, moyen, qui a encaissé). Réservé au rôle `SERVEUR` (`403` sinon). Ajout du 07/11/2026 (rétrocompatible) : `caisse_open` dit si une session de caisse est ouverte ; caisse fermée, la réponse porte sur la **dernière session** de la caisse (`business_date` de celle-ci), pour que le serveur voie ce qu'il a remis avant la clôture.
 
 **Caisse fermée côté salle** (07/11/2026) : sans session ouverte, `GET /cash-sessions/current` répond `409 NO_OPEN_SESSION` (y compris pour un `SERVEUR`) et `POST /orders` est refusé (`409 NO_OPEN_SESSION`). Le téléphone affiche alors « Caisse fermée » à la place de la salle et de la carte, et revient sur la salle à `SESSION_OPENED`.
-
-**Livraison à part** (lot 6, rétrocompatible) : `GET /orders?order_type=DELIVERY` liste les livraisons ; `order_type=TAKEAWAY` ne liste plus que l'emporter (sans table, hors livraison). Le tableau de bord sépare aussi : `GET /reports/dashboard` ajoute `delivery_orders_count` (et `takeaway_orders_count` exclut la livraison), `GET /reports/overview` ajoute `delivery_orders` (et `takeaway_orders` l'exclut). Tant qu'aucune livraison n'est saisie, les valeurs ne changent pas.
 
 **Séparer l'addition par convive** (07/11/2026) : `POST /orders/{id}/split-by-seat` (`S` / `C`, `Idempotency-Key` obligatoire, sans corps). Deux clients qui ne sont pas ensemble paient séparément : chaque convive à partir du deuxième part sur sa propre note (même table, même serveur, « Note n » suivante, 1 couvert), donc son ticket et sa FNE ; le premier convive garde la note d'origine avec les articles pour la table (`seat` 0 ou absent). Les lignes gardent leur convive et leur n° d'envoi ; le déplacement est tracé (`ORDER_SPLIT`, `ORDER_SPLIT_CREATED`). `200` → `{ "orders": [note d'origine, notes créées…] }`. Refus : `403 ORDER_NOT_YOUR_NOTE` pour un serveur sur la note d'un collègue, `409 ORDER_SPLIT_NOT_ALLOWED` dès qu'un paiement existe (rien ne se modifie après encaissement), `422 ORDER_SPLIT_NOTHING_TO_SPLIT` avec moins de deux convives. Une séparation rejouée (même clé) renvoie le premier résultat.
 
@@ -511,7 +511,6 @@ Champs ajoutés (rétrocompatibles) :
 - `WeeklyProductRow` : `total_stock_sold_qty`, `total_loss_qty`, `total_inventory_variance_qty`, `total_correction_qty`, `closing_stock_qty`, `current_stock_qty`, `total_non_destocked_dishes`. `weekly_purchased_qty`/`weekly_purchased_cost_xof` comptent désormais toutes les entrées d'achat de la période ; `quantity_variance` = somme des `preparation_gap_quantity` (seuls les jours avec sortie saisie) ; `actual_gross_margin_xof` = vente réelle − coût de la matière consommée au CMP (ventes + pertes + manquant net d'inventaire et de corrections), et non plus − achats de la période ; `dishes_variance` = plats vendus − plats possibles (positif : plus vendu que le stock disponible, anomalie). Rapport `/reports/protein-yields` : `consumed_quantity` compense inventaires et corrections avant de retenir un manquant.
 - `DailyPreparationOut` : `status`, `estimated_quantity`.
 - `StockReportArticle` (`/reports/stock`) : `correction_quantity`. `count_adjustment_quantity` ne compte plus que les inventaires ; `sold_quantity` exclut les sorties sans commande.
-
 
 ### 4.10 Impression
 
