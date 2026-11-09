@@ -12553,6 +12553,19 @@
             ],
             "title": "Received At"
           },
+          "stock_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stock Date",
+            "description": "Date d'entr\u00e9e en stock des achats re\u00e7us (jour de la r\u00e9ception)"
+          },
           "received_by_user_name": {
             "anyOf": [
               {

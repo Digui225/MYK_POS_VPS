@@ -70,6 +70,7 @@ def _format_purchase_out(purchase: MarketPurchaseList) -> MarketPurchaseListOut:
         include_condiments_envelope=getattr(purchase, "include_condiments_envelope", False),
         created_at=purchase.created_at,
         received_at=purchase.received_at,
+        stock_date=purchase.stock_date,
         received_by_user_name=purchase.received_by.full_name if purchase.received_by else None,
         cancelled_at=purchase.cancelled_at,
         cancelled_by_user_name=purchase.cancelled_by.full_name if purchase.cancelled_by else None,
@@ -648,6 +649,18 @@ def _purchase_entry(
     )
 
 
+def _reception_day(db: Session) -> date:
+    """Jour de la réception : la journée de la caisse ouverte, sinon aujourd'hui (comme les
+    autres mouvements de stock)."""
+    return stock_service.business_day(db)
+
+
+def _stock_date_of(purchase: MarketPurchaseList) -> date:
+    """Date des mouvements de stock d'un bon réceptionné : `stock_date`, ou la date du bon pour
+    un bon réceptionné avant D13."""
+    return purchase.stock_date or purchase.business_date
+
+
 def _fmt_qty(value: Decimal) -> str:
     return format(value.normalize(), "f")
 
@@ -661,9 +674,11 @@ def receive_market_purchase(
     ctx: Any = None,
 ) -> MarketPurchaseListOut:
     """Réception d'un bon validé : seules les quantités réellement reçues entrent en stock, au
-    prix du bon et à la date du bon. Sur un bon déjà réceptionné, corrige les quantités reçues :
-    l'écart est un mouvement d'achat signé et tracé (on ne modifie jamais un mouvement).
-    Les quantités sont des valeurs cibles : renvoyer la même demande ne change rien."""
+    prix du bon et au **jour de la réception** (D13 : un bon se prépare souvent la veille du
+    marché ; c'est l'arrivée des achats qui compte). Sur un bon déjà réceptionné, corrige les
+    quantités reçues : l'écart est un mouvement d'achat signé et tracé, daté comme la réception
+    (on ne modifie jamais un mouvement). Les quantités sont des valeurs cibles : renvoyer la
+    même demande ne change rien."""
     purchase = _lock_purchase(db, purchase_id)
     if purchase.status == PURCHASE_DRAFT:
         raise ValidationError(
@@ -708,6 +723,9 @@ def receive_market_purchase(
             )
 
     label = purchase.business_date.strftime("%d/%m/%Y")
+    # Première réception : aujourd'hui. Correction : la date de la réception (date du bon pour
+    # les bons réceptionnés avant D13, qui n'ont pas de stock_date).
+    stock_date = _reception_day(db) if first_reception else _stock_date_of(purchase)
     articles = stock_service.lock_existing(db, [str(items[iid].article_id) for iid in changes])
     movements: list[dict[str, Any]] = []
     for iid, delta in changes.items():
@@ -725,7 +743,7 @@ def receive_market_purchase(
             article,
             delta,
             Decimal(item.unit_price_xof),
-            business_date=purchase.business_date,
+            business_date=stock_date,
             user_id=str(user.id),
             reason=text_reason,
         )
@@ -736,6 +754,7 @@ def receive_market_purchase(
         item.received_quantity = wanted[iid]
 
     if first_reception:
+        purchase.stock_date = stock_date
         _enter_condiments_kit(db, purchase, str(user.id))
         purchase.status = PURCHASE_COMPLETED
         purchase.received_at = datetime.now(timezone.utc)
@@ -748,11 +767,103 @@ def receive_market_purchase(
         user_id=str(user.id),
         entity="market_purchase",
         entity_id=str(purchase.id),
-        after={"business_date": str(purchase.business_date), "lines": movements, "reason": reason or None},
+        after={
+            "business_date": str(purchase.business_date),
+            "stock_date": str(stock_date),
+            "lines": movements,
+            "reason": reason or None,
+        },
     )
     db.commit()
     db.refresh(purchase)
     return _format_purchase_out(purchase)
+
+
+def redate_market_reception(
+    db: Session,
+    purchase_id: str,
+    new_date: date,
+    *,
+    user_id: str,
+    reason: str,
+) -> list[dict[str, Any]]:
+    """Recale la date d'entrée en stock d'un bon déjà réceptionné (D13), sans modifier aucun
+    mouvement : pour chaque achat reçu (et le kit condiments), un retrait daté de l'ancienne
+    date et la même entrée datée de la nouvelle, au prix du bon. Le stock et le coût moyen ne
+    changent pas ; seuls les achats changent de jour (et de semaine dans la matrice).
+    Renvoie les mouvements faits ; rien si le bon est déjà à cette date."""
+    purchase = _lock_purchase(db, purchase_id)
+    if purchase.status != PURCHASE_COMPLETED:
+        raise ValidationError(
+            "Seul un bon réceptionné peut être recalé", meta={"status": purchase.status}
+        )
+    reason = reason.strip()
+    if len(reason) < 3:
+        raise ValidationError(
+            "Indiquez le motif du recalage",
+            meta={"fields": [{"loc": ["body", "reason"], "type": "missing"}]},
+        )
+    old_date = _stock_date_of(purchase)
+    if new_date == old_date:
+        return []
+
+    lines: list[tuple[str, Decimal, Decimal]] = [
+        (
+            str(item.article_id),
+            Decimal(item.received_quantity if item.received_quantity is not None else item.quantity),
+            Decimal(item.unit_price_xof),
+        )
+        for item in purchase.items
+    ]
+    if purchase.include_condiments_envelope:
+        from caisse.domain.market_budget_rules import DEFAULT_MARKET_CONDIMENTS_KIT
+
+        names = [str(c["name"]) for c in DEFAULT_MARKET_CONDIMENTS_KIT]
+        kit_ids = {
+            a.name: str(a.id)
+            for a in db.query(StockArticle).filter(StockArticle.name.in_(names)).all()
+        }
+        lines += [
+            (kit_ids[str(c["name"])], Decimal(c["quantity"]), Decimal(c["unit_price_xof"]))
+            for c in DEFAULT_MARKET_CONDIMENTS_KIT
+            if str(c["name"]) in kit_ids
+        ]
+    lines = [line for line in lines if line[1] != 0]
+
+    label = purchase.business_date.strftime("%d/%m/%Y")
+    text = (
+        f"Recalage réception bon du {label} : {old_date.strftime('%d/%m/%Y')} → "
+        f"{new_date.strftime('%d/%m/%Y')} — {reason}"
+    )[:255]
+    articles = stock_service.lock_existing(db, [aid for aid, _, _ in lines])
+    movements: list[dict[str, Any]] = []
+    for aid, qty, unit_cost in lines:
+        article = articles[aid]
+        for day, signed in ((old_date, -qty), (new_date, qty)):
+            stock_service.move(
+                db,
+                article,
+                StockMovementType.PURCHASE_IN,
+                signed,
+                unit_cost=unit_cost,
+                business_date=day,
+                user_id=user_id,
+                reason=text,
+            )
+        movements.append({"article": article.name, "quantity": _fmt_qty(qty)})
+
+    purchase.stock_date = new_date
+    audit_service.log(
+        db,
+        "market_purchase.reception_redated",
+        user_id=user_id,
+        entity="market_purchase",
+        entity_id=str(purchase.id),
+        before={"stock_date": str(old_date)},
+        after={"stock_date": str(new_date), "lines": movements, "reason": reason},
+    )
+    db.commit()
+    return movements
 
 
 def _enter_condiments_kit(db: Session, purchase: MarketPurchaseList, user_id: str) -> None:
@@ -788,7 +899,7 @@ def _enter_condiments_kit(db: Session, purchase: MarketPurchaseList, user_id: st
                     quantity=qty,
                     quantity_after=new_qty,
                     unit_cost_xof=unit_cost,
-                    business_date=purchase.business_date,
+                    business_date=_stock_date_of(purchase),
                     user_id=user_id,
                     reason=f"Kit condiments marché (120 000 XOF) #{purchase.business_date}",
                 )

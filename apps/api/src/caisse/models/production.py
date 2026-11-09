@@ -42,6 +42,9 @@ class MarketPurchaseList(Base, TimestampMixin):
         String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
     )
     received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Date des mouvements de stock du bon : jour de la réception (D13) ; date du bon pour les
+    # bons réceptionnés avant (D9). Nulle tant que le bon n'est pas réceptionné.
+    stock_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     received_by_user_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
     )

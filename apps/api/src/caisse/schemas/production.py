@@ -77,6 +77,9 @@ class MarketPurchaseListOut(BaseSchema):
     items: list[MarketPurchaseItemOut]
     created_at: datetime
     received_at: datetime | None = None
+    stock_date: date | None = Field(
+        None, description="Date d'entrée en stock des achats reçus (jour de la réception)"
+    )
     received_by_user_name: str | None = None
     cancelled_at: datetime | None = None
     cancelled_by_user_name: str | None = None

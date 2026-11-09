@@ -395,13 +395,15 @@ business_date,fiscal_group,quantity,gross_ht_xof,vat_xof,total_ttc_xof
 Cycle du bon : `DRAFT` (prévu) → `VALIDATED` (validé, argent remis) → `COMPLETED` (réceptionné). Seule la réception fait entrer le stock, avec les **quantités réellement reçues** ; la quantité prévue peut différer de ce qui revient du marché.
 
 `POST /production/market-purchases/{id}/receive`, corps `{"lines": [{"item_id", "received_quantity"}], "reason"?}` :
-- bon `VALIDATED` : une ligne absente vaut la quantité prévue, `0` si l'article n'a pas été trouvé. Entrées `PURCHASE_IN` au prix unitaire du bon, **datées du bon** ; le kit condiments éventuel entre aussi en stock. Refusé (422) sur un bon `DRAFT` ou annulé ;
-- bon `COMPLETED` : correction (motif `reason` obligatoire, 422 sinon). Pour chaque ligne modifiée, l'écart (reçu corrigé − reçu enregistré) est un `PURCHASE_IN` **signé** (négatif pour un retrait, sans changer le coût moyen), daté du bon, motif « Correction réception bon du JJ/MM/AAAA : ancien → nouveau — motif ». Aucun mouvement existant n'est modifié ;
+- bon `VALIDATED` : une ligne absente vaut la quantité prévue, `0` si l'article n'a pas été trouvé. Entrées `PURCHASE_IN` au prix unitaire du bon, **datées du jour de la réception** (D13 : journée de la caisse ouverte, sinon aujourd'hui ; avant D13 : date du bon) ; le kit condiments éventuel entre aussi en stock, à la même date. Refusé (422) sur un bon `DRAFT` ou annulé ;
+- bon `COMPLETED` : correction (motif `reason` obligatoire, 422 sinon). Pour chaque ligne modifiée, l'écart (reçu corrigé − reçu enregistré) est un `PURCHASE_IN` **signé** (négatif pour un retrait, sans changer le coût moyen), daté comme la réception (`stock_date`), motif « Correction réception bon du JJ/MM/AAAA : ancien → nouveau — motif ». Aucun mouvement existant n'est modifié ;
 - les quantités sont des valeurs cibles : rejouer la même demande ne change rien (pas d'en-tête d'idempotence requis).
 
 `POST /production/opening-stock-corrections`, corps `{"article_id", "business_date", "quantity", "reason"}` : le stock de départ de l'article à `business_date` devient `quantity`. L'écart est un mouvement `OPENING` daté de cette journée (compté dans l'ouverture de la matrice) ; les journées suivantes, stock actuel compris, sont décalées d'autant. Réponse `OpeningStockCorrectionOut {article_id, article_name, unit, business_date, previous_quantity, quantity, delta_quantity, current_stock_quantity}`. Valeur cible : rejouer ne change rien.
 
 Champs ajoutés (rétrocompatibles) : `MarketPurchaseItemOut.received_quantity` (null tant que non réceptionné), `MarketPurchaseListOut.received_at` et `received_by_user_name`. Les bons validés avant D9 (`COMPLETED`) ont `received_quantity` = quantité prévue (migration `028`).
+
+**Date d'entrée en stock** (09/11/2026, D13, rétrocompatible) : `MarketPurchaseListOut.stock_date` (date, null tant que non réceptionné) donne le jour des mouvements de stock du bon. Les bons réceptionnés avant D13 ont `stock_date` = `business_date` (migration `032`). Un bon réceptionné à la mauvaise date se recale par la commande d'administration `redate-reception` (retrait à l'ancienne date et même entrée à la nouvelle, signés et tracés ; stock et coût moyen inchangés), pas par l'API.
 
 #### Annulation des bons d'achat marché (D10, 05/11/2026)
 
