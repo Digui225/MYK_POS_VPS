@@ -10953,6 +10953,16 @@
             "type": "array",
             "title": "Sales By Mode"
           },
+          "stock_watch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StockWatchResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "active_sessions_count": {
             "type": "integer",
             "title": "Active Sessions Count"
@@ -17240,6 +17250,116 @@
           "low_count"
         ],
         "title": "StockTotals"
+      },
+      "StockWatchItem": {
+        "properties": {
+          "article_id": {
+            "type": "string",
+            "title": "Article Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category",
+            "description": "PROTEINE ou BOISSON"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "quantity": {
+            "type": "number",
+            "title": "Quantity",
+            "description": "Stock actuel"
+          },
+          "daily_sales": {
+            "type": "number",
+            "title": "Daily Sales",
+            "description": "Vente moyenne par jour d'ouverture (derniers jours)"
+          },
+          "coverage_days": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage Days",
+            "description": "Jours de vente couverts ; null sans vente r\u00e9cente"
+          },
+          "dishes_left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dishes Left",
+            "description": "Plats restants (prot\u00e9ines)"
+          },
+          "level": {
+            "type": "string",
+            "title": "Level",
+            "description": "RUPTURE, CRITIQUE (moins d'un jour), BAS (ne tient pas jusqu'au march\u00e9) ou OK"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article_id",
+          "name",
+          "category",
+          "unit",
+          "quantity",
+          "daily_sales",
+          "level"
+        ],
+        "title": "StockWatchItem",
+        "description": "Une prot\u00e9ine ou une boisson, avec ce que son stock couvre au rythme des ventes r\u00e9centes."
+      },
+      "StockWatchResponse": {
+        "properties": {
+          "next_market_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Next Market Date"
+          },
+          "open_days_to_market": {
+            "type": "integer",
+            "title": "Open Days To Market",
+            "description": "Jours d'ouverture \u00e0 couvrir, aujourd'hui compris"
+          },
+          "average_days": {
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "type": "array",
+            "title": "Average Days",
+            "description": "Jours servant \u00e0 la vente moyenne"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StockWatchItem"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "Du plus urgent au moins urgent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "next_market_date",
+          "open_days_to_market"
+        ],
+        "title": "StockWatchResponse",
+        "description": "Stock \u00e0 surveiller : ce qui ne tient pas jusqu'au prochain march\u00e9 (lundi)."
       },
       "TableActiveOrder": {
         "properties": {

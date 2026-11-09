@@ -14,7 +14,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from caisse.core.errors import ValidationError
-from caisse.domain import stock_rules
+from caisse.domain import stock_rules, stock_watch_rules
 from caisse.domain.enums import (
     CashSessionStatus,
     ServiceMode,
@@ -60,6 +60,8 @@ from caisse.schemas.reports import (
     StockReportArticle,
     StockReportOut,
     StockTotals,
+    StockWatchItem,
+    StockWatchResponse,
     TopProductReport,
 )
 
@@ -458,6 +460,57 @@ def dashboard(db: Session, day: date) -> DashboardOut:
     )
 
 
+def stock_watch(db: Session, today: date) -> StockWatchResponse:
+    """Protéines et boissons au regard du prochain marché : stock actuel, vente moyenne des
+    derniers jours d'ouverture, jours couverts et niveau d'alerte. Un article à zéro qu'on ne
+    vend plus est masqué ; il revient dès qu'il est réapprovisionné."""
+    from caisse.services import protein_ledger
+
+    days_needed = stock_watch_rules.open_days_to_market(today)
+    avg_days = reports_repo.last_open_days(db, today, stock_watch_rules.AVERAGE_OPEN_DAYS)
+    sold = reports_repo.sold_quantity_by_article(db, avg_days)
+    recent = reports_repo.articles_sold_since(
+        db, today - timedelta(days=stock_watch_rules.DORMANT_DAYS)
+    )
+    resolver = protein_ledger.build_resolver(db)
+
+    items: list[StockWatchItem] = []
+    for a in reports_repo.watched_articles(db):
+        aid = str(a.id)
+        qty = Decimal(a.quantity)
+        if stock_watch_rules.is_hidden(qty, aid in recent):
+            continue
+        daily = sold.get(aid, Decimal(0)) / len(avg_days) if avg_days else Decimal(0)
+        cover = stock_watch_rules.coverage_days(qty, daily)
+        portion = resolver.portion(aid) if a.category == "PROTEINE" else None
+        items.append(
+            StockWatchItem(
+                article_id=aid,
+                name=a.name,
+                category=a.category,
+                unit=a.unit,
+                quantity=float(qty),
+                daily_sales=round(float(daily), 2),
+                coverage_days=round(float(cover), 1) if cover is not None else None,
+                dishes_left=int(max(Decimal(0), qty) / portion) if portion else None,
+                level=stock_watch_rules.level(qty, daily, days_needed).value,
+            )
+        )
+    items.sort(
+        key=lambda i: (
+            stock_watch_rules.LEVEL_ORDER[stock_watch_rules.StockWatchLevel(i.level)],
+            i.coverage_days if i.coverage_days is not None else float("inf"),
+            i.name,
+        )
+    )
+    return StockWatchResponse(
+        next_market_date=stock_watch_rules.next_market(today),
+        open_days_to_market=days_needed,
+        average_days=sorted(avg_days),
+        items=items,
+    )
+
+
 class ReportingService:
     def __init__(self, db: Session):
         self.db = db
@@ -759,6 +812,7 @@ class ReportingService:
             top_products=top_products,
             hourly_sales=hourly_sales,
             sales_by_mode=sales_by_mode,
+            stock_watch=stock_watch(self.db, datetime.now(timezone.utc).date()),
             active_sessions_count=active_sessions_count,
             low_stock_items_count=low_stock_items_count,
             fne_certified_count=fne_certified_count,
