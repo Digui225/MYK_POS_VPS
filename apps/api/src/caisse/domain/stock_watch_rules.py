@@ -13,6 +13,29 @@ from enum import StrEnum
 # un article à zéro est masqué (il réapparaît dès qu'il est réapprovisionné)
 AVERAGE_OPEN_DAYS = 5
 DORMANT_DAYS = 28
+# Les jus s'achètent en gros, pas à chaque marché : on alerte une semaine (5 jours d'ouverture)
+# avant la rupture, le temps d'en racheter, sans tenir compte du marché du lundi
+JUICE_LEAD_DAYS = 5
+
+
+class StockWatchGroup(StrEnum):
+    PROTEINE = "PROTEINE"
+    BOISSON = "BOISSON"
+    JUS = "JUS"
+
+
+def watch_group(category: str, name: str) -> StockWatchGroup:
+    """Section du bloc : les boissons dont le nom commence par « Jus » sont traitées à part."""
+    if category == "PROTEINE":
+        return StockWatchGroup.PROTEINE
+    if name.strip().lower().startswith("jus"):
+        return StockWatchGroup.JUS
+    return StockWatchGroup.BOISSON
+
+
+def days_to_cover(group: StockWatchGroup, today: date) -> int:
+    """Jours de vente que le stock doit couvrir : jusqu'au prochain marché, une semaine pour les jus."""
+    return JUICE_LEAD_DAYS if group == StockWatchGroup.JUS else open_days_to_market(today)
 
 
 class StockWatchLevel(StrEnum):

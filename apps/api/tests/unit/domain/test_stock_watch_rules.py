@@ -4,12 +4,15 @@ from datetime import date
 from decimal import Decimal
 
 from caisse.domain.stock_watch_rules import (
+    StockWatchGroup,
     StockWatchLevel,
     coverage_days,
+    days_to_cover,
     is_hidden,
     level,
     next_market,
     open_days_to_market,
+    watch_group,
 )
 
 LUNDI, MERCREDI, VENDREDI, SAMEDI = date(2026, 11, 9), date(2026, 11, 11), date(2026, 11, 13), date(2026, 11, 14)
@@ -37,3 +40,14 @@ def test_article_a_zero_qu_on_ne_vend_plus_masque() -> None:
     assert is_hidden(Decimal(0), sold_recently=False)
     assert not is_hidden(Decimal(0), sold_recently=True)  # rupture d'un article vendu : visible
     assert not is_hidden(Decimal(3), sold_recently=False)  # réapprovisionné : il revient
+
+
+def test_les_jus_a_part_une_semaine_d_avance() -> None:
+    assert watch_group("BOISSON", "Jus de bissap") == StockWatchGroup.JUS
+    assert watch_group("BOISSON", "jus Tomy") == StockWatchGroup.JUS
+    assert watch_group("BOISSON", "Orangina 50 cl") == StockWatchGroup.BOISSON
+    assert watch_group("PROTEINE", "Mouton") == StockWatchGroup.PROTEINE
+    # Le vendredi, il suffit de tenir la journée ; un jus doit tenir une semaine
+    assert days_to_cover(StockWatchGroup.BOISSON, VENDREDI) == 1
+    assert days_to_cover(StockWatchGroup.JUS, VENDREDI) == 5
+    assert days_to_cover(StockWatchGroup.JUS, SAMEDI) == 5

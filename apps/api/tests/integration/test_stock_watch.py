@@ -45,6 +45,8 @@ def test_stock_a_surveiller(db_session: Session) -> None:
     sosso = _article(db, "Sosso", "PROTEINE", "pièce", "0")       # vendue cette semaine : RUPTURE
     carpe = _article(db, "Carpe", "PROTEINE", "pièce", "0")       # plus vendue : masquée
     _article(db, "Jus de bissap", "BOISSON", "bouteille", "50")   # pas de vente récente : OK
+    gingembre = _article(db, "Jus de gingembre", "BOISSON", "bouteille", "12")  # 3/jour : 4 j < 5, BAS
+    citron = _article(db, "Jus de citron", "BOISSON", "bouteille", "16")  # 3/jour : 5,3 j, OK
     orangina = _article(db, "Orangina 50 cl", "BOISSON", "bouteille", "6")  # 4/jour : BAS
     _article(db, "Riz", "EPICERIE", "kg", "1")                    # hors protéines et boissons
 
@@ -62,6 +64,8 @@ def test_stock_a_surveiller(db_session: Session) -> None:
         _sold(db, poulet, day, "2.5")
         _sold(db, saumon, day, "4")
         _sold(db, orangina, day, "4")
+        _sold(db, gingembre, day, "3")
+        _sold(db, citron, day, "3")
     _sold(db, sosso, date(2026, 11, 10), "3")
     _sold(db, carpe, date(2026, 10, 1), "1")  # il y a plus de 4 semaines
     _sold(db, mouton, MERCREDI, "9")  # les ventes du jour ne comptent pas dans la moyenne
@@ -72,10 +76,18 @@ def test_stock_a_surveiller(db_session: Session) -> None:
     assert out.average_days == open_days  # le 03/11, plus ancien, n'entre pas dans la moyenne
 
     got = {i.name: i for i in out.items}
-    assert set(got) == {"Mouton", "Poulet", "Saumon", "Sosso", "Jus de bissap", "Orangina 50 cl"}
+    assert set(got) == {
+        "Mouton", "Poulet", "Saumon", "Sosso", "Jus de bissap", "Orangina 50 cl",
+        "Jus de gingembre", "Jus de citron",
+    }
     assert [i.name for i in out.items] == [
-        "Sosso", "Saumon", "Orangina 50 cl", "Poulet", "Mouton", "Jus de bissap",
+        "Sosso", "Saumon", "Orangina 50 cl", "Poulet", "Jus de gingembre", "Mouton",
+        "Jus de citron", "Jus de bissap",
     ]
+    # Les jus à part : une semaine d'avance, même si le marché du lundi est dans 3 jours
+    assert (got["Jus de gingembre"].group, got["Jus de gingembre"].level) == ("JUS", "BAS")
+    assert (got["Jus de citron"].group, got["Jus de citron"].level) == ("JUS", "OK")
+    assert (got["Orangina 50 cl"].group, got["Mouton"].group) == ("BOISSON", "PROTEINE")
     assert [got[n].level for n in ("Sosso", "Saumon", "Orangina 50 cl", "Poulet", "Mouton")] == [
         "RUPTURE", "CRITIQUE", "BAS", "BAS", "OK",
     ]

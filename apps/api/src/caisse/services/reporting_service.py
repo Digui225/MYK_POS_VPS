@@ -461,9 +461,10 @@ def dashboard(db: Session, day: date) -> DashboardOut:
 
 
 def stock_watch(db: Session, today: date) -> StockWatchResponse:
-    """Protéines et boissons au regard du prochain marché : stock actuel, vente moyenne des
-    derniers jours d'ouverture, jours couverts et niveau d'alerte. Un article à zéro qu'on ne
-    vend plus est masqué ; il revient dès qu'il est réapprovisionné."""
+    """Protéines et boissons au regard du prochain marché (une semaine d'avance pour les jus,
+    achetés en gros) : stock actuel, vente moyenne des derniers jours d'ouverture, jours couverts
+    et niveau d'alerte. Un article à zéro qu'on ne vend plus est masqué ; il revient dès qu'il
+    est réapprovisionné."""
     from caisse.services import protein_ledger
 
     days_needed = stock_watch_rules.open_days_to_market(today)
@@ -482,18 +483,22 @@ def stock_watch(db: Session, today: date) -> StockWatchResponse:
             continue
         daily = sold.get(aid, Decimal(0)) / len(avg_days) if avg_days else Decimal(0)
         cover = stock_watch_rules.coverage_days(qty, daily)
-        portion = resolver.portion(aid) if a.category == "PROTEINE" else None
+        group = stock_watch_rules.watch_group(a.category, a.name)
+        portion = resolver.portion(aid) if group == stock_watch_rules.StockWatchGroup.PROTEINE else None
         items.append(
             StockWatchItem(
                 article_id=aid,
                 name=a.name,
                 category=a.category,
+                group=group.value,
                 unit=a.unit,
                 quantity=float(qty),
                 daily_sales=round(float(daily), 2),
                 coverage_days=round(float(cover), 1) if cover is not None else None,
                 dishes_left=int(max(Decimal(0), qty) / portion) if portion else None,
-                level=stock_watch_rules.level(qty, daily, days_needed).value,
+                level=stock_watch_rules.level(
+                    qty, daily, stock_watch_rules.days_to_cover(group, today)
+                ).value,
             )
         )
     items.sort(

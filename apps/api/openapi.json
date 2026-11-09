@@ -17266,6 +17266,12 @@
             "title": "Category",
             "description": "PROTEINE ou BOISSON"
           },
+          "group": {
+            "type": "string",
+            "title": "Group",
+            "description": "Section : PROTEINE, BOISSON ou JUS (les \u00ab Jus \u2026 \u00bb, alert\u00e9s une semaine d'avance)",
+            "default": "BOISSON"
+          },
           "unit": {
             "type": "string",
             "title": "Unit"
@@ -17307,7 +17313,7 @@
           "level": {
             "type": "string",
             "title": "Level",
-            "description": "RUPTURE, CRITIQUE (moins d'un jour), BAS (ne tient pas jusqu'au march\u00e9) ou OK"
+            "description": "RUPTURE, CRITIQUE (moins d'un jour), BAS (ne tient pas jusqu'au march\u00e9 ; une semaine pour les jus) ou OK"
           }
         },
         "type": "object",

@@ -387,12 +387,18 @@ class StockWatchItem(Schema):
     article_id: str
     name: str
     category: str = Field(..., description="PROTEINE ou BOISSON")
+    group: str = Field(
+        "BOISSON", description="Section : PROTEINE, BOISSON ou JUS (les « Jus … », alertés une semaine d'avance)"
+    )
     unit: str
     quantity: float = Field(..., description="Stock actuel")
     daily_sales: float = Field(..., description="Vente moyenne par jour d'ouverture (derniers jours)")
     coverage_days: float | None = Field(None, description="Jours de vente couverts ; null sans vente récente")
     dishes_left: int | None = Field(None, description="Plats restants (protéines)")
-    level: str = Field(..., description="RUPTURE, CRITIQUE (moins d'un jour), BAS (ne tient pas jusqu'au marché) ou OK")
+    level: str = Field(
+        ...,
+        description="RUPTURE, CRITIQUE (moins d'un jour), BAS (ne tient pas jusqu'au marché ; une semaine pour les jus) ou OK",
+    )
 
 
 class StockWatchResponse(Schema):
