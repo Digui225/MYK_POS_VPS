@@ -9,6 +9,7 @@ from caisse.domain.enums import (
     StockOutMode,
 )
 from caisse.schemas.common import BaseSchema as Schema
+from caisse.schemas.orders import ServiceModeName
 
 # --- Ventes ------------------------------------------------------------------------------
 
@@ -351,6 +352,19 @@ class HourlySalesItem(Schema):
     hour: str
     total_sales_xof: int
     orders_count: int
+    # Répartition de l'heure par mode de service (la somme vaut total_sales_xof)
+    dine_in_sales_xof: int = Field(0, description="Ventes sur place de l'heure")
+    takeaway_sales_xof: int = Field(0, description="Ventes à emporter de l'heure")
+    delivery_sales_xof: int = Field(0, description="Ventes en livraison de l'heure")
+
+
+class ServiceModeSales(Schema):
+    """Ventes réglées du jour pour un mode de service (sur place, à emporter, livraison)."""
+
+    service_mode: ServiceModeName
+    orders_count: int = Field(..., description="Additions réglées dans ce mode")
+    total_sales_ttc_xof: int = Field(..., description="Chiffre d'affaires TTC de ce mode")
+    average_basket_xof: int = Field(..., description="Panier moyen de ce mode (0 sans vente)")
 
 
 class ClosingStatusResponse(Schema):
@@ -384,6 +398,8 @@ class DashboardKpiResponse(Schema):
     payments_by_method: list[PaymentMethodSplit]
     top_products: list[TopProductReport]
     hourly_sales: list[HourlySalesItem] = Field(default_factory=list)
+    # Toujours trois lignes, dans l'ordre sur place, à emporter, livraison
+    sales_by_mode: list[ServiceModeSales] = Field(default_factory=list)
     active_sessions_count: int
     low_stock_items_count: int
     fne_certified_count: int

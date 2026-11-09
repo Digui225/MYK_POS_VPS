@@ -10946,6 +10946,13 @@
             "type": "array",
             "title": "Hourly Sales"
           },
+          "sales_by_mode": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceModeSales"
+            },
+            "type": "array",
+            "title": "Sales By Mode"
+          },
           "active_sessions_count": {
             "type": "integer",
             "title": "Active Sessions Count"
@@ -11954,6 +11961,24 @@
           "orders_count": {
             "type": "integer",
             "title": "Orders Count"
+          },
+          "dine_in_sales_xof": {
+            "type": "integer",
+            "title": "Dine In Sales Xof",
+            "description": "Ventes sur place de l'heure",
+            "default": 0
+          },
+          "takeaway_sales_xof": {
+            "type": "integer",
+            "title": "Takeaway Sales Xof",
+            "description": "Ventes \u00e0 emporter de l'heure",
+            "default": 0
+          },
+          "delivery_sales_xof": {
+            "type": "integer",
+            "title": "Delivery Sales Xof",
+            "description": "Ventes en livraison de l'heure",
+            "default": 0
           }
         },
         "type": "object",
@@ -16245,6 +16270,43 @@
           "gross_margin_xof"
         ],
         "title": "SalesTotals"
+      },
+      "ServiceModeSales": {
+        "properties": {
+          "service_mode": {
+            "type": "string",
+            "enum": [
+              "SUR_PLACE",
+              "EMPORTER",
+              "LIVRAISON"
+            ],
+            "title": "Service Mode"
+          },
+          "orders_count": {
+            "type": "integer",
+            "title": "Orders Count",
+            "description": "Additions r\u00e9gl\u00e9es dans ce mode"
+          },
+          "total_sales_ttc_xof": {
+            "type": "integer",
+            "title": "Total Sales Ttc Xof",
+            "description": "Chiffre d'affaires TTC de ce mode"
+          },
+          "average_basket_xof": {
+            "type": "integer",
+            "title": "Average Basket Xof",
+            "description": "Panier moyen de ce mode (0 sans vente)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "service_mode",
+          "orders_count",
+          "total_sales_ttc_xof",
+          "average_basket_xof"
+        ],
+        "title": "ServiceModeSales",
+        "description": "Ventes r\u00e9gl\u00e9es du jour pour un mode de service (sur place, \u00e0 emporter, livraison)."
       },
       "SessionCloseRequest": {
         "properties": {

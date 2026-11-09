@@ -239,6 +239,8 @@ GET /api/v1/tables/board
 
 **Livraison à part** : `GET /orders?order_type=DELIVERY` liste les livraisons ; `order_type=TAKEAWAY` ne liste plus que l'emporter (sans table, hors livraison). `GET /reports/dashboard` ajoute `delivery_orders_count` (et `takeaway_orders_count` exclut la livraison), `GET /reports/overview` ajoute `delivery_orders` (et `takeaway_orders` l'exclut). Tant qu'aucune livraison n'est saisie, les valeurs ne changent pas.
 
+**Ventes par mode** (09/11/2026, rétrocompatible) : `GET /reports/dashboard` ajoute `sales_by_mode`, toujours trois lignes dans l'ordre `SUR_PLACE`, `EMPORTER`, `LIVRAISON`, chacune avec `orders_count` (additions réglées), `total_sales_ttc_xof` et `average_basket_xof` ; une note vide n'y est pas comptée et la somme des trois vaut `total_sales_ttc_xof`. Chaque entrée de `hourly_sales` ajoute `dine_in_sales_xof`, `takeaway_sales_xof` et `delivery_sales_xof` (0 par défaut), dont la somme vaut `total_sales_xof`.
+
 ```http
 POST /api/v1/orders/{id}/items
 { "product_id": "...", "quantity": 2, "note": "bien cuit" }
