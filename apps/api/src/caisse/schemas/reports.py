@@ -439,3 +439,9 @@ class DashboardKpiResponse(Schema):
     last_x_report_at: str | None = None
     sales_by_cashier: list[CashierSalesResponse] = Field(default_factory=list)
 
+
+
+class DailyReportEmailOut(Schema):
+    business_date: date = Field(description="Journée du rapport")
+    recipients: list[str] = Field(description="Destinataires du mail")
+    queued: bool = Field(description="Envoi programmé (parti dans la minute par l'outbox)")

@@ -472,6 +472,9 @@ GET /api/v1/printing/status
 | GET | `/reports/protein-yields/export?date_from=&date_to=` | R / A | **Export CSV Excel du contrôle des rendements viandes & poissons** |
 | GET | `/reports/stock?date_from=&date_to=` | R / A | **Rapport de stock, consommations et valorisation au CMP** |
 | GET | `/reports/audit?from=&to=&action=` | A | Journal d'audit de sécurité |
+| POST | `/reports/daily-sales/email?business_date=` | R / A | **Envoyer par mail le rapport de ventes PDF d'une journée** (défaut : journée en cours) aux destinataires réglés dans `/settings`. Réponse `DailyReportEmailOut {business_date, recipients, queued}` ; l'envoi part dans la minute par l'outbox. `409 MAIL_NOT_CONFIGURED` sans relais SMTP sur le serveur, `409 NO_REPORT_RECIPIENTS` sans destinataire. `Idempotency-Key` facultative |
+
+**Rapport de ventes par mail à la clôture (12/11/2026, rétrocompatible).** À chaque `POST /cash-sessions/{id}/close`, si un relais SMTP est configuré (`SMTP_*`) et qu'il y a au moins un destinataire, la clôture inscrit un événement outbox `DAILY_REPORT_EMAIL` dans sa transaction ; le worker produit le PDF du rapport de la journée (mêmes rubriques que l'aperçu du tableau de bord : chiffres clés, encaissements par moyen et par caissier, ventes par heure, produits par catégorie, total, signatures) et l'envoie, avec les réessais de l'outbox en cas d'échec. La réponse de la clôture ne change pas et ne dépend jamais du mail.
 
 ### 4.12 Finance & Décaissements
 
@@ -494,8 +497,10 @@ GET /api/v1/printing/status
 |---|---|---|---|
 | GET / POST / PATCH | `/users` | A | Gestion des comptes utilisateurs |
 | POST | `/users/{id}/pin` | A | Réinitialisation de code PIN |
-| GET / PUT | `/settings` | A | Paramètres généraux (ticket, TVA, FNE) |
+| GET / PUT | `/settings` | A | Paramètres généraux (ticket, TVA, FNE, destinataires du rapport de clôture) |
 | GET / POST / PATCH | `/cash-registers` | A | Paramétrage des postes de caisse |
+
+**Destinataires du rapport de clôture (12/11/2026, rétrocompatible).** `EstablishmentSettingsResponse` ajoute `report_email_recipients` (liste d'adresses, vide par défaut) et `report_email_enabled` (lecture seule : relais SMTP configuré sur le serveur). `PUT /settings` accepte `report_email_recipients` (liste complète qui remplace l'actuelle, 10 adresses au plus, mises en minuscules et dédoublonnées ; `422 INVALID_EMAIL` si une adresse est invalide) ; absent, la liste ne change pas.
 
 ### 4.14 Santé
 

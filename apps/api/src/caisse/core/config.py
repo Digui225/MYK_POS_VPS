@@ -69,6 +69,17 @@ class Settings(BaseSettings):
     FNE_VERIFICATION_BASE_URL: str | None = None
     BACKUP_DIR: str = "/var/backups/caisse"
 
+    # Envoi des mails (rapport de ventes à la clôture de caisse) : n'importe quel relais SMTP
+    # (turboSMTP, Brevo, Gmail…). Sans SMTP_HOST, aucun mail n'est envoyé.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_SECURITY: Literal["starttls", "ssl", "none"] = "starttls"
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = ""
+    SMTP_FROM_NAME: str = "Caisse MYK"
+    SMTP_TIMEOUT_SECONDS: float = 20.0
+
     @property
     def fne_provider(self) -> str:
         return self.FNE_PROVIDER
@@ -92,6 +103,11 @@ class Settings(BaseSettings):
         if "54.247.95.108" in self.FNE_API_BASE_URL:
             return "http://54.247.95.108/fr/verification"
         return "https://www.services.fne.dgi.gouv.ci/fr/verification"
+
+    @property
+    def mail_enabled(self) -> bool:
+        """Envoi de mails possible : relais SMTP et adresse d'expéditeur renseignés."""
+        return bool(self.SMTP_HOST.strip() and self.SMTP_FROM.strip())
 
     @property
     def docs_enabled(self) -> bool:

@@ -84,6 +84,17 @@ def dispatch_event(db: Session, event: OutboxEvent) -> bool:
 
             raise RuntimeError("Fournisseur FNE non joignable ou échec de certification")
 
+        elif event.event_type == "DAILY_REPORT_EMAIL":
+            # Rapport de ventes de la journée par mail (clôture de caisse ou envoi manuel)
+            from caisse.services import daily_report_mail_service
+
+            daily_report_mail_service.send_daily_report(db, event.payload)
+            event.status = "COMPLETED"
+            event.processed_at = now
+            event.last_error = None
+            db.commit()
+            return True
+
         else:
             # Type d'événement non reconnu, acquitté
             event.status = "COMPLETED"

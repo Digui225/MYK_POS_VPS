@@ -4097,6 +4097,83 @@
         }
       }
     },
+    "/api/v1/reports/daily-sales/email": {
+      "post": {
+        "tags": [
+          "Tableau de Bord & Rapports"
+        ],
+        "summary": "Envoyer par mail le rapport de ventes PDF d'une journ\u00e9e",
+        "description": "Programme l'envoi du rapport (le m\u00eame que celui de la cl\u00f4ture) aux destinataires r\u00e9gl\u00e9s dans\nAdministration ; l'outbox l'envoie dans la minute. Sert aussi \u00e0 tester la configuration SMTP.",
+        "operationId": "email_daily_sales_report_api_v1_reports_daily_sales_email_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "business_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Journ\u00e9e comptable ; d\u00e9faut : journ\u00e9e en cours",
+              "title": "Business Date"
+            },
+            "description": "Journ\u00e9e comptable ; d\u00e9faut : journ\u00e9e en cours"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyReportEmailOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reports/stock": {
       "get": {
         "tags": [
@@ -10787,6 +10864,36 @@
         ],
         "title": "DailyPreparationValidateDayOut"
       },
+      "DailyReportEmailOut": {
+        "properties": {
+          "business_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Business Date",
+            "description": "Journ\u00e9e du rapport"
+          },
+          "recipients": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recipients",
+            "description": "Destinataires du mail"
+          },
+          "queued": {
+            "type": "boolean",
+            "title": "Queued",
+            "description": "Envoi programm\u00e9 (parti dans la minute par l'outbox)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "business_date",
+          "recipients",
+          "queued"
+        ],
+        "title": "DailyReportEmailOut"
+      },
       "DashboardCashier": {
         "properties": {
           "user_id": {
@@ -11367,6 +11474,20 @@
             "type": "string",
             "title": "Fne Establishment",
             "default": "RESTAURANT CHEZ SYLLA PLUS"
+          },
+          "report_email_recipients": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Report Email Recipients",
+            "description": "Adresses qui re\u00e7oivent le rapport de ventes PDF \u00e0 chaque cl\u00f4ture de caisse"
+          },
+          "report_email_enabled": {
+            "type": "boolean",
+            "title": "Report Email Enabled",
+            "description": "Envoi de mails configur\u00e9 sur le serveur (relais SMTP)",
+            "default": false
           }
         },
         "type": "object",
@@ -17892,6 +18013,22 @@
               }
             ],
             "title": "Fne Establishment"
+          },
+          "report_email_recipients": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Email Recipients",
+            "description": "Destinataires du rapport de cl\u00f4ture (liste compl\u00e8te, remplace l'actuelle)"
           }
         },
         "type": "object",
