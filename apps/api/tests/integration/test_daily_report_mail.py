@@ -26,7 +26,7 @@ def _headers(client: TestClient, pin: str) -> dict[str, str]:
 def smtp_configured(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = get_settings()
     monkeypatch.setattr(settings, "SMTP_HOST", "smtp.test.local")
-    monkeypatch.setattr(settings, "SMTP_FROM", "rapports@osispos.com")
+    monkeypatch.setattr(settings, "SMTP_FROM", "rapports@caisse.osispos.com")
 
 
 @pytest.fixture
@@ -178,7 +178,7 @@ def test_manual_send_endpoint(
 
     settings = get_settings()
     monkeypatch.setattr(settings, "SMTP_HOST", "smtp.test.local")
-    monkeypatch.setattr(settings, "SMTP_FROM", "rapports@osispos.com")
+    monkeypatch.setattr(settings, "SMTP_FROM", "rapports@caisse.osispos.com")
     no_recipient = client.post(url, headers=resp)
     assert no_recipient.status_code == 409
     assert no_recipient.json()["code"] == "NO_REPORT_RECIPIENTS"

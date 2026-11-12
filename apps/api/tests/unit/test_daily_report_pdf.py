@@ -102,7 +102,7 @@ def test_pdf_with_french_text_and_several_pages() -> None:
 
 
 def _settings(**over: object) -> Settings:
-    return Settings(SMTP_HOST="pro.turbo-smtp.com", SMTP_FROM="rapports@osispos.com", **over)  # type: ignore[arg-type]
+    return Settings(SMTP_HOST="pro.turbo-smtp.com", SMTP_FROM="rapports@caisse.osispos.com", **over)  # type: ignore[arg-type]
 
 
 def test_message_has_sender_subject_and_pdf() -> None:
@@ -113,7 +113,7 @@ def test_message_has_sender_subject_and_pdf() -> None:
         attachments=[MailAttachment("Rapport_Ventes_2026-11-12.pdf", b"%PDF-1.4")],
     )
     msg = build_message(mail, _settings())
-    assert msg["From"] == "Caisse MYK <rapports@osispos.com>"
+    assert msg["From"] == "Caisse MYK <rapports@caisse.osispos.com>"
     assert msg["To"] == "m.yapi@example.com, patron@example.com"
     assert msg["Subject"] == "Rapport de ventes — jeudi 12 novembre 2026"
     [att] = list(msg.iter_attachments())
