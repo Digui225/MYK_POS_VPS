@@ -125,6 +125,11 @@ def test_closing_sends_the_daily_report_pdf(
     assert mail.subject == f"Rapport de ventes — jeudi 12 novembre 2026 — Z n° {z_number}"
     assert "Chiffre d'affaires : 8 000 FCFA" in mail.text
     assert f"Z n° {z_number} — écart de caisse : 0 FCFA" in mail.text
+    assert mail.text.startswith("Bonjour Monsieur,")
+    assert "Cordialement,\n\nMYK Restaurant — Chez Sylla Plus" in mail.text
+    assert mail.html is not None
+    assert "Bonjour Monsieur," in mail.html and "8 000 FCFA" in mail.html
+    assert "Cordialement,<br><br>MYK Restaurant" in mail.html
     [pdf] = mail.attachments
     assert pdf.filename == "Rapport_Ventes_2026-11-12.pdf"
     assert pdf.content.startswith(b"%PDF")

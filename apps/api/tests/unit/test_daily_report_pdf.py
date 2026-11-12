@@ -116,6 +116,10 @@ def test_message_has_sender_subject_and_pdf() -> None:
     assert msg["From"] == "Caisse MYK <rapports@caisse.osispos.com>"
     assert msg["To"] == "m.yapi@example.com, patron@example.com"
     assert msg["Subject"] == "Rapport de ventes — jeudi 12 novembre 2026"
+    assert msg.get_body(preferencelist=("plain",)).get_content().strip() == "Bonjour"
+    html = OutgoingMail(to=["a@b.co"], subject="x", text="Bonjour", html="<p>Bonjour</p>")
+    html_msg = build_message(html, _settings())
+    assert html_msg.get_body(preferencelist=("html",)).get_content().strip() == "<p>Bonjour</p>"
     [att] = list(msg.iter_attachments())
     assert att.get_filename() == "Rapport_Ventes_2026-11-12.pdf"
     assert att.get_content_type() == "application/pdf"

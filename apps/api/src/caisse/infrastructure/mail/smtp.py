@@ -29,6 +29,7 @@ class OutgoingMail:
     to: list[str]
     subject: str
     text: str
+    html: str | None = None  # version mise en forme, à côté du texte brut
     attachments: list[MailAttachment] = field(default_factory=list)
 
 
@@ -40,6 +41,8 @@ def build_message(mail: OutgoingMail, settings: Settings) -> EmailMessage:
     domain = settings.SMTP_FROM.rsplit("@", 1)[-1] or None
     msg["Message-ID"] = make_msgid(domain=domain)
     msg.set_content(mail.text)
+    if mail.html:
+        msg.add_alternative(mail.html, subtype="html")
     for att in mail.attachments:
         maintype, _, subtype = att.mime_type.partition("/")
         msg.add_attachment(att.content, maintype=maintype, subtype=subtype, filename=att.filename)

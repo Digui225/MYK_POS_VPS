@@ -9,6 +9,7 @@ La clôture ne dépend donc jamais du mail. Les destinataires se règlent dans A
 import logging
 import re
 from datetime import date
+from html import escape
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -118,32 +119,68 @@ def _closing_line(overview: DashboardOut, payload: dict[str, Any]) -> str:
     return " — ".join(parts) + "."
 
 
-def build_mail(day: date, overview: DashboardOut, pdf: bytes, payload: dict[str, Any], to: list[str]) -> OutgoingMail:
+GREETING = "Bonjour Monsieur,"
+SIGNATURE = ["Cordialement,", "", "MYK Restaurant — Chez Sylla Plus", "Abidjan"]
+AUTO_NOTICE = "Message envoyé automatiquement par la caisse ; merci de ne pas y répondre."
+
+
+def _key_figures(overview: DashboardOut) -> list[tuple[str, str]]:
+    return [
+        ("Chiffre d'affaires", format_xof(overview.revenue_xof)),
+        ("Additions encaissées", str(overview.orders_paid)),
+        ("Panier moyen", format_xof(overview.average_ticket_xof)),
+        ("Annulations", str(overview.orders_cancelled)),
+    ]
+
+
+def _html_body(day: date, closing: str, figures: list[tuple[str, str]]) -> str:
+    rows = "".join(
+        f'<tr><td style="padding:4px 16px 4px 0;color:#52525b">{escape(label)}</td>'
+        f'<td style="padding:4px 0;font-weight:bold;text-align:right">{escape(value)}</td></tr>'
+        for label, value in figures
+    )
+    closing_html = f'<p style="margin:0 0 16px">{escape(closing)}</p>' if closing else ""
+    signature = "<br>".join(escape(line) for line in SIGNATURE)  # ligne vide = saut de ligne
+    return (
+        '<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#18181b;'
+        'line-height:1.5">'
+        f'<p style="margin:0 0 16px">{escape(GREETING)}</p>'
+        f'<p style="margin:0 0 16px">Veuillez trouver ci-joint le rapport de ventes du '
+        f"{escape(format_day(day))}.</p>"
+        f"{closing_html}"
+        f'<table style="border-collapse:collapse;margin:0 0 16px;font-size:14px">{rows}</table>'
+        '<p style="margin:0 0 16px">Si la caisse est clôturée plusieurs fois dans la journée, '
+        "le dernier rapport reçu fait foi.</p>"
+        f'<p style="margin:0 0 24px">{signature}</p>'
+        f'<p style="margin:0;font-size:12px;color:#71717a">{escape(AUTO_NOTICE)}</p>'
+        "</div>"
+    )
+
+
+def build_mail(
+    day: date, overview: DashboardOut, pdf: bytes, payload: dict[str, Any], to: list[str]
+) -> OutgoingMail:
     z = payload.get("z_number")
     subject = f"Rapport de ventes — {format_day(day)}" + (f" — Z n° {z}" if z is not None else "")
     closing = _closing_line(overview, payload)
-    lines = [
-        "Bonjour,",
-        "",
-        f"Veuillez trouver ci-joint le rapport de ventes du {format_day(day)}.",
-    ]
+    figures = _key_figures(overview)
+    lines = [GREETING, "", f"Veuillez trouver ci-joint le rapport de ventes du {format_day(day)}."]
     if closing:
         lines += ["", closing]
+    lines += ["", *(f"{label} : {value}" for label, value in figures)]
     lines += [
-        "",
-        f"Chiffre d'affaires : {format_xof(overview.revenue_xof)}",
-        f"Additions encaissées : {overview.orders_paid}",
-        f"Panier moyen : {format_xof(overview.average_ticket_xof)}",
-        f"Annulations : {overview.orders_cancelled}",
         "",
         "Si la caisse est clôturée plusieurs fois dans la journée, le dernier rapport reçu fait foi.",
         "",
-        "— Caisse MYK (envoi automatique, merci de ne pas répondre)",
+        *SIGNATURE,
+        "",
+        AUTO_NOTICE,
     ]
     return OutgoingMail(
         to=to,
         subject=subject,
         text="\n".join(lines),
+        html=_html_body(day, closing, figures),
         attachments=[MailAttachment(f"Rapport_Ventes_{day.isoformat()}.pdf", pdf)],
     )
 
