@@ -14,9 +14,10 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from caisse.core.errors import ValidationError
-from caisse.domain import stock_rules
+from caisse.domain import stock_rules, stock_watch_rules
 from caisse.domain.enums import (
     CashSessionStatus,
+    ServiceMode,
     StockMovementType,
     StockOutMode,
 )
@@ -55,9 +56,12 @@ from caisse.schemas.reports import (
     SalesProduct,
     SalesReportOut,
     SalesTotals,
+    ServiceModeSales,
     StockReportArticle,
     StockReportOut,
     StockTotals,
+    StockWatchItem,
+    StockWatchResponse,
     TopProductReport,
 )
 
@@ -67,6 +71,14 @@ _ZERO = Decimal(0)
 
 def _xof(value: Decimal | int | float) -> int:
     return to_xof(value)
+
+
+def _service_mode_of(order: Order) -> ServiceMode:
+    """Mode de service d'une commande ; à défaut, déduit de la table (sur place) ou non (emporter)."""
+    try:
+        return ServiceMode(order.service_mode)
+    except ValueError:
+        return ServiceMode.SUR_PLACE if order.table_id else ServiceMode.EMPORTER
 
 
 def check_period(date_from: date, date_to: date) -> None:
@@ -448,6 +460,62 @@ def dashboard(db: Session, day: date) -> DashboardOut:
     )
 
 
+def stock_watch(db: Session, today: date) -> StockWatchResponse:
+    """Protéines et boissons au regard du prochain marché (une semaine d'avance pour les jus,
+    achetés en gros) : stock actuel, vente moyenne des derniers jours d'ouverture, jours couverts
+    et niveau d'alerte. Un article à zéro qu'on ne vend plus est masqué ; il revient dès qu'il
+    est réapprovisionné."""
+    from caisse.services import protein_ledger
+
+    days_needed = stock_watch_rules.open_days_to_market(today)
+    avg_days = reports_repo.last_open_days(db, today, stock_watch_rules.AVERAGE_OPEN_DAYS)
+    sold = reports_repo.sold_quantity_by_article(db, avg_days)
+    recent = reports_repo.articles_sold_since(
+        db, today - timedelta(days=stock_watch_rules.DORMANT_DAYS)
+    )
+    resolver = protein_ledger.build_resolver(db)
+
+    items: list[StockWatchItem] = []
+    for a in reports_repo.watched_articles(db):
+        aid = str(a.id)
+        qty = Decimal(a.quantity)
+        if stock_watch_rules.is_hidden(qty, aid in recent):
+            continue
+        daily = sold.get(aid, Decimal(0)) / len(avg_days) if avg_days else Decimal(0)
+        cover = stock_watch_rules.coverage_days(qty, daily)
+        group = stock_watch_rules.watch_group(a.category, a.name)
+        portion = resolver.portion(aid) if group == stock_watch_rules.StockWatchGroup.PROTEINE else None
+        items.append(
+            StockWatchItem(
+                article_id=aid,
+                name=a.name,
+                category=a.category,
+                group=group.value,
+                unit=a.unit,
+                quantity=float(qty),
+                daily_sales=round(float(daily), 2),
+                coverage_days=round(float(cover), 1) if cover is not None else None,
+                dishes_left=int(max(Decimal(0), qty) / portion) if portion else None,
+                level=stock_watch_rules.level(
+                    qty, daily, stock_watch_rules.days_to_cover(group, today)
+                ).value,
+            )
+        )
+    items.sort(
+        key=lambda i: (
+            stock_watch_rules.LEVEL_ORDER[stock_watch_rules.StockWatchLevel(i.level)],
+            i.coverage_days if i.coverage_days is not None else float("inf"),
+            i.name,
+        )
+    )
+    return StockWatchResponse(
+        next_market_date=stock_watch_rules.next_market(today),
+        open_days_to_market=days_needed,
+        average_days=sorted(avg_days),
+        items=items,
+    )
+
+
 class ReportingService:
     def __init__(self, db: Session):
         self.db = db
@@ -502,25 +570,43 @@ class ReportingService:
         total_sales_vat = sum(o.total_vat_xof for o in settled_orders_list)
         avg_basket = (total_sales_ttc // settled_orders) if settled_orders > 0 else 0
 
-        # Ventes horaires réelles
+        # Ventes horaires réelles, réparties par mode de service
+        mode_key = {
+            ServiceMode.SUR_PLACE: "dine_in_sales_xof",
+            ServiceMode.EMPORTER: "takeaway_sales_xof",
+            ServiceMode.LIVRAISON: "delivery_sales_xof",
+        }
         hourly_map: dict[str, dict[str, int]] = {}
         for o in settled_orders_list:
             dt = o.paid_at or o.opened_at or o.created_at
             if dt:
                 h_str = dt.strftime("%H") + "h"
                 if h_str not in hourly_map:
-                    hourly_map[h_str] = {"total_sales_xof": 0, "orders_count": 0}
+                    hourly_map[h_str] = dict.fromkeys(
+                        ("total_sales_xof", "orders_count", *mode_key.values()), 0
+                    )
                 hourly_map[h_str]["total_sales_xof"] += o.total_ttc_xof
                 hourly_map[h_str]["orders_count"] += 1
+                hourly_map[h_str][mode_key[_service_mode_of(o)]] += o.total_ttc_xof
 
-        hourly_sales = [
-            HourlySalesItem(
-                hour=h,
-                total_sales_xof=data["total_sales_xof"],
-                orders_count=data["orders_count"],
+        hourly_sales = [HourlySalesItem(hour=h, **data) for h, data in sorted(hourly_map.items())]
+
+        # Chiffre d'affaires, nombre d'additions et panier moyen par mode de service
+        # (une note encore vide ne doit rien mais n'est pas une vente : elle n'est pas comptée)
+        sales_by_mode = []
+        for mode in mode_key:
+            mode_orders = [
+                o for o in settled_orders_list if o.total_ttc_xof > 0 and _service_mode_of(o) == mode
+            ]
+            mode_total = sum(o.total_ttc_xof for o in mode_orders)
+            sales_by_mode.append(
+                ServiceModeSales(
+                    service_mode=mode.value,
+                    orders_count=len(mode_orders),
+                    total_sales_ttc_xof=mode_total,
+                    average_basket_xof=mode_total // len(mode_orders) if mode_orders else 0,
+                )
             )
-            for h, data in sorted(hourly_map.items())
-        ]
 
         # 2. Ventilation des paiements
         all_payments = self.db.query(Payment).all()
@@ -730,6 +816,8 @@ class ReportingService:
             payments_by_method=payments_by_method,
             top_products=top_products,
             hourly_sales=hourly_sales,
+            sales_by_mode=sales_by_mode,
+            stock_watch=stock_watch(self.db, datetime.now(timezone.utc).date()),
             active_sessions_count=active_sessions_count,
             low_stock_items_count=low_stock_items_count,
             fne_certified_count=fne_certified_count,

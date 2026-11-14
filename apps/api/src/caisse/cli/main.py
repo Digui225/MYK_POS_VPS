@@ -13,6 +13,7 @@ from caisse.cli.commands.db import (
     cmd_seed_weekly_flow,
 )
 from caisse.cli.commands.fne import cmd_fne_probe, cmd_fne_worker
+from caisse.cli.commands.stock import cmd_redate_reception
 from caisse.cli.commands.users import cmd_create_user, cmd_reset_pin
 from caisse.cli.commands.workers import cmd_create_print_terminal, cmd_outbox_worker
 from caisse.core.database import SessionLocal
@@ -111,6 +112,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Renommer les plats du menu (Faux bro, +bro -> Brochet) et articles de stock",
     )
 
+    # Commande redate-reception (D13)
+    redate_parser = subparsers.add_parser(
+        "redate-reception",
+        help="Recaler la date d'entrée en stock d'un bon d'achat marché réceptionné",
+    )
+    redate_parser.add_argument("--bon-date", help="Date du bon (AAAA-MM-JJ)")
+    redate_parser.add_argument("--id", help="Identifiant du bon, si plusieurs bons à cette date")
+    redate_parser.add_argument("--to", required=True, help="Nouvelle date d'entrée en stock (AAAA-MM-JJ)")
+    redate_parser.add_argument("--by", required=True, help="Nom complet de l'admin qui signe")
+    redate_parser.add_argument("--reason", required=True, help="Motif du recalage")
+    redate_parser.add_argument("--apply", action="store_true", help="Appliquer (sinon simulation)")
+
     return parser
 
 
@@ -156,6 +169,8 @@ def main(argv: list[str] | None = None) -> None:
             cmd_seed_weekly_flow(db, args)
         elif args.command == "rename-brochet-products":
             cmd_rename_brochet_products(db, args)
+        elif args.command == "redate-reception":
+            cmd_redate_reception(db, args)
     finally:
         db.close()
 

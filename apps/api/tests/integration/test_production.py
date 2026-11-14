@@ -1,13 +1,18 @@
+from datetime import date
 from decimal import Decimal
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from caisse.models.catalog import Category, Product
 from caisse.models.stock import ProductComponent, StockArticle
+from caisse.services import production_service
 
 
-def test_production_and_market_purchases_workflow(client: TestClient, db_session: Session) -> None:
+def test_production_and_market_purchases_workflow(
+    client: TestClient, db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # 1. Authentification
     resp_login = client.post(
         "/api/v1/auth/login",
@@ -109,6 +114,8 @@ def test_production_and_market_purchases_workflow(client: TestClient, db_session
     # D9 : la validation ne touche pas le stock, la réception l'alimente
     db_session.refresh(chicken_art)
     assert chicken_art.quantity == Decimal("0")
+    # Réception le jour du bon (D13 : le stock entre au jour de la réception)
+    monkeypatch.setattr(production_service, "_reception_day", lambda _db: date(2026, 10, 19))
     rec_res = client.post(
         f"/api/v1/production/market-purchases/{purchase_id}/receive",
         headers=resp_headers,

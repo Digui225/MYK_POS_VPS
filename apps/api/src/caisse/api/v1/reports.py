@@ -3,20 +3,26 @@ import io
 from datetime import date
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from caisse.core import idempotency
+from caisse.core.config import get_settings
 from caisse.core.database import get_db
 from caisse.core.deps import DbSession, Responsable, get_current_user
+from caisse.core.errors import CaisseException
+from caisse.core.idempotency import OptionalIdempotencyKey
 from caisse.models.user import User
 from caisse.schemas.reports import (
+    DailyReportEmailOut,
     DashboardKpiResponse,
     DashboardOut,
     ProteinYieldReportOut,
     SalesReportOut,
     StockReportOut,
 )
-from caisse.services import reporting_service, stock_service
+from caisse.services import daily_report_mail_service, reporting_service, stock_service
 from caisse.services.reporting_service import ReportingService
 
 router = APIRouter(prefix="/reports", tags=["Tableau de Bord & Rapports"])
@@ -68,6 +74,77 @@ def sales_report_endpoint(
     marges, détail par jour, produit, catégorie et moyen de paiement, écarts de caisse."""
     start, end = _period(db, date_from, date_to)
     return reporting_service.sales_report(db, start, end)
+
+
+@router.post(
+    "/daily-sales/email",
+    response_model=DailyReportEmailOut,
+    summary="Envoyer par mail le rapport de ventes PDF d'une journée",
+)
+def email_daily_sales_report(
+    user: Responsable,
+    db: DbSession,
+    request: Request,
+    response: Response,
+    business_date: Annotated[
+        date | None, Query(description="Journée comptable ; défaut : journée en cours")
+    ] = None,
+    idempotency_key: OptionalIdempotencyKey = None,
+) -> DailyReportEmailOut:
+    """Programme l'envoi du rapport (le même que celui de la clôture) aux destinataires réglés dans
+    Administration ; l'outbox l'envoie dans la minute. Sert aussi à tester la configuration SMTP."""
+    day = business_date or stock_service.business_day(db)
+    request_hash = idempotency.hash_request({"business_date": day.isoformat()})
+    if idempotency_key:
+        replay = idempotency.find_replay(
+            db, idempotency_key, method="POST", path=request.url.path, request_hash=request_hash
+        )
+        if replay is not None:
+            idempotency.apply_replay_headers(response)
+            return DailyReportEmailOut.model_validate(replay)
+
+    if not get_settings().mail_enabled:
+        raise CaisseException(
+            code="MAIL_NOT_CONFIGURED",
+            title="Envoi de mails non configuré",
+            detail="Le relais SMTP n'est pas configuré sur le serveur (SMTP_HOST, SMTP_FROM).",
+            status_code=409,
+        )
+    recipients = daily_report_mail_service.get_recipients(db)
+    if not recipients:
+        raise CaisseException(
+            code="NO_REPORT_RECIPIENTS",
+            title="Aucun destinataire",
+            detail="Ajoutez au moins une adresse dans Administration > Paramètres.",
+            status_code=409,
+        )
+    daily_report_mail_service.enqueue_daily_report(db, day, trigger="MANUAL")
+    result = DailyReportEmailOut(business_date=day, recipients=recipients, queued=True)
+
+    if idempotency_key:
+        idempotency.save(
+            db,
+            idempotency_key,
+            method="POST",
+            path=request.url.path,
+            request_hash=request_hash,
+            status=200,
+            body=result.model_dump(mode="json"),
+            user_id=user.id,
+        )
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        if idempotency_key:
+            replay = idempotency.find_replay(
+                db, idempotency_key, method="POST", path=request.url.path, request_hash=request_hash
+            )
+            if replay is not None:
+                idempotency.apply_replay_headers(response)
+                return DailyReportEmailOut.model_validate(replay)
+        raise
+    return result
 
 
 @router.get("/stock", response_model=StockReportOut, summary="Tableau du stock et valorisation")

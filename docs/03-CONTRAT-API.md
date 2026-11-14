@@ -281,6 +281,10 @@ Les tables absentes de `placements` gardent leur place ; une position `null` ret
 
 **Livraison à part** : `GET /orders?order_type=DELIVERY` liste les livraisons ; `order_type=TAKEAWAY` ne liste plus que l'emporter (sans table, hors livraison). `GET /reports/dashboard` ajoute `delivery_orders_count` (et `takeaway_orders_count` exclut la livraison), `GET /reports/overview` ajoute `delivery_orders` (et `takeaway_orders` l'exclut). Tant qu'aucune livraison n'est saisie, les valeurs ne changent pas.
 
+**Ventes par mode** (09/11/2026, rétrocompatible) : `GET /reports/dashboard` ajoute `sales_by_mode`, toujours trois lignes dans l'ordre `SUR_PLACE`, `EMPORTER`, `LIVRAISON`, chacune avec `orders_count` (additions réglées), `total_sales_ttc_xof` et `average_basket_xof` ; une note vide n'y est pas comptée et la somme des trois vaut `total_sales_ttc_xof`. Chaque entrée de `hourly_sales` ajoute `dine_in_sales_xof`, `takeaway_sales_xof` et `delivery_sales_xof` (0 par défaut), dont la somme vaut `total_sales_xof`.
+
+**Stock à surveiller** (09/11/2026, rétrocompatible) : `GET /reports/dashboard` ajoute `stock_watch` (`StockWatchResponse {next_market_date, open_days_to_market, average_days, items}`), calculé sans seuil : pour chaque protéine et boisson active, la vente moyenne par jour d'ouverture (sorties à la vente des 5 dernières journées de caisse avant aujourd'hui), les jours couverts par le stock et le niveau `RUPTURE` (stock ≤ 0), `CRITIQUE` (moins d'un jour), `BAS` (ne tient pas jusqu'au prochain marché, le lundi : jours d'ouverture restants, aujourd'hui compris) ou `OK`. Les protéines donnent aussi `dishes_left` (plats restants à la portion standard). `group` range l'article : `PROTEINE`, `BOISSON` ou `JUS` (boissons dont le nom commence par « Jus », achetées en gros : `BAS` quand le stock couvre moins de 5 jours d'ouverture, sans tenir compte du marché du lundi). Un article à zéro sans vente depuis 28 jours est omis ; il revient dès qu'il est réapprovisionné. Les éléments sont triés du plus urgent au moins urgent. `low_stock_items_count` (seuils manuels) ne change pas.
+
 ```http
 POST /api/v1/orders/{id}/items
 { "product_id": "...", "quantity": 2, "note": "bien cuit" }
@@ -472,13 +476,15 @@ business_date,fiscal_group,quantity,gross_ht_xof,vat_xof,total_ttc_xof
 Cycle du bon : `DRAFT` (prévu) → `VALIDATED` (validé, argent remis) → `COMPLETED` (réceptionné). Seule la réception fait entrer le stock, avec les **quantités réellement reçues** ; la quantité prévue peut différer de ce qui revient du marché.
 
 `POST /production/market-purchases/{id}/receive`, corps `{"lines": [{"item_id", "received_quantity"}], "reason"?}` :
-- bon `VALIDATED` : une ligne absente vaut la quantité prévue, `0` si l'article n'a pas été trouvé. Entrées `PURCHASE_IN` au prix unitaire du bon, **datées du bon** ; le kit condiments éventuel entre aussi en stock. Refusé (422) sur un bon `DRAFT` ou annulé ;
-- bon `COMPLETED` : correction (motif `reason` obligatoire, 422 sinon). Pour chaque ligne modifiée, l'écart (reçu corrigé − reçu enregistré) est un `PURCHASE_IN` **signé** (négatif pour un retrait, sans changer le coût moyen), daté du bon, motif « Correction réception bon du JJ/MM/AAAA : ancien → nouveau — motif ». Aucun mouvement existant n'est modifié ;
+- bon `VALIDATED` : une ligne absente vaut la quantité prévue, `0` si l'article n'a pas été trouvé. Entrées `PURCHASE_IN` au prix unitaire du bon, **datées du jour de la réception** (D13 : journée de la caisse ouverte, sinon aujourd'hui ; avant D13 : date du bon) ; le kit condiments éventuel entre aussi en stock, à la même date. Refusé (422) sur un bon `DRAFT` ou annulé ;
+- bon `COMPLETED` : correction (motif `reason` obligatoire, 422 sinon). Pour chaque ligne modifiée, l'écart (reçu corrigé − reçu enregistré) est un `PURCHASE_IN` **signé** (négatif pour un retrait, sans changer le coût moyen), daté comme la réception (`stock_date`), motif « Correction réception bon du JJ/MM/AAAA : ancien → nouveau — motif ». Aucun mouvement existant n'est modifié ;
 - les quantités sont des valeurs cibles : rejouer la même demande ne change rien (pas d'en-tête d'idempotence requis).
 
 `POST /production/opening-stock-corrections`, corps `{"article_id", "business_date", "quantity", "reason"}` : le stock de départ de l'article à `business_date` devient `quantity`. L'écart est un mouvement `OPENING` daté de cette journée (compté dans l'ouverture de la matrice) ; les journées suivantes, stock actuel compris, sont décalées d'autant. Réponse `OpeningStockCorrectionOut {article_id, article_name, unit, business_date, previous_quantity, quantity, delta_quantity, current_stock_quantity}`. Valeur cible : rejouer ne change rien.
 
 Champs ajoutés (rétrocompatibles) : `MarketPurchaseItemOut.received_quantity` (null tant que non réceptionné), `MarketPurchaseListOut.received_at` et `received_by_user_name`. Les bons validés avant D9 (`COMPLETED`) ont `received_quantity` = quantité prévue (migration `028`).
+
+**Date d'entrée en stock** (09/11/2026, D13, rétrocompatible) : `MarketPurchaseListOut.stock_date` (date, null tant que non réceptionné) donne le jour des mouvements de stock du bon. Les bons réceptionnés avant D13 ont `stock_date` = `business_date` (migration `032`). Un bon réceptionné à la mauvaise date se recale par la commande d'administration `redate-reception` (retrait à l'ancienne date et même entrée à la nouvelle, signés et tracés ; stock et coût moyen inchangés), pas par l'API.
 
 #### Annulation des bons d'achat marché (D10, 05/11/2026)
 
@@ -544,6 +550,9 @@ GET /api/v1/printing/status
 | GET | `/reports/protein-yields/export?date_from=&date_to=` | R / A | **Export CSV Excel du contrôle des rendements viandes & poissons** |
 | GET | `/reports/stock?date_from=&date_to=` | R / A | **Rapport de stock, consommations et valorisation au CMP** |
 | GET | `/reports/audit?from=&to=&action=` | A | Journal d'audit de sécurité |
+| POST | `/reports/daily-sales/email?business_date=` | R / A | **Envoyer par mail le rapport de ventes PDF d'une journée** (défaut : journée en cours) aux destinataires réglés dans `/settings`. Réponse `DailyReportEmailOut {business_date, recipients, queued}` ; l'envoi part dans la minute par l'outbox. `409 MAIL_NOT_CONFIGURED` sans relais SMTP sur le serveur, `409 NO_REPORT_RECIPIENTS` sans destinataire. `Idempotency-Key` facultative |
+
+**Rapport de ventes par mail à la clôture (12/11/2026, rétrocompatible).** À chaque `POST /cash-sessions/{id}/close`, si un relais SMTP est configuré (`SMTP_*`) et qu'il y a au moins un destinataire, la clôture inscrit un événement outbox `DAILY_REPORT_EMAIL` dans sa transaction ; le worker produit le PDF du rapport de la journée (mêmes rubriques que l'aperçu du tableau de bord : chiffres clés, encaissements par moyen et par caissier, ventes par heure, produits par catégorie, total, signatures) et l'envoie, avec les réessais de l'outbox en cas d'échec. La réponse de la clôture ne change pas et ne dépend jamais du mail.
 
 ### 4.12 Finance & Décaissements
 
@@ -566,8 +575,10 @@ GET /api/v1/printing/status
 |---|---|---|---|
 | GET / POST / PATCH | `/users` | A | Gestion des comptes utilisateurs (rôles `CAISSIER`, `SERVEUR`, `RESPONSABLE`, `ADMIN`, `ECONOME`) |
 | POST | `/users/{id}/pin` | A | Réinitialisation de code PIN |
-| GET / PUT | `/settings` | A | Paramètres généraux (ticket, TVA, FNE) |
+| GET / PUT | `/settings` | A | Paramètres généraux (ticket, TVA, FNE, destinataires du rapport de clôture) |
 | GET / POST / PATCH | `/cash-registers` | A | Paramétrage des postes de caisse |
+
+**Destinataires du rapport de clôture (12/11/2026, rétrocompatible).** `EstablishmentSettingsResponse` ajoute `report_email_recipients` (liste d'adresses, vide par défaut) et `report_email_enabled` (lecture seule : relais SMTP configuré sur le serveur). `PUT /settings` accepte `report_email_recipients` (liste complète qui remplace l'actuelle, 10 adresses au plus, mises en minuscules et dédoublonnées ; `422 INVALID_EMAIL` si une adresse est invalide) ; absent, la liste ne change pas.
 
 ### 4.14 Santé
 

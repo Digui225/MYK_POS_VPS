@@ -9,6 +9,7 @@ from caisse.domain.enums import (
     StockOutMode,
 )
 from caisse.schemas.common import BaseSchema as Schema
+from caisse.schemas.orders import ServiceModeName
 
 # --- Ventes ------------------------------------------------------------------------------
 
@@ -351,6 +352,19 @@ class HourlySalesItem(Schema):
     hour: str
     total_sales_xof: int
     orders_count: int
+    # Répartition de l'heure par mode de service (la somme vaut total_sales_xof)
+    dine_in_sales_xof: int = Field(0, description="Ventes sur place de l'heure")
+    takeaway_sales_xof: int = Field(0, description="Ventes à emporter de l'heure")
+    delivery_sales_xof: int = Field(0, description="Ventes en livraison de l'heure")
+
+
+class ServiceModeSales(Schema):
+    """Ventes réglées du jour pour un mode de service (sur place, à emporter, livraison)."""
+
+    service_mode: ServiceModeName
+    orders_count: int = Field(..., description="Additions réglées dans ce mode")
+    total_sales_ttc_xof: int = Field(..., description="Chiffre d'affaires TTC de ce mode")
+    average_basket_xof: int = Field(..., description="Panier moyen de ce mode (0 sans vente)")
 
 
 class ClosingStatusResponse(Schema):
@@ -365,6 +379,35 @@ class CashierSalesResponse(Schema):
     cashier_name: str
     orders_count: int
     total_sales_ttc_xof: int
+
+
+class StockWatchItem(Schema):
+    """Une protéine ou une boisson, avec ce que son stock couvre au rythme des ventes récentes."""
+
+    article_id: str
+    name: str
+    category: str = Field(..., description="PROTEINE ou BOISSON")
+    group: str = Field(
+        "BOISSON", description="Section : PROTEINE, BOISSON ou JUS (les « Jus … », alertés une semaine d'avance)"
+    )
+    unit: str
+    quantity: float = Field(..., description="Stock actuel")
+    daily_sales: float = Field(..., description="Vente moyenne par jour d'ouverture (derniers jours)")
+    coverage_days: float | None = Field(None, description="Jours de vente couverts ; null sans vente récente")
+    dishes_left: int | None = Field(None, description="Plats restants (protéines)")
+    level: str = Field(
+        ...,
+        description="RUPTURE, CRITIQUE (moins d'un jour), BAS (ne tient pas jusqu'au marché ; une semaine pour les jus) ou OK",
+    )
+
+
+class StockWatchResponse(Schema):
+    """Stock à surveiller : ce qui ne tient pas jusqu'au prochain marché (lundi)."""
+
+    next_market_date: date
+    open_days_to_market: int = Field(..., description="Jours d'ouverture à couvrir, aujourd'hui compris")
+    average_days: list[date] = Field(default_factory=list, description="Jours servant à la vente moyenne")
+    items: list[StockWatchItem] = Field(default_factory=list, description="Du plus urgent au moins urgent")
 
 
 class DashboardKpiResponse(Schema):
@@ -384,6 +427,10 @@ class DashboardKpiResponse(Schema):
     payments_by_method: list[PaymentMethodSplit]
     top_products: list[TopProductReport]
     hourly_sales: list[HourlySalesItem] = Field(default_factory=list)
+    # Toujours trois lignes, dans l'ordre sur place, à emporter, livraison
+    sales_by_mode: list[ServiceModeSales] = Field(default_factory=list)
+    # Protéines et boissons qui ne tiennent pas jusqu'au prochain marché (calcul automatique)
+    stock_watch: StockWatchResponse | None = None
     active_sessions_count: int
     low_stock_items_count: int
     fne_certified_count: int
@@ -392,3 +439,9 @@ class DashboardKpiResponse(Schema):
     last_x_report_at: str | None = None
     sales_by_cashier: list[CashierSalesResponse] = Field(default_factory=list)
 
+
+
+class DailyReportEmailOut(Schema):
+    business_date: date = Field(description="Journée du rapport")
+    recipients: list[str] = Field(description="Destinataires du mail")
+    queued: bool = Field(description="Envoi programmé (parti dans la minute par l'outbox)")

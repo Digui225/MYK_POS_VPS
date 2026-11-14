@@ -7,6 +7,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -16,7 +17,7 @@ from caisse.models.catalog import Category, Product
 from caisse.models.order import Order, OrderItem
 from caisse.models.production import DailyPreparation
 from caisse.models.stock import ProductComponent, StockArticle, StockMovement
-from caisse.services import reporting_service
+from caisse.services import production_service, reporting_service
 from caisse.services.production_service import get_weekly_matrix
 
 
@@ -87,8 +88,10 @@ def _close(client: TestClient, headers: dict[str, str], session_id: str) -> None
 
 
 def test_matrice_egale_au_stock_avec_tous_les_mouvements(
-    client: TestClient, db_session: Session
+    client: TestClient, db_session: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # Bon réceptionné le jour du bon, le vendredi (D13 : le stock entre au jour de la réception)
+    monkeypatch.setattr(production_service, "_reception_day", lambda _db: date(2026, 11, 6))
     caissier = _headers(client, "123456")
     resp = _headers(client, "654321")
 

@@ -15,6 +15,13 @@ class EstablishmentSettingsResponse(BaseSchema):
     screen_lock_timeout_seconds: int = 120
     fne_point_of_sale: str = "point de vente 1"
     fne_establishment: str = "RESTAURANT CHEZ SYLLA PLUS"
+    report_email_recipients: list[str] = Field(
+        default_factory=list,
+        description="Adresses qui reçoivent le rapport de ventes PDF à chaque clôture de caisse",
+    )
+    report_email_enabled: bool = Field(
+        False, description="Envoi de mails configuré sur le serveur (relais SMTP)"
+    )
 
 
 class UpdateEstablishmentSettingsRequest(BaseModel):
@@ -28,6 +35,11 @@ class UpdateEstablishmentSettingsRequest(BaseModel):
     print_width: int | None = Field(None, description="Largeur papier thermique en mm (58 ou 80) ou colonnes (32 ou 42)")
     fne_point_of_sale: str | None = Field(None, min_length=1, max_length=100)
     fne_establishment: str | None = Field(None, min_length=1, max_length=100)
+    report_email_recipients: list[str] | None = Field(
+        None,
+        max_length=10,
+        description="Destinataires du rapport de clôture (liste complète, remplace l'actuelle)",
+    )
 
 
 class CashRegisterResponse(BaseSchema):

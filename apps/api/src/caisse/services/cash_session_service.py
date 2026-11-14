@@ -413,6 +413,20 @@ class CashSessionService:
                 exc_info=True,
             )
 
+        # Rapport de ventes de la journée par mail, envoyé par l'outbox après la clôture
+        try:
+            from caisse.services import daily_report_mail_service
+
+            daily_report_mail_service.enqueue_daily_report(
+                self.db,
+                session.business_date,
+                trigger="CLOSING",
+                session_id=session.id,
+                z_number=z_num,
+            )
+        except Exception as e:
+            logger.error("Envoi du rapport de clôture non programmé : %s", e, exc_info=True)
+
         self.audit.log(
             action="SESSION_CLOSED",
             entity="CASH_SESSION",

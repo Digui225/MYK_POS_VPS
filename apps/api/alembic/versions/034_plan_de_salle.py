@@ -1,7 +1,7 @@
 """plan_de_salle
 
-Revision ID: 033_plan_de_salle
-Revises: 032_salle_commande
+Revision ID: 034_plan_de_salle
+Revises: 033_salle_commande
 Create Date: 2026-11-06 18:00:00.000000
 
 Écran serveur, lot 3 : plan de salle réel.
@@ -21,8 +21,8 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision: str = "033_plan_de_salle"
-down_revision: Union[str, None] = "032_salle_commande"
+revision: str = "034_plan_de_salle"
+down_revision: Union[str, None] = "033_salle_commande"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

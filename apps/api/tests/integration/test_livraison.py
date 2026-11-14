@@ -95,3 +95,31 @@ def test_delivery_is_counted_apart_from_takeaway(client: TestClient, caisse: dic
 
     assert ids("DELIVERY") == {delivery["id"]}
     assert ids("TAKEAWAY") == {takeaway["id"]}
+
+
+def test_dashboard_splits_sales_and_hours_by_service_mode(client: TestClient, caisse: dict[str, Any]) -> None:
+    headers = caisse["headers"]
+    for key, body in (("s", {"table_id": "tbl-01"}), ("e", {}), ("l1", {"service_mode": "LIVRAISON"}),
+                      ("l2", {"service_mode": "LIVRAISON"})):
+        _sell(client, caisse, _open(client, headers, **body)["id"], key)
+    _open(client, headers, service_mode="LIVRAISON")  # pas encore réglée : hors chiffre d'affaires
+
+    kpis = client.get("/api/v1/reports/dashboard", headers=headers).json()
+    by_mode = {m["service_mode"]: m for m in kpis["sales_by_mode"]}
+    assert [m["service_mode"] for m in kpis["sales_by_mode"]] == ["SUR_PLACE", "EMPORTER", "LIVRAISON"]
+    assert (by_mode["SUR_PLACE"]["orders_count"], by_mode["SUR_PLACE"]["total_sales_ttc_xof"]) == (1, 3500)
+    assert (by_mode["EMPORTER"]["orders_count"], by_mode["EMPORTER"]["total_sales_ttc_xof"]) == (1, 3500)
+    assert by_mode["LIVRAISON"] == {
+        "service_mode": "LIVRAISON",
+        "orders_count": 2,
+        "total_sales_ttc_xof": 7000,
+        "average_basket_xof": 3500,
+    }
+    assert sum(m["total_sales_ttc_xof"] for m in kpis["sales_by_mode"]) == kpis["total_sales_ttc_xof"]
+
+    hours = kpis["hourly_sales"]
+    assert sum(h["dine_in_sales_xof"] for h in hours) == 3500
+    assert sum(h["takeaway_sales_xof"] for h in hours) == 3500
+    assert sum(h["delivery_sales_xof"] for h in hours) == 7000
+    for h in hours:
+        assert h["dine_in_sales_xof"] + h["takeaway_sales_xof"] + h["delivery_sales_xof"] == h["total_sales_xof"]

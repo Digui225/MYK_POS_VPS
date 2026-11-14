@@ -14,6 +14,7 @@ from caisse.schemas.settings import (
     UpdateCashRegisterRequest,
     UpdateEstablishmentSettingsRequest,
 )
+from caisse.services import daily_report_mail_service
 
 
 def get_establishment_settings(db: Session) -> EstablishmentSettingsResponse:
@@ -28,6 +29,8 @@ def get_establishment_settings(db: Session) -> EstablishmentSettingsResponse:
     resp = EstablishmentSettingsResponse.model_validate(setting)
     resp.fne_point_of_sale = pos
     resp.fne_establishment = estab
+    resp.report_email_recipients = daily_report_mail_service.get_recipients(db)
+    resp.report_email_enabled = settings_cfg.mail_enabled
     return resp
 
 
@@ -61,6 +64,8 @@ def update_establishment_settings(
         settings_repo.set_value(db, "fne.point_of_sale", payload.fne_point_of_sale.strip(), user_id=admin.id)
     if payload.fne_establishment is not None:
         settings_repo.set_value(db, "fne.establishment", payload.fne_establishment.strip(), user_id=admin.id)
+    if payload.report_email_recipients is not None:
+        daily_report_mail_service.set_recipients(db, payload.report_email_recipients, user_id=admin.id)
 
     db.commit()
     db.refresh(setting)
@@ -72,6 +77,8 @@ def update_establishment_settings(
     resp = EstablishmentSettingsResponse.model_validate(setting)
     resp.fne_point_of_sale = pos
     resp.fne_establishment = estab
+    resp.report_email_recipients = daily_report_mail_service.get_recipients(db)
+    resp.report_email_enabled = settings_cfg.mail_enabled
     return resp
 
 

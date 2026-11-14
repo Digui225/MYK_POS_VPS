@@ -379,3 +379,55 @@ def day_sessions(db: Session, day: date) -> list[tuple[CashSession, str, str]]:
         .order_by(CashSession.opened_at)
     )
     return [(s, register, opener) for s, register, opener in rows]
+
+
+# --- Stock à surveiller ------------------------------------------------------------------
+
+
+def watched_articles(db: Session) -> list[StockArticle]:
+    """Protéines et boissons actives, suivies sur le tableau de bord."""
+    return (
+        db.query(StockArticle)
+        .filter(
+            StockArticle.is_active.is_(True),
+            StockArticle.category.in_(("PROTEINE", "BOISSON")),
+        )
+        .order_by(StockArticle.name)
+        .all()
+    )
+
+
+def last_open_days(db: Session, before: date, count: int) -> list[date]:
+    """Les `count` dernières journées de caisse avant `before` (jours d'ouverture réels)."""
+    rows = db.execute(
+        select(CashSession.business_date)
+        .where(CashSession.business_date < before)
+        .group_by(CashSession.business_date)
+        .order_by(CashSession.business_date.desc())
+        .limit(count)
+    )
+    return [d for (d,) in rows]
+
+
+def sold_quantity_by_article(db: Session, days: list[date]) -> dict[str, Decimal]:
+    """Quantité vendue (sorties à la vente moins remises en stock) par article sur ces jours."""
+    if not days:
+        return {}
+    rows = db.execute(
+        select(StockMovement.article_id, func.sum(StockMovement.quantity))
+        .where(StockMovement.type.in_(SALE_TYPES), StockMovement.business_date.in_(days))
+        .group_by(StockMovement.article_id)
+    )
+    return {str(aid): -Decimal(qty) for aid, qty in rows}
+
+
+def articles_sold_since(db: Session, since: date) -> set[str]:
+    rows = db.execute(
+        select(StockMovement.article_id)
+        .where(
+            StockMovement.type == StockMovementType.SALE_OUT,
+            StockMovement.business_date >= since,
+        )
+        .distinct()
+    )
+    return {str(aid) for (aid,) in rows}

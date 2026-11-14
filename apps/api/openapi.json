@@ -4500,6 +4500,83 @@
         }
       }
     },
+    "/api/v1/reports/daily-sales/email": {
+      "post": {
+        "tags": [
+          "Tableau de Bord & Rapports"
+        ],
+        "summary": "Envoyer par mail le rapport de ventes PDF d'une journ\u00e9e",
+        "description": "Programme l'envoi du rapport (le m\u00eame que celui de la cl\u00f4ture) aux destinataires r\u00e9gl\u00e9s dans\nAdministration ; l'outbox l'envoie dans la minute. Sert aussi \u00e0 tester la configuration SMTP.",
+        "operationId": "email_daily_sales_report_api_v1_reports_daily_sales_email_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "business_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Journ\u00e9e comptable ; d\u00e9faut : journ\u00e9e en cours",
+              "title": "Business Date"
+            },
+            "description": "Journ\u00e9e comptable ; d\u00e9faut : journ\u00e9e en cours"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)",
+              "title": "Idempotency-Key"
+            },
+            "description": "Cl\u00e9 unique g\u00e9n\u00e9r\u00e9e par le front (optionnelle)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyReportEmailOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reports/stock": {
       "get": {
         "tags": [
@@ -11236,6 +11313,36 @@
         ],
         "title": "DailyPreparationValidateDayOut"
       },
+      "DailyReportEmailOut": {
+        "properties": {
+          "business_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Business Date",
+            "description": "Journ\u00e9e du rapport"
+          },
+          "recipients": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recipients",
+            "description": "Destinataires du mail"
+          },
+          "queued": {
+            "type": "boolean",
+            "title": "Queued",
+            "description": "Envoi programm\u00e9 (parti dans la minute par l'outbox)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "business_date",
+          "recipients",
+          "queued"
+        ],
+        "title": "DailyReportEmailOut"
+      },
       "DashboardCashier": {
         "properties": {
           "user_id": {
@@ -11394,6 +11501,23 @@
             },
             "type": "array",
             "title": "Hourly Sales"
+          },
+          "sales_by_mode": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceModeSales"
+            },
+            "type": "array",
+            "title": "Sales By Mode"
+          },
+          "stock_watch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StockWatchResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "active_sessions_count": {
             "type": "integer",
@@ -11799,6 +11923,20 @@
             "type": "string",
             "title": "Fne Establishment",
             "default": "RESTAURANT CHEZ SYLLA PLUS"
+          },
+          "report_email_recipients": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Report Email Recipients",
+            "description": "Adresses qui re\u00e7oivent le rapport de ventes PDF \u00e0 chaque cl\u00f4ture de caisse"
+          },
+          "report_email_enabled": {
+            "type": "boolean",
+            "title": "Report Email Enabled",
+            "description": "Envoi de mails configur\u00e9 sur le serveur (relais SMTP)",
+            "default": false
           }
         },
         "type": "object",
@@ -12403,6 +12541,24 @@
           "orders_count": {
             "type": "integer",
             "title": "Orders Count"
+          },
+          "dine_in_sales_xof": {
+            "type": "integer",
+            "title": "Dine In Sales Xof",
+            "description": "Ventes sur place de l'heure",
+            "default": 0
+          },
+          "takeaway_sales_xof": {
+            "type": "integer",
+            "title": "Takeaway Sales Xof",
+            "description": "Ventes \u00e0 emporter de l'heure",
+            "default": 0
+          },
+          "delivery_sales_xof": {
+            "type": "integer",
+            "title": "Delivery Sales Xof",
+            "description": "Ventes en livraison de l'heure",
+            "default": 0
           }
         },
         "type": "object",
@@ -12988,6 +13144,19 @@
               }
             ],
             "title": "Received At"
+          },
+          "stock_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stock Date",
+            "description": "Date d'entr\u00e9e en stock des achats re\u00e7us (jour de la r\u00e9ception)"
           },
           "received_by_user_name": {
             "anyOf": [
@@ -17153,6 +17322,43 @@
         ],
         "title": "SalesTotals"
       },
+      "ServiceModeSales": {
+        "properties": {
+          "service_mode": {
+            "type": "string",
+            "enum": [
+              "SUR_PLACE",
+              "EMPORTER",
+              "LIVRAISON"
+            ],
+            "title": "Service Mode"
+          },
+          "orders_count": {
+            "type": "integer",
+            "title": "Orders Count",
+            "description": "Additions r\u00e9gl\u00e9es dans ce mode"
+          },
+          "total_sales_ttc_xof": {
+            "type": "integer",
+            "title": "Total Sales Ttc Xof",
+            "description": "Chiffre d'affaires TTC de ce mode"
+          },
+          "average_basket_xof": {
+            "type": "integer",
+            "title": "Average Basket Xof",
+            "description": "Panier moyen de ce mode (0 sans vente)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "service_mode",
+          "orders_count",
+          "total_sales_ttc_xof",
+          "average_basket_xof"
+        ],
+        "title": "ServiceModeSales",
+        "description": "Ventes r\u00e9gl\u00e9es du jour pour un mode de service (sur place, \u00e0 emporter, livraison)."
+      },
       "SessionCloseRequest": {
         "properties": {
           "counted_breakdown": {
@@ -18092,6 +18298,122 @@
         ],
         "title": "StockTotals"
       },
+      "StockWatchItem": {
+        "properties": {
+          "article_id": {
+            "type": "string",
+            "title": "Article Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category",
+            "description": "PROTEINE ou BOISSON"
+          },
+          "group": {
+            "type": "string",
+            "title": "Group",
+            "description": "Section : PROTEINE, BOISSON ou JUS (les \u00ab Jus \u2026 \u00bb, alert\u00e9s une semaine d'avance)",
+            "default": "BOISSON"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "quantity": {
+            "type": "number",
+            "title": "Quantity",
+            "description": "Stock actuel"
+          },
+          "daily_sales": {
+            "type": "number",
+            "title": "Daily Sales",
+            "description": "Vente moyenne par jour d'ouverture (derniers jours)"
+          },
+          "coverage_days": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage Days",
+            "description": "Jours de vente couverts ; null sans vente r\u00e9cente"
+          },
+          "dishes_left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dishes Left",
+            "description": "Plats restants (prot\u00e9ines)"
+          },
+          "level": {
+            "type": "string",
+            "title": "Level",
+            "description": "RUPTURE, CRITIQUE (moins d'un jour), BAS (ne tient pas jusqu'au march\u00e9 ; une semaine pour les jus) ou OK"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article_id",
+          "name",
+          "category",
+          "unit",
+          "quantity",
+          "daily_sales",
+          "level"
+        ],
+        "title": "StockWatchItem",
+        "description": "Une prot\u00e9ine ou une boisson, avec ce que son stock couvre au rythme des ventes r\u00e9centes."
+      },
+      "StockWatchResponse": {
+        "properties": {
+          "next_market_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Next Market Date"
+          },
+          "open_days_to_market": {
+            "type": "integer",
+            "title": "Open Days To Market",
+            "description": "Jours d'ouverture \u00e0 couvrir, aujourd'hui compris"
+          },
+          "average_days": {
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "type": "array",
+            "title": "Average Days",
+            "description": "Jours servant \u00e0 la vente moyenne"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StockWatchItem"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "Du plus urgent au moins urgent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "next_market_date",
+          "open_days_to_market"
+        ],
+        "title": "StockWatchResponse",
+        "description": "Stock \u00e0 surveiller : ce qui ne tient pas jusqu'au prochain march\u00e9 (lundi)."
+      },
       "TableActiveOrder": {
         "properties": {
           "order_id": {
@@ -18836,6 +19158,22 @@
               }
             ],
             "title": "Fne Establishment"
+          },
+          "report_email_recipients": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Email Recipients",
+            "description": "Destinataires du rapport de cl\u00f4ture (liste compl\u00e8te, remplace l'actuelle)"
           }
         },
         "type": "object",
