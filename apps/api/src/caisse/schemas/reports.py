@@ -260,6 +260,18 @@ class DashboardFne(Schema):
     pending: int = Field(description="Documents FNE de la journée encore en attente")
 
 
+class ServerSales(Schema):
+    """Ventes réglées du jour d'un serveur (ou de la caisse pour les commandes sans serveur)."""
+
+    server_user_id: str | None = Field(
+        None, description="Serveur de la note ; null pour les commandes prises à la caisse"
+    )
+    server_name: str = Field(..., description="Nom du serveur, ou « Caisse »")
+    orders_count: int = Field(..., description="Additions réglées")
+    total_sales_ttc_xof: int = Field(..., description="Chiffre d'affaires TTC")
+    average_basket_xof: int = Field(..., description="Panier moyen")
+
+
 class DashboardOut(Schema):
     business_date: date = Field(description="Journée comptable")
     revenue_xof: int = Field(description="Chiffre d'affaires des commandes soldées")
@@ -277,6 +289,10 @@ class DashboardOut(Schema):
     top_products: list[DashboardProduct] = Field(description="10 meilleures ventes (CA)")
     hourly: list[DashboardHour] = Field(description="Heures avec des encaissements")
     by_cashier: list[DashboardCashier] = Field(description="Ventes par personne qui a encaissé")
+    by_server: list[ServerSales] = Field(
+        default_factory=list,
+        description="Ventes par serveur de la note (« Caisse » sans serveur) ; somme = CA",
+    )
     sessions: list[DashboardSession] = Field(description="Sessions de caisse de la journée")
     low_stock_articles: int = Field(description="Articles de stock en alerte (aujourd'hui)")
     fne: DashboardFne = Field(description="Factures normalisées de la journée")
@@ -438,6 +454,8 @@ class DashboardKpiResponse(Schema):
     closing_status: ClosingStatusResponse | None = None
     last_x_report_at: str | None = None
     sales_by_cashier: list[CashierSalesResponse] = Field(default_factory=list)
+    # Additions réglées par serveur de la note (« Caisse » sans serveur) ; somme = CA du jour
+    sales_by_server: list[ServerSales] = Field(default_factory=list)
 
 
 

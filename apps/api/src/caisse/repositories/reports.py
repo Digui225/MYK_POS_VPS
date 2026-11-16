@@ -369,6 +369,17 @@ def sales_by_closer(db: Session, day: date) -> list[tuple[str, str, int, int]]:
     return [(str(uid), name, int(n), int(total or 0)) for uid, name, n, total in rows]
 
 
+def paid_by_server(db: Session, day: date) -> list[tuple[str | None, str | None, int]]:
+    """(serveur de la note, son nom, montant TTC) pour chaque addition réglée de la journée."""
+    rows = db.execute(
+        select(Order.served_by_user_id, User.full_name, Order.total_ttc_xof)
+        .join(CashSession, Order.cash_session_id == CashSession.id)
+        .outerjoin(User, User.id == Order.served_by_user_id)
+        .where(_paid_in(day, day))
+    )
+    return [(uid, name, int(total or 0)) for uid, name, total in rows]
+
+
 def day_sessions(db: Session, day: date) -> list[tuple[CashSession, str, str]]:
     """Sessions de la journée avec le nom de la caisse et de qui l'a ouverte."""
     rows = db.execute(

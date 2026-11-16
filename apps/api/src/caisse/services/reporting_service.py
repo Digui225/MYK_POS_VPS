@@ -14,7 +14,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from caisse.core.errors import ValidationError
-from caisse.domain import stock_rules, stock_watch_rules
+from caisse.domain import server_sales_rules, stock_rules, stock_watch_rules
 from caisse.domain.enums import (
     CashSessionStatus,
     ServiceMode,
@@ -56,6 +56,7 @@ from caisse.schemas.reports import (
     SalesProduct,
     SalesReportOut,
     SalesTotals,
+    ServerSales,
     ServiceModeSales,
     StockReportArticle,
     StockReportOut,
@@ -399,6 +400,19 @@ def stock_report(db: Session, date_from: date, date_to: date) -> StockReportOut:
     )
 
 
+def _server_sales(sales: list[tuple[str | None, str | None, int]]) -> list[ServerSales]:
+    return [
+        ServerSales(
+            server_user_id=line.server_user_id,
+            server_name=line.server_name,
+            orders_count=line.orders_count,
+            total_sales_ttc_xof=line.total_sales_ttc_xof,
+            average_basket_xof=line.average_basket_xof,
+        )
+        for line in server_sales_rules.sales_by_server(sales)
+    ]
+
+
 def dashboard(db: Session, day: date) -> DashboardOut:
     """Tableau de bord de la journée (responsable) : activité, tables, encaissements,
     meilleures ventes, heures, caissiers, sessions, alertes de stock, FNE."""
@@ -442,6 +456,7 @@ def dashboard(db: Session, day: date) -> DashboardOut:
             DashboardCashier(user_id=str(uid), full_name=name, orders_count=n, revenue_xof=total)
             for uid, name, n, total in reports_repo.sales_by_closer(db, day)
         ],
+        by_server=_server_sales(reports_repo.paid_by_server(db, day)),
         sessions=[
             DashboardSession(
                 id=str(s.id),
@@ -607,6 +622,14 @@ class ReportingService:
                     average_basket_xof=mode_total // len(mode_orders) if mode_orders else 0,
                 )
             )
+
+        # Ventes par serveur de la note (même base que les ventes par mode)
+        sales_by_server = _server_sales(
+            [
+                (o.served_by_user_id, o.served_by.full_name if o.served_by else None, o.total_ttc_xof)
+                for o in settled_orders_list
+            ]
+        )
 
         # 2. Ventilation des paiements
         all_payments = self.db.query(Payment).all()
@@ -824,6 +847,7 @@ class ReportingService:
             fne_pending_count=fne_pending_count,
             closing_status=closing_status,
             sales_by_cashier=sales_by_cashier,
+            sales_by_server=sales_by_server,
         )
 
 

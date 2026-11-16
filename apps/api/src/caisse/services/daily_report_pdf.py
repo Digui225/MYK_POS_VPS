@@ -67,6 +67,20 @@ def pct(part: int, total: int) -> str:
     return f"{round(part / total * 100)} %" if total else "0 %"
 
 
+def percent_shares(values: list[int]) -> list[int]:
+    """Parts en % entiers arrondies au plus fort reste : leur somme fait exactement 100
+    (comme la carte du tableau de bord)."""
+    total = sum(values)
+    if total <= 0:
+        return [0 for _ in values]
+    exact = [v * 100 / total for v in values]
+    shares = [int(e) for e in exact]
+    order = sorted(range(len(values)), key=lambda i: exact[i] - shares[i], reverse=True)
+    for i in order[: 100 - sum(shares)]:
+        shares[i] += 1
+    return shares
+
+
 def status_text(overview: DashboardOut) -> tuple[str, tuple[int, int, int]]:
     """Tampon de l'en-tête : journée clôturée (n° de Z), provisoire, ou aucune session."""
     if not overview.sessions:
@@ -337,6 +351,24 @@ def build_daily_report_pdf(
                 pct(h.revenue_xof, revenue),
             ]
             for h in overview.hourly
+        ],
+        "—",
+        bold_col=2,
+    )
+    pdf.set_y(pdf.get_y() + 3)
+    pdf.section_title("Ventes par serveur", right_x, right_w)
+    pdf.simple_table(
+        right_x,
+        [36, 18, 26, 10],
+        ["Serveur", "Additions", "Montant", "%"],
+        ["L", "R", "R", "R"],
+        [
+            [s.server_name, str(s.orders_count), format_xof(s.total_sales_ttc_xof), f"{share} %"]
+            for s, share in zip(
+                overview.by_server,
+                percent_shares([s.total_sales_ttc_xof for s in overview.by_server]),
+                strict=True,
+            )
         ],
         "—",
         bold_col=2,

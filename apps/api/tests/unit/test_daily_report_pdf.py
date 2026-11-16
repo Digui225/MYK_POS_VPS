@@ -18,6 +18,7 @@ from caisse.services.daily_report_pdf import (
     build_daily_report_pdf,
     format_day,
     format_xof,
+    percent_shares,
     product_lines,
     status_text,
 )
@@ -129,3 +130,17 @@ def test_message_has_sender_subject_and_pdf() -> None:
 def test_send_refused_without_smtp() -> None:
     with pytest.raises(MailNotConfiguredError):
         send_mail(OutgoingMail(to=["a@b.co"], subject="x", text="y"), Settings(SMTP_HOST=""))
+
+
+def test_pdf_lists_sales_by_waiter() -> None:
+    by_server = [
+        {"server_user_id": "u-koffi", "server_name": "Koffi", "orders_count": 12, "total_sales_ttc_xof": 86000, "average_basket_xof": 7166},
+        {"server_user_id": None, "server_name": "Caisse", "orders_count": 6, "total_sales_ttc_xof": 62500, "average_basket_xof": 10416},
+    ]
+    pdf = build_daily_report_pdf(DAY, _overview(revenue_xof=148500, by_server=by_server), _sales([]))
+    assert pdf.startswith(b"%PDF") and pdf.count(b"/Type /Page\n") == 1
+
+
+def test_waiter_shares_add_up_to_100() -> None:
+    assert percent_shares([86000, 64000, 62500]) == [41, 30, 29]
+    assert percent_shares([0, 0]) == [0, 0]

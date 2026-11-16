@@ -11562,6 +11562,13 @@
             },
             "type": "array",
             "title": "Sales By Cashier"
+          },
+          "sales_by_server": {
+            "items": {
+              "$ref": "#/components/schemas/ServerSales"
+            },
+            "type": "array",
+            "title": "Sales By Server"
           }
         },
         "type": "object",
@@ -11677,6 +11684,14 @@
             "type": "array",
             "title": "By Cashier",
             "description": "Ventes par personne qui a encaiss\u00e9"
+          },
+          "by_server": {
+            "items": {
+              "$ref": "#/components/schemas/ServerSales"
+            },
+            "type": "array",
+            "title": "By Server",
+            "description": "Ventes par serveur de la note (\u00ab Caisse \u00bb sans serveur) ; somme = CA"
           },
           "sessions": {
             "items": {
@@ -17321,6 +17336,51 @@
           "gross_margin_xof"
         ],
         "title": "SalesTotals"
+      },
+      "ServerSales": {
+        "properties": {
+          "server_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server User Id",
+            "description": "Serveur de la note ; null pour les commandes prises \u00e0 la caisse"
+          },
+          "server_name": {
+            "type": "string",
+            "title": "Server Name",
+            "description": "Nom du serveur, ou \u00ab Caisse \u00bb"
+          },
+          "orders_count": {
+            "type": "integer",
+            "title": "Orders Count",
+            "description": "Additions r\u00e9gl\u00e9es"
+          },
+          "total_sales_ttc_xof": {
+            "type": "integer",
+            "title": "Total Sales Ttc Xof",
+            "description": "Chiffre d'affaires TTC"
+          },
+          "average_basket_xof": {
+            "type": "integer",
+            "title": "Average Basket Xof",
+            "description": "Panier moyen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "server_name",
+          "orders_count",
+          "total_sales_ttc_xof",
+          "average_basket_xof"
+        ],
+        "title": "ServerSales",
+        "description": "Ventes r\u00e9gl\u00e9es du jour d'un serveur (ou de la caisse pour les commandes sans serveur)."
       },
       "ServiceModeSales": {
         "properties": {
