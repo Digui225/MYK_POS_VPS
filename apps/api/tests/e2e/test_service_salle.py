@@ -105,8 +105,8 @@ def test_une_journee_de_service_en_salle(client: TestClient, db_session: Session
     )
     assert (first["dispatch_no"], first["kitchen_lines_count"]) == (1, 1)
     [ticket] = _tickets(db_session, note["id"])
-    assert "BON CUISINE" in ticket and "SERVEUR : KOFFI YAO" in ticket.upper()
-    assert "FOUFOU" in ticket and "BISSAP" not in ticket and "3500" not in ticket
+    assert "CUISINE" in ticket and "SERVEUR : KOFFI YAO" in ticket.upper()
+    assert "FOUFOU" in ticket and "BISSAP" not in ticket and "3 500" in ticket
 
     # 5. Plan de salle : la table est à Koffi, placée où l'administration l'a mise
     board = {t["id"]: t for t in _ok(client.get("/api/v1/tables/board", headers=awa))["tables"]}

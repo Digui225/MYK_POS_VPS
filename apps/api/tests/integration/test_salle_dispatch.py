@@ -142,13 +142,13 @@ def test_dispatch_prints_a_kitchen_ticket_without_drinks(
     jobs = _kitchen_jobs(db_session, note["id"])
     assert len(jobs) == 1 and jobs[0].id == body["kitchen_ticket_job_id"]
     ticket = jobs[0].content
-    assert "BON CUISINE" in ticket
+    assert "CUISINE" in ticket
     assert "T1 - NOTE 1" in ticket.upper()
     assert "Serveur : KOFFI" in ticket
     assert "1 x FOUFOU BOEUF" in ticket and "> convive 2" in ticket
     assert "1 x PLAT BROCHET" in ticket and "> pour la table" in ticket
     assert "BISSAP" not in ticket  # les boissons restent à la caisse
-    assert "3500" not in ticket and "3 500" not in ticket  # aucun prix
+    assert "3 500" in ticket and "TOTAL ENVOI" in ticket and "7 000 F" in ticket  # prix (D18), sans la boisson
     assert jobs[0].open_drawer is False
 
 
@@ -211,7 +211,9 @@ def test_second_dispatch_is_an_addition(
     jobs = _kitchen_jobs(db_session, note["id"])
     assert len(jobs) == 2
     assert "ENVOI 2" in jobs[1].content and "*** AJOUT ***" in jobs[1].content
-    assert "BROCHET" not in jobs[1].content  # le bon ne reprend que l'ajout
+    assert "1 x PLAT BROCHET" not in jobs[1].content  # le bon ne reprend que l'ajout
+    assert "Déjà envoyé" in jobs[1].content and "1 Plat brochet" in jobs[1].content  # rappel
+    assert "Total note" in jobs[1].content and "7 000 F" in jobs[1].content
 
 
 def test_drinks_only_dispatch_prints_no_ticket(

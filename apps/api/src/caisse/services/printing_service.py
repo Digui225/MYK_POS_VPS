@@ -119,7 +119,7 @@ class PrintingService:
         return 42 if setting and setting.print_width and setting.print_width >= 80 else 32
 
     def create_kitchen_ticket_job(self, order: Order, ticket: KitchenTicket) -> PrintJob:
-        """Bon cuisine d'un envoi, imprimé à la caisse (sans prix, sans tiroir). Non validé :
+        """Bon cuisine d'un envoi, imprimé à la caisse (avec les prix, sans tiroir). Non validé :
         il part dans la même transaction que les lignes de l'envoi."""
         job = PrintJob(
             order_id=order.id,

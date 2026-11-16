@@ -325,7 +325,13 @@ class OrderService:
             added.append(item)
             if is_kitchen_line(kind):
                 kitchen_lines.append(
-                    KitchenLine(quantity=item.quantity, name=item.product_name_snapshot, note=item.note, seat=item.seat)
+                    KitchenLine(
+                        quantity=item.quantity,
+                        name=item.product_name_snapshot,
+                        note=item.note,
+                        seat=item.seat,
+                        line_total_xof=item.line_total_xof,
+                    )
                 )
 
         self._refresh_totals(order)
@@ -338,6 +344,16 @@ class OrderService:
         job_id: str | None = None
         if kitchen_lines:
             server = order.served_by or (user if user.role == UserRole.SERVEUR else None)
+            # Rappel des plats des envois précédents (encore sur la note), sans prix
+            earlier = [
+                it
+                for it in order.items
+                if it.removed_at is None
+                and it.dispatch_no is not None
+                and it.dispatch_no < dispatch_no
+                and is_kitchen_line(it.product.category.kind if it.product and it.product.category else None)
+            ]
+            earlier.sort(key=lambda it: (it.added_at, it.dispatch_no or 0))
             ticket = KitchenTicket(
                 order_number=order.order_number,
                 service_mode=order.service_mode,
@@ -348,6 +364,11 @@ class OrderService:
                 dispatch_no=dispatch_no,
                 sent_at=datetime.now(timezone.utc),
                 lines=tuple(kitchen_lines),
+                already_sent=tuple(
+                    KitchenLine(quantity=it.quantity, name=it.product_name_snapshot) for it in earlier
+                ),
+                first_sent_at=earlier[0].added_at if earlier else None,
+                order_total_xof=order.total_ttc_xof,
             )
             job_id = PrintingService(self.db).create_kitchen_ticket_job(order, ticket).id
 
