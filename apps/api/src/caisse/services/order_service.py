@@ -8,6 +8,7 @@ from caisse.core.pagination import PageRequest, split
 from caisse.domain.enums import OrderStatus, PaymentStatus, ServiceMode, UserRole
 from caisse.domain.kitchen_rules import KitchenLine, KitchenTicket, is_kitchen_line
 from caisse.domain.order_rules import (
+    assert_order_cancellable,
     assert_order_editable,
     calculate_line_total,
     generate_order_number,
@@ -597,6 +598,7 @@ class OrderService:
         payload: OrderCancelRequest,
         user_id: str,
         device_id: str | None = None,
+        role: str = UserRole.CAISSIER,
     ) -> OrderResponse:
         order = self.order_repo.get_by_id_with_items(order_id)
         if not order:
@@ -607,7 +609,13 @@ class OrderService:
                 status_code=status.HTTP_404_NOT_FOUND,
             )
 
-        assert_order_editable(order.status)
+        has_payment = order.paid_xof > 0 or any(
+            p.status not in (PaymentStatus.FAILED, PaymentStatus.CANCELLED) for p in order.payments
+        )
+        active_total = sum(it.line_total_xof for it in order.items if it.removed_at is None)
+        assert_order_cancellable(
+            order.status, has_payment=has_payment, active_total_xof=active_total, role=role
+        )
 
         order.status = "CANCELLED"
         order.cancelled_reason = payload.reason

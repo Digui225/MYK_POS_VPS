@@ -187,9 +187,13 @@ def test_order_lifecycle(client: TestClient) -> None:
     assert table_in_board["items_summary"][0]["quantity"] >= 1
     assert "name" in table_in_board["items_summary"][0]
 
-    # 12. Annuler la commande avec motif et clé d'idempotence
-    cancel_headers = {**headers, "Idempotency-Key": "order-cancel-01"}
+    # 12. Annuler la commande avec motif et clé d'idempotence. Elle contient encore des articles :
+    #     la caissière ne peut pas (403), il faut un responsable.
     cancel_payload = {"reason": "Erreur de saisie / Départ des clients"}
+    refused = client.post(f"/api/v1/orders/{order_id}/cancel", headers=headers, json=cancel_payload)
+    assert refused.status_code == 403
+    assert refused.json()["code"] == "ORDER_CANCEL_REQUIRES_MANAGER"
+    cancel_headers = {**resp_headers, "Idempotency-Key": "order-cancel-01"}
     cancel_res = client.post(
         f"/api/v1/orders/{order_id}/cancel",
         headers=cancel_headers,

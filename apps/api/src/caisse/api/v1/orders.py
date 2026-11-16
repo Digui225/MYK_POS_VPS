@@ -331,7 +331,9 @@ async def cancel_order(
             return OrderResponse.model_validate(replay)
 
     service = OrderService(db)
-    result = service.cancel_order(id, payload, user_id=current_user.id, device_id=device_id)
+    result = service.cancel_order(
+        id, payload, user_id=current_user.id, device_id=device_id, role=current_user.role
+    )
 
     if idempotency_key:
         idempotency.save(

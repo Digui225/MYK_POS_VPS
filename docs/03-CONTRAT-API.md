@@ -274,8 +274,10 @@ Les tables absentes de `placements` gardent leur place ; une position `null` ret
 | POST | `/orders/{id}/items` | C | Ajouter une ligne |
 | PATCH | `/orders/{id}/items/{item_id}` | C | Quantité, note |
 | DELETE | `/orders/{id}/items/{item_id}` | C + override (R/A) | Retirer (motif obligatoire) |
-| POST | `/orders/{id}/cancel` | C + override (R/A) | Annuler (motif obligatoire) |
+| POST | `/orders/{id}/cancel` | C (commande à 0 F) / R / A | Annuler (motif obligatoire), jamais après un paiement — voir ci-dessous |
 | POST | `/orders/{id}/reprint` | C / R / A | Ré-impression (tracée) |
+
+**Annulation d'une commande** (16/11/2026, rétrocompatible : mêmes route et corps `{"reason"}`, 3 caractères au moins) : la caissière annule seule une commande **à 0 F** (vide, ou dont tous les articles ont été retirés, chacun avec son motif) ; s'il reste des articles, `403 ORDER_CANCEL_REQUIRES_MANAGER` (responsable ou admin requis). Une commande qui a reçu un paiement, même partiel (`PARTIALLY_PAID`), ne s'annule jamais : `409 ORDER_HAS_PAYMENTS` (passer par un avoir). La commande passe à `CANCELLED` avec motif, auteur et heure, une ligne `ORDER_CANCELLED` au journal d'audit, et l'événement temps réel `ORDER_CANCELLED` ; elle quitte le plan de salle et la liste `GET /orders?status=OPEN`.
 
 **Mode de service** (08/11/2026, rétrocompatible) : `service_mode` = `SUR_PLACE` (table obligatoire), `EMPORTER` ou `LIVRAISON` (sans table ; la livraison se traite exactement comme l'emporter, ni client ni frais, séparée seulement pour les rapports). Absent à la création : `SUR_PLACE` avec une table, `EMPORTER` sans table (comportement d'avant). Incohérence table / mode : `422 INVALID_SERVICE_MODE`. `OrderResponse.service_mode` le renvoie.
 
